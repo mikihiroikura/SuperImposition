@@ -426,6 +426,26 @@ bool runTest(int argc, char** argv, char* ref_file)
 
         // run the cuda part
         runCuda(&cuda_vbo_resource);
+
+        //ここにループを書く
+        while (glfwWindowShouldClose(window) == GL_FALSE)
+        {
+            glClear(GL_COLOR_BUFFER_BIT);
+
+            //Shaderプログラム使用開始
+            glUseProgram(gl2Program);
+
+            glUniformMatrix4fv(Matrix, 1, GL_FALSE, &mvp[0][0]);
+
+            glBindBuffer(GL_ARRAY_BUFFER, vbo);
+            glBufferSubData(GL_ARRAY_BUFFER, 0, mesh_width * mesh_height * sizeof(float), d_vbo_buffer);//更新
+            /*ここに描画*/
+            glBindVertexArray(vao);
+            glDrawArrays(GL_POINTS, 0, mesh_height*mesh_width);
+            glBindVertexArray(0);
+
+            glfwSwapBuffers(window);
+        }
     }
 
     return true;
