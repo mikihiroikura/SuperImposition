@@ -118,7 +118,6 @@ char** pArgv = NULL;
 ////////////////////////////////////////////////////////////////////////////////
 // declaration, forward
 bool runTest(int argc, char** argv, char* ref_file);
-void cleanup();
 
 // GL functionality
 bool initGL(int* argc, char** argv);
@@ -127,12 +126,7 @@ void createVBO(GLuint* vbo, struct cudaGraphicsResource** vbo_res,
 void deleteVBO(GLuint* vbo, struct cudaGraphicsResource* vbo_res);
 
 // rendering callbacks
-void display();
-void keyboard(unsigned char key, int x, int y);
-void mouse(int button, int state, int x, int y);
-void motion(int x, int y);
 int readShaderSource(GLuint shader, const char* file);
-void timerEvent(int value);
 
 // Cuda functionality
 void runCuda(struct cudaGraphicsResource** vbo_resource);
@@ -179,22 +173,6 @@ void launch_kernel(float4* pos, unsigned int mesh_width,
     simple_vbo_kernel << < grid, block >> > (pos, mesh_width, mesh_height, time);
 }
 
-bool checkHW(char* name, const char* gpuType, int dev)
-{
-    cudaDeviceProp deviceProp;
-    cudaGetDeviceProperties(&deviceProp, dev);
-    strcpy(name, deviceProp.name);
-
-    if (!STRNCASECMP(deviceProp.name, gpuType, strlen(gpuType)))
-    {
-        return true;
-    }
-    else
-    {
-        return false;
-    }
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 // Program main
 ////////////////////////////////////////////////////////////////////////////////
@@ -226,25 +204,6 @@ int main(int argc, char** argv)
 
     printf("%s completed, returned %s\n", sSDKsample, (g_TotalErrors == 0) ? "OK" : "ERROR!");
     exit(g_TotalErrors == 0 ? EXIT_SUCCESS : EXIT_FAILURE);
-}
-
-void computeFPS()
-{
-    frameCount++;
-    fpsCount++;
-
-    if (fpsCount == fpsLimit)
-    {
-        avgFPS = 1.f / (sdkGetAverageTimerValue(&timer) / 1000.f);
-        fpsCount = 0;
-        fpsLimit = (int)MAX(avgFPS, 1.f);
-
-        sdkResetTimer(&timer);
-    }
-
-    char fps[256];
-    sprintf(fps, "Cuda GL Interop (VBO): %3.1f fps (Max 100Hz)", avgFPS);
-    glfwSetWindowTitle(window,fps);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -281,32 +240,32 @@ bool initGL(int* argc, char** argv)
     glClearColor(0.0, 0.0, 0.0, 1.0);   //背景色の指定
     glDisable(GL_DEPTH_TEST);
     
-    vertShader = glCreateShader(GL_VERTEX_SHADER);
-    fragShader = glCreateShader(GL_FRAGMENT_SHADER);
+    //vertShader = glCreateShader(GL_VERTEX_SHADER);
+    //fragShader = glCreateShader(GL_FRAGMENT_SHADER);
 
-    //ソースプログラム読み込み
-    if (readShaderSource(vertShader, "points.vert")) exit(1);
-    if (readShaderSource(fragShader, "points.frag")) exit(1);
+    ////ソースプログラム読み込み
+    //if (readShaderSource(vertShader, "points.vert")) exit(1);
+    //if (readShaderSource(fragShader, "points.frag")) exit(1);
 
-    //Shaderコンパイル
-    glCompileShader(vertShader);
-    glCompileShader(fragShader);
+    ////Shaderコンパイル
+    //glCompileShader(vertShader);
+    //glCompileShader(fragShader);
 
-    //プログラムオブジェクトの作成
-    gl2Program = glCreateProgram();
-    glAttachShader(gl2Program, vertShader);
-    glAttachShader(gl2Program, fragShader);
-    glDeleteShader(vertShader);
-    glDeleteShader(fragShader);
+    ////プログラムオブジェクトの作成
+    //gl2Program = glCreateProgram();
+    //glAttachShader(gl2Program, vertShader);
+    //glAttachShader(gl2Program, fragShader);
+    //glDeleteShader(vertShader);
+    //glDeleteShader(fragShader);
 
-    //プログラムオブジェクトのリンク
-    glBindAttribLocation(gl2Program, 0, "position");
-    glBindFragDataLocation(gl2Program, 0, "gl_FragColor");
-    glLinkProgram(gl2Program);
+    ////プログラムオブジェクトのリンク
+    //glBindAttribLocation(gl2Program, 0, "position");
+    //glBindFragDataLocation(gl2Program, 0, "gl_FragColor");
+    //glLinkProgram(gl2Program);
 
-    //頂点配列オブジェクト
-    glGenVertexArrays(1, &vao);
-    glBindVertexArray(vao);
+    ////頂点配列オブジェクト
+    //glGenVertexArrays(1, &vao);
+    //glBindVertexArray(vao);
 
     //頂点バッファオブジェクト
     glGenBuffers(1, &vbo);
@@ -314,28 +273,33 @@ bool initGL(int* argc, char** argv)
     unsigned int size = mesh_width * mesh_height * 4 * sizeof(float);
     glBufferData(GL_ARRAY_BUFFER, size, nullptr, GL_DYNAMIC_DRAW);
 
-    //Vertexshaderの参照
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
-    glEnableVertexAttribArray(0);
+    ////Vertexshaderの参照
+    //glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+    //glEnableVertexAttribArray(0);
 
-    //頂点バッファオブジェクトの結合解除
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
+    ////頂点バッファオブジェクトの結合解除
+    //glBindBuffer(GL_ARRAY_BUFFER, 0);
+    //glBindVertexArray(0);
 
 
     // viewport
     glViewport(0, 0, window_width, window_height);
 
-    // カメラ行列
-    glm::mat4 View = glm::lookAt(
-        glm::vec3(4, 4, 4), // ワールド空間でカメラは(4,3,3)にあります。
-        glm::vec3(0, 0, 0), // 原点を見ています。
-        glm::vec3(0, 1, 0)  // 頭が上方向(0,-1,0にセットすると上下逆転します。)
-    );
-    glm::mat4 Projection = glm::perspective(glm::radians(60.0f), 4.0f / 3.0f, 0.1f, 100.0f);
-    mvp = Projection * View;
+    // projection
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    gluPerspective(60.0, (GLfloat)window_width / (GLfloat)window_height, 0.1, 10.0);
 
-    Matrix = glGetUniformLocation(gl2Program, "MVP");
+    // カメラ行列
+    //glm::mat4 View = glm::lookAt(
+    //    glm::vec3(4, 4, 4), // ワールド空間でカメラは(4,3,3)にあります。
+    //    glm::vec3(0, 0, 0), // 原点を見ています。
+    //    glm::vec3(0, 1, 0)  // 頭が上方向(0,-1,0にセットすると上下逆転します。)
+    //);
+    //glm::mat4 Projection = glm::perspective(glm::radians(60.0f), 4.0f / 3.0f, 0.1f, 10.0f);
+    //mvp = Projection;// *View;
+
+    //Matrix = glGetUniformLocation(gl2Program, "MVP");
 
     return true;
 }
@@ -397,56 +361,46 @@ bool runTest(int argc, char** argv, char* ref_file)
     // use command-line specified CUDA device, otherwise use device with highest Gflops/s
     int devID = findCudaDevice(argc, (const char**)argv);
 
-    // command line mode only
-    if (ref_file != NULL)
-    {
-        // create VBO
-        checkCudaErrors(cudaMalloc((void**)&d_vbo_buffer, mesh_width * mesh_height * 4 * sizeof(float)));
-
-        // run the cuda part
-        runAutoTest(devID, argv, ref_file);
-
-        // check result of Cuda step
-        checkResultCuda(argc, argv, vbo);
-
-        cudaFree(d_vbo_buffer);
-        d_vbo_buffer = NULL;
-    }
-    else
-    {
-        // First initialize OpenGL context, so we can properly set the GL for CUDA.
+    // First initialize OpenGL context, so we can properly set the GL for CUDA.
         // This is necessary in order to achieve optimal performance with OpenGL/CUDA interop.
-        if (false == initGL(&argc, argv))
-        {
-            return false;
-        }
+    if (false == initGL(&argc, argv))
+    {
+        return false;
+    }
 
-        // create VBO
-        createVBO(&vbo, &cuda_vbo_resource, cudaGraphicsMapFlagsWriteDiscard);
+    // create VBO
+    createVBO(&vbo, &cuda_vbo_resource, cudaGraphicsMapFlagsWriteDiscard);
 
+    // run the cuda part
+    runCuda(&cuda_vbo_resource);
+
+    //ここにループを書く
+    while (glfwWindowShouldClose(window) == GL_FALSE)
+    {
         // run the cuda part
         runCuda(&cuda_vbo_resource);
 
-        //ここにループを書く
-        while (glfwWindowShouldClose(window) == GL_FALSE)
-        {
-            glClear(GL_COLOR_BUFFER_BIT);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-            //Shaderプログラム使用開始
-            glUseProgram(gl2Program);
+        // set view matrix
+        glMatrixMode(GL_MODELVIEW);
+        glLoadIdentity();
+        glTranslatef(0.0, 0.0, translate_z);
+        glRotatef(rotate_x, 1.0, 0.0, 0.0);
+        glRotatef(rotate_y, 0.0, 1.0, 0.0);
 
-            glUniformMatrix4fv(Matrix, 1, GL_FALSE, &mvp[0][0]);
 
-            glBindBuffer(GL_ARRAY_BUFFER, vbo);
-            glBufferSubData(GL_ARRAY_BUFFER, 0, mesh_width * mesh_height * sizeof(float), d_vbo_buffer);//更新
-            /*ここに描画*/
-            glBindVertexArray(vao);
-            glDrawArrays(GL_POINTS, 0, mesh_height*mesh_width);
-            glBindVertexArray(0);
+        glBindBuffer(GL_ARRAY_BUFFER, vbo);
+        glVertexPointer(4, GL_FLOAT, 0, 0);
+        glEnableClientState(GL_VERTEX_ARRAY);
+        glColor3f(1.0, 0.0, 0.0);
+        glDrawArrays(GL_POINTS, 0, mesh_width * mesh_height);
+        glDisableClientState(GL_VERTEX_ARRAY);
 
-            glfwSwapBuffers(window);
-        }
+        glfwSwapBuffers(window);
     }
+
+    deleteVBO(&vbo, cuda_vbo_resource);
 
     return true;
 }
@@ -475,53 +429,6 @@ void runCuda(struct cudaGraphicsResource** vbo_resource)
     checkCudaErrors(cudaGraphicsUnmapResources(1, vbo_resource, 0));
 }
 
-#ifdef _WIN32
-#ifndef FOPEN
-#define FOPEN(fHandle,filename,mode) fopen_s(&fHandle, filename, mode)
-#endif
-#else
-#ifndef FOPEN
-#define FOPEN(fHandle,filename,mode) (fHandle = fopen(filename, mode))
-#endif
-#endif
-
-void sdkDumpBin2(void* data, unsigned int bytes, const char* filename)
-{
-    printf("sdkDumpBin: <%s>\n", filename);
-    FILE* fp;
-    FOPEN(fp, filename, "wb");
-    fwrite(data, bytes, 1, fp);
-    fflush(fp);
-    fclose(fp);
-}
-
-////////////////////////////////////////////////////////////////////////////////
-//! Run the Cuda part of the computation
-////////////////////////////////////////////////////////////////////////////////
-void runAutoTest(int devID, char** argv, char* ref_file)
-{
-    char* reference_file = NULL;
-    void* imageData = malloc(mesh_width * mesh_height * sizeof(float));
-
-    // execute the kernel
-    launch_kernel((float4*)d_vbo_buffer, mesh_width, mesh_height, g_fAnim);
-
-    cudaDeviceSynchronize();
-    getLastCudaError("launch_kernel failed");
-
-    checkCudaErrors(cudaMemcpy(imageData, d_vbo_buffer, mesh_width * mesh_height * sizeof(float), cudaMemcpyDeviceToHost));
-
-    sdkDumpBin2(imageData, mesh_width * mesh_height * sizeof(float), "simpleGL.bin");
-    reference_file = sdkFindFilePath(ref_file, argv[0]);
-
-    if (reference_file &&
-        !sdkCompareBin2BinFloat("simpleGL.bin", reference_file,
-            mesh_width * mesh_height * sizeof(float),
-            MAX_EPSILON_ERROR, THRESHOLD, pArgv[0]))
-    {
-        g_TotalErrors++;
-    }
-}
 
 ////////////////////////////////////////////////////////////////////////////////
 //! Create VBO
@@ -560,37 +467,39 @@ void deleteVBO(GLuint* vbo, struct cudaGraphicsResource* vbo_res)
     *vbo = 0;
 }
 
-////////////////////////////////////////////////////////////////////////////////
-//! Check if the result is correct or write data to file for external
-//! regression testing
-////////////////////////////////////////////////////////////////////////////////
-void checkResultCuda(int argc, char** argv, const GLuint& vbo)
-{
-    if (!d_vbo_buffer)
-    {
-        checkCudaErrors(cudaGraphicsUnregisterResource(cuda_vbo_resource));
 
-        // map buffer object
-        glBindBuffer(GL_ARRAY_BUFFER, vbo);
-        float* data = (float*)glMapBuffer(GL_ARRAY_BUFFER, GL_READ_ONLY);
-
-        // check result
-        if (checkCmdLineFlag(argc, (const char**)argv, "regression"))
-        {
-            // write file for regression test
-            sdkWriteFile<float>("./data/regression.dat",
-                data, mesh_width * mesh_height * 3, 0.0, false);
-        }
-
-        // unmap GL buffer object
-        if (!glUnmapBuffer(GL_ARRAY_BUFFER))
-        {
-            fprintf(stderr, "Unmap buffer failed.\n");
-            fflush(stderr);
-        }
-
-        checkCudaErrors(cudaGraphicsGLRegisterBuffer(&cuda_vbo_resource, vbo,
-            cudaGraphicsMapFlagsWriteDiscard));
-
-    }
-}
+//////////////////////////////////////////////////////////////////////////////////
+////! Display callback
+//////////////////////////////////////////////////////////////////////////////////
+//void display()
+//{
+//    sdkStartTimer(&timer);
+//
+//    // run CUDA kernel to generate vertex positions
+//    runCuda(&cuda_vbo_resource);
+//
+//    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+//
+//    // set view matrix
+//    glMatrixMode(GL_MODELVIEW);
+//    glLoadIdentity();
+//    glTranslatef(0.0, 0.0, translate_z);
+//    glRotatef(rotate_x, 1.0, 0.0, 0.0);
+//    glRotatef(rotate_y, 0.0, 1.0, 0.0);
+//
+//    // render from the vbo
+//    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+//    glVertexPointer(4, GL_FLOAT, 0, 0);
+//
+//    glEnableClientState(GL_VERTEX_ARRAY);
+//    glColor3f(1.0, 0.0, 0.0);
+//    glDrawArrays(GL_POINTS, 0, mesh_width * mesh_height);
+//    glDisableClientState(GL_VERTEX_ARRAY);
+//
+//    glutSwapBuffers();
+//
+//    g_fAnim += 0.01f;
+//
+//    sdkStopTimer(&timer);
+//    computeFPS();
+//}
