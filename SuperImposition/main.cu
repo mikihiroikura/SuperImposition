@@ -398,6 +398,8 @@ bool runTest(int argc, char** argv, char* ref_file)
         glDisableClientState(GL_VERTEX_ARRAY);
 
         glfwSwapBuffers(window);
+
+        g_fAnim += 0.01f;
     }
 
     deleteVBO(&vbo, cuda_vbo_resource);
