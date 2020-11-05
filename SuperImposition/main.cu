@@ -58,8 +58,12 @@
 
 // CUDA helper functions
 #include <helper_cuda.h>         // helper functions for CUDA error check
-
 #include <vector_types.h>
+
+// imgui include
+#include "imgui/imgui.h"
+#include "imgui/imgui_impl_opengl3.h"
+#include "imgui/imgui_impl_glfw.h"
 
 #define MAX_EPSILON_ERROR 10.0f
 #define THRESHOLD          0.30f
@@ -301,6 +305,14 @@ bool initGL(int* argc, char** argv)
 
     //Matrix = glGetUniformLocation(gl2Program, "MVP");
 
+    //imguiÇÃèâä˙âª
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO(); (void)io;
+
+    ImGui_ImplGlfw_InitForOpenGL(window, true);
+    ImGui_ImplOpenGL3_Init();
+
     return true;
 }
 
@@ -396,6 +408,23 @@ bool runTest(int argc, char** argv, char* ref_file)
         glColor3f(1.0, 0.0, 0.0);
         glDrawArrays(GL_POINTS, 0, mesh_width * mesh_height);
         glDisableClientState(GL_VERTEX_ARRAY);
+
+        glfwPollEvents();
+
+        //start imgui
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
+
+        ImGui::Begin("hello world");
+        ImGui::Text("This is useful text");
+        ImGui::DragFloat("rotate x", &rotate_x);
+        ImGui::DragFloat("rotate y", &rotate_y);
+        ImGui::End();
+
+        ImGui::Render();
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
 
         glfwSwapBuffers(window);
 
