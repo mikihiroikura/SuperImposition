@@ -134,8 +134,6 @@ int readShaderSource(GLuint shader, const char* file);
 
 // Cuda functionality
 void runCuda(struct cudaGraphicsResource** vbo_resource);
-void runAutoTest(int devID, char** argv, char* ref_file);
-void checkResultCuda(int argc, char** argv, const GLuint& vbo);
 
 const char* sSDKsample = "simpleGL (VBO)";
 
@@ -247,15 +245,15 @@ bool initGL(int* argc, char** argv)
     //vertShader = glCreateShader(GL_VERTEX_SHADER);
     //fragShader = glCreateShader(GL_FRAGMENT_SHADER);
 
-    ////ソースプログラム読み込み
+    //////ソースプログラム読み込み
     //if (readShaderSource(vertShader, "points.vert")) exit(1);
     //if (readShaderSource(fragShader, "points.frag")) exit(1);
 
-    ////Shaderコンパイル
+    //////Shaderコンパイル
     //glCompileShader(vertShader);
     //glCompileShader(fragShader);
 
-    ////プログラムオブジェクトの作成
+    //////プログラムオブジェクトの作成
     //gl2Program = glCreateProgram();
     //glAttachShader(gl2Program, vertShader);
     //glAttachShader(gl2Program, fragShader);
@@ -420,6 +418,7 @@ bool runTest(int argc, char** argv, char* ref_file)
         ImGui::Text("This is useful text");
         ImGui::DragFloat("rotate x", &rotate_x);
         ImGui::DragFloat("rotate y", &rotate_y);
+        ImGui::DragFloat("trans z", &translate_z);
         ImGui::End();
 
         ImGui::Render();
