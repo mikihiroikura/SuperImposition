@@ -65,6 +65,9 @@
 #include "imgui/imgui_impl_opengl3.h"
 #include "imgui/imgui_impl_glfw.h"
 
+#include <librealsense2/rs.hpp>
+#include "realsense_glfw.hpp"
+
 #define MAX_EPSILON_ERROR 10.0f
 #define THRESHOLD          0.30f
 #define REFRESH_DELAY     10 //ms
@@ -73,8 +76,8 @@ using namespace std;
 
 ////////////////////////////////////////////////////////////////////////////////
 // constants
-const unsigned int window_width = 512;
-const unsigned int window_height = 512;
+const unsigned int window_width = 1280;
+const unsigned int window_height = 720;
 
 const unsigned int mesh_width = 256;
 const unsigned int mesh_height = 256;
@@ -118,6 +121,13 @@ int* pArgc = NULL;
 char** pArgv = NULL;
 
 #define MAX(a,b) ((a > b) ? a : b)
+
+// Realsense
+rs2::pointcloud pc;
+rs2::points points;
+rs2::pipeline pipe;
+rs2::frameset frames;
+texture_gl tex;
 
 ////////////////////////////////////////////////////////////////////////////////
 // declaration, forward
@@ -202,6 +212,12 @@ int main(int argc, char** argv)
 
     printf("\n");
 
+    pipe.start();
+    for (size_t i = 0; i < 30; i++)
+    {
+        frames = pipe.wait_for_frames();
+    }
+
     runTest(argc, argv, ref_file);
 
     printf("%s completed, returned %s\n", sSDKsample, (g_TotalErrors == 0) ? "OK" : "ERROR!");
@@ -270,10 +286,10 @@ bool initGL(int* argc, char** argv)
     //glBindVertexArray(vao);
 
     //頂点バッファオブジェクト
-    glGenBuffers(1, &vbo);
+    /*glGenBuffers(1, &vbo);
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
     unsigned int size = mesh_width * mesh_height * 4 * sizeof(float);
-    glBufferData(GL_ARRAY_BUFFER, size, nullptr, GL_DYNAMIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, size, nullptr, GL_DYNAMIC_DRAW);*/
 
     ////Vertexshaderの参照
     //glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
@@ -378,19 +394,28 @@ bool runTest(int argc, char** argv, char* ref_file)
         return false;
     }
 
-    // create VBO
-    createVBO(&vbo, &cuda_vbo_resource, cudaGraphicsMapFlagsWriteDiscard);
+    //// create VBO
+    //createVBO(&vbo, &cuda_vbo_resource, cudaGraphicsMapFlagsWriteDiscard);
 
-    // run the cuda part
-    runCuda(&cuda_vbo_resource);
+    //// run the cuda part
+    //runCuda(&cuda_vbo_resource);
 
     //ここにループを書く
     while (glfwWindowShouldClose(window) == GL_FALSE)
     {
         // run the cuda part
-        runCuda(&cuda_vbo_resource);
+        /*runCuda(&cuda_vbo_resource);*/
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        //realsense
+        auto frames = pipe.wait_for_frames();
+        auto color = frames.get_color_frame();
+        pc.map_to(color);
+        auto depth = frames.get_depth_frame();
+        points = pc.calculate(depth);
+        tex.upload(color);
+        draw_pointcloud(window_width, window_height, tex, points);
 
         // set view matrix
         glMatrixMode(GL_MODELVIEW);
@@ -400,12 +425,12 @@ bool runTest(int argc, char** argv, char* ref_file)
         glRotatef(rotate_y, 0.0, 1.0, 0.0);
 
 
-        glBindBuffer(GL_ARRAY_BUFFER, vbo);
+        /*glBindBuffer(GL_ARRAY_BUFFER, vbo);
         glVertexPointer(4, GL_FLOAT, 0, 0);
         glEnableClientState(GL_VERTEX_ARRAY);
         glColor3f(1.0, 0.0, 0.0);
         glDrawArrays(GL_POINTS, 0, mesh_width * mesh_height);
-        glDisableClientState(GL_VERTEX_ARRAY);
+        glDisableClientState(GL_VERTEX_ARRAY);*/
 
         glfwPollEvents();
 
