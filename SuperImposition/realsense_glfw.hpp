@@ -738,17 +738,29 @@ struct glfw_state {
 };
 
 // Handles all the OpenGL calls needed to display the point cloud
-void draw_pointcloud(float width, float height, texture_gl& tex, rs2::points& points)
+void draw_pointcloud(float width, float height, texture_gl& tex, rs2::points& points, float translate_z, float rotate_x, float rotate_y)
 {
     if (!points)
         return;
 
     // OpenGL commands that prep screen for the pointcloud
-    glLoadIdentity();
-    /*glPushAttrib(GL_ALL_ATTRIB_BITS);*/
-
+    /*glLoadIdentity();*/
+    glPushAttrib(GL_ALL_ATTRIB_BITS);
+    
     glClearColor(153.f / 255, 153.f / 255, 153.f / 255, 1);
     glClear(GL_DEPTH_BUFFER_BIT);
+
+    //glMatrixMode(GL_PROJECTION);
+    //glPushMatrix();
+    //gluPerspective(60, width / height, 0.01f, 10.0f);
+
+    /*glMatrixMode(GL_MODELVIEW);*/
+    //glPushMatrix();
+    //gluLookAt(0, 0, 0, 0, 0, 1, 0, -1, 0); //Ç±ÇÍÇ≈ÉJÉÅÉâÇÃè„å¸Ç´ÇÃé≤Ç--yï˚å¸Ç…Ç∑ÇÈÇ±Ç∆Ç≈è„â∫ÇçáÇÌÇπÇÈ
+
+    /*glRotated(rotate_x, 1, 0, 0);
+    glRotated(rotate_y, 0, 1, 0);
+    glTranslatef(0, 0, translate_z);*/
 
     glPointSize(width / 640);
     glEnable(GL_DEPTH_TEST);
@@ -776,10 +788,10 @@ void draw_pointcloud(float width, float height, texture_gl& tex, rs2::points& po
 
     // OpenGL cleanup
     glEnd();
-    /*glPopMatrix();
-    glMatrixMode(GL_PROJECTION);
-    glPopMatrix();
-    glPopAttrib();*/
+    /*glPopMatrix();*/
+    //glMatrixMode(GL_PROJECTION);
+    //glPopMatrix();
+    glPopAttrib();
 }
 
 void quat2mat(rs2_quaternion& q, GLfloat H[16])  // to column-major matrix

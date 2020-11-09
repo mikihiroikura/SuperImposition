@@ -408,6 +408,14 @@ bool runTest(int argc, char** argv, char* ref_file)
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+        glLoadIdentity();
+        glMatrixMode(GL_MODELVIEW);
+        glPushMatrix();
+        gluLookAt(0, 0, 0, 0, 0, 1, 0, -1, 0); //Ç±ÇÍÇ≈ÉJÉÅÉâÇÃè„å¸Ç´ÇÃé≤Ç--yï˚å¸Ç…Ç∑ÇÈÇ±Ç∆Ç≈è„â∫ÇçáÇÌÇπÇÈ
+        glRotated(rotate_x, 1, 0, 0);
+        glRotated(rotate_y, 0, 1, 0);
+        glTranslatef(0, 0, translate_z);
+
         //realsense
         auto frames = pipe.wait_for_frames();
         auto color = frames.get_color_frame();
@@ -415,15 +423,7 @@ bool runTest(int argc, char** argv, char* ref_file)
         auto depth = frames.get_depth_frame();
         points = pc.calculate(depth);
         tex.upload(color);
-        draw_pointcloud(window_width, window_height, tex, points);
-
-        // set view matrix
-        glMatrixMode(GL_MODELVIEW);
-        glLoadIdentity();
-        glTranslatef(0.0, 0.0, translate_z);
-        glRotatef(rotate_x, 1.0, 0.0, 0.0);
-        glRotatef(rotate_y, 0.0, 1.0, 0.0);
-
+        draw_pointcloud(window_width, window_height, tex, points, translate_z, rotate_x, rotate_y);
 
         /*glBindBuffer(GL_ARRAY_BUFFER, vbo);
         glVertexPointer(4, GL_FLOAT, 0, 0);
@@ -431,6 +431,7 @@ bool runTest(int argc, char** argv, char* ref_file)
         glColor3f(1.0, 0.0, 0.0);
         glDrawArrays(GL_POINTS, 0, mesh_width * mesh_height);
         glDisableClientState(GL_VERTEX_ARRAY);*/
+        glPopMatrix();
 
         glfwPollEvents();
 
