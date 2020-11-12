@@ -66,7 +66,7 @@
 #include "imgui/imgui_impl_glfw.h"
 
 #include <librealsense2/rs.hpp>
-#include "realsense_glfw.hpp"
+#include "realsense_glfw.h"
 
 #define MAX_EPSILON_ERROR 10.0f
 #define THRESHOLD          0.30f
