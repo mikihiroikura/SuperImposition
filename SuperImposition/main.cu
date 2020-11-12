@@ -94,7 +94,7 @@ GLuint gl2Program;
 GLuint vao;
 
 // vbo variables
-GLuint vbo;
+GLuint vbo, tcbo;
 struct cudaGraphicsResource* cuda_vbo_resource;
 void* d_vbo_buffer = NULL;
 
@@ -128,6 +128,8 @@ rs2::points points;
 rs2::pipeline pipe;
 rs2::frameset frames;
 texture_gl tex;
+const rs2::vertex* vertices;
+const rs2::texture_coordinate* tex_coords;
 
 ////////////////////////////////////////////////////////////////////////////////
 // declaration, forward
@@ -286,10 +288,18 @@ bool initGL(int* argc, char** argv)
     //glBindVertexArray(vao);
 
     //頂点バッファオブジェクト
-    /*glGenBuffers(1, &vbo);
+    glGenBuffers(1, &vbo);
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    unsigned int size = mesh_width * mesh_height * 4 * sizeof(float);
-    glBufferData(GL_ARRAY_BUFFER, size, nullptr, GL_DYNAMIC_DRAW);*/
+    unsigned int size_vert = 407040 * 3 * sizeof(float);
+    glBufferData(GL_ARRAY_BUFFER, size_vert, vertices, GL_DYNAMIC_DRAW);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    //Tex coordinateバッファオブジェクト
+    glGenBuffers(1, &tcbo);
+    glBindBuffer(GL_ARRAY_BUFFER, tcbo);
+    unsigned int size_uv = 407040 * 2 * sizeof(float);
+    glBufferData(GL_ARRAY_BUFFER, size_uv, tex_coords, GL_DYNAMIC_DRAW);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
 
     ////Vertexshaderの参照
     //glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
@@ -423,7 +433,7 @@ bool runTest(int argc, char** argv, char* ref_file)
         auto depth = frames.get_depth_frame();
         points = pc.calculate(depth);
         tex.upload(color);
-        draw_pointcloud(window_width, window_height, tex, points, translate_z, rotate_x, rotate_y);
+        draw_pointcloud(vertices, &vbo, tex_coords, &tcbo, window_width, window_height, tex, points, translate_z, rotate_x, rotate_y);
 
         /*glBindBuffer(GL_ARRAY_BUFFER, vbo);
         glVertexPointer(4, GL_FLOAT, 0, 0);

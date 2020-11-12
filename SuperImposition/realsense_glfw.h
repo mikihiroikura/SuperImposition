@@ -722,7 +722,7 @@ struct glfw_state {
 };
 
 // Handles all the OpenGL calls needed to display the point cloud
-void draw_pointcloud(float width, float height, texture_gl& tex, rs2::points& points, float translate_z, float rotate_x, float rotate_y);
+void draw_pointcloud(const rs2::vertex* vertices, GLuint* vbo, const rs2::texture_coordinate* tex_coords, GLuint* tcbo, float width, float height, texture_gl& tex, rs2::points& points, float translate_z, float rotate_x, float rotate_y);
 
 void quat2mat(rs2_quaternion& q, GLfloat H[16]);
 

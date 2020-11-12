@@ -1,8 +1,8 @@
 #include "realsense_glfw.h"
 #include "../third-party/stb_easy_font.h"
 
-const rs2::vertex* vertices;
-const rs2::texture_coordinate* tex_coords;
+//const rs2::vertex* vertices;
+//const rs2::texture_coordinate* tex_coords;
 
 
 inline void draw_text(int x, int y, const char* text)
@@ -23,7 +23,7 @@ void set_viewport(const rect& r)
 }
 
 // Handles all the OpenGL calls needed to display the point cloud
-void draw_pointcloud(float width, float height, texture_gl& tex, rs2::points& points, float translate_z, float rotate_x, float rotate_y)
+void draw_pointcloud(const rs2::vertex* vertices, GLuint* vbo, const rs2::texture_coordinate* tex_coords, GLuint* tcbo, float width, float height, texture_gl& tex, rs2::points& points, float translate_z, float rotate_x, float rotate_y)
 {
     if (!points)
         return;
@@ -60,14 +60,20 @@ void draw_pointcloud(float width, float height, texture_gl& tex, rs2::points& po
     /* this segment actually prints the pointcloud */
     vertices = points.get_vertices();              // get vertices
     tex_coords = points.get_texture_coordinates(); // and texture coordinates
+    glBindBuffer(GL_ARRAY_BUFFER, *vbo);
+    glBufferData(GL_ARRAY_BUFFER, 407040 * 3 * sizeof(float), vertices, GL_DYNAMIC_DRAW);
     glEnableClientState(GL_VERTEX_ARRAY);
     glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-    glVertexPointer(3, GL_FLOAT, 0, vertices);
-    glTexCoordPointer(2, GL_FLOAT, 0, tex_coords);
+    glVertexPointer(3, GL_FLOAT, 0, 0);
+    glBindBuffer(GL_ARRAY_BUFFER, *tcbo);
+    glBufferData(GL_ARRAY_BUFFER, 407040 * 2 * sizeof(float), tex_coords, GL_DYNAMIC_DRAW);
+    glTexCoordPointer(2, GL_FLOAT, 0, 0);
     glDrawArrays(GL_POINTS, 0, 407040);
 
     glDisableClientState(GL_VERTEX_ARRAY);
     glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 
     // OpenGL cleanup
