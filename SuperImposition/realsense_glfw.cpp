@@ -62,6 +62,7 @@ void draw_pointcloud(const rs2::vertex* vertices, GLuint* vbo, const rs2::textur
     tex_coords = points.get_texture_coordinates(); // and texture coordinates
     glBindBuffer(GL_ARRAY_BUFFER, *vbo);
     glBufferData(GL_ARRAY_BUFFER, 407040 * 3 * sizeof(float), vertices, GL_DYNAMIC_DRAW);
+    
     glEnableClientState(GL_VERTEX_ARRAY);
     glEnableClientState(GL_TEXTURE_COORD_ARRAY);
     glVertexPointer(3, GL_FLOAT, 0, 0);
@@ -72,8 +73,9 @@ void draw_pointcloud(const rs2::vertex* vertices, GLuint* vbo, const rs2::textur
 
     glDisableClientState(GL_VERTEX_ARRAY);
     glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-
     glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    
 
 
     // OpenGL cleanup
