@@ -85,6 +85,49 @@ void draw_pointcloud(const rs2::vertex* vertices, GLuint* vbo, const rs2::textur
     glPopAttrib();
 }
 
+// Handles all the OpenGL calls needed to display the point cloud
+void draw_pointcloud2(GLuint* vbo, const rs2::texture_coordinate* tex_coords, GLuint* tcbo, float width, float height, texture_gl& tex, rs2::points& points, float translate_z, float rotate_x, float rotate_y)
+{
+    if (!points)
+        return;
+
+    // OpenGL commands that prep screen for the pointcloud
+    /*glLoadIdentity();*/
+    glPushAttrib(GL_ALL_ATTRIB_BITS);
+
+    glClearColor(153.f / 255, 153.f / 255, 153.f / 255, 1);
+    glClear(GL_DEPTH_BUFFER_BIT);
+
+    glPointSize(width / 640);
+    glEnable(GL_DEPTH_TEST);
+    glEnable(GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D, tex.get_gl_handle());
+    float tex_border_color[] = { 0.8f, 0.8f, 0.8f, 0.8f };
+    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, tex_border_color);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, 0x812F); // GL_CLAMP_TO_EDGE
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, 0x812F); // GL_CLAMP_TO_EDGE
+
+
+    /* this segment actually prints the pointcloud */
+    tex_coords = points.get_texture_coordinates(); // and texture coordinates
+    glBindBuffer(GL_ARRAY_BUFFER, *vbo);
+
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+    glVertexPointer(3, GL_FLOAT, 0, 0);
+    glBindBuffer(GL_ARRAY_BUFFER, *tcbo);
+    glBufferData(GL_ARRAY_BUFFER, 407040 * 2 * sizeof(float), tex_coords, GL_DYNAMIC_DRAW);
+    glTexCoordPointer(2, GL_FLOAT, 0, 0);
+    glDrawArrays(GL_POINTS, 0, 407040);
+
+    glDisableClientState(GL_VERTEX_ARRAY);
+    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    // OpenGL cleanup
+    glPopAttrib();
+}
+
 void quat2mat(rs2_quaternion& q, GLfloat H[16])  // to column-major matrix
 {
     H[0] = 1 - 2 * q.y * q.y - 2 * q.z * q.z; H[4] = 2 * q.x * q.y - 2 * q.z * q.w;     H[8] = 2 * q.x * q.z + 2 * q.y * q.w;     H[12] = 0.0f;
