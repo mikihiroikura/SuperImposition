@@ -92,12 +92,6 @@ void draw_pointcloud2(GLuint* vbo, const rs2::texture_coordinate* tex_coords, GL
         return;
 
     // OpenGL commands that prep screen for the pointcloud
-    /*glLoadIdentity();*/
-    glPushAttrib(GL_ALL_ATTRIB_BITS);
-
-    glClearColor(153.f / 255, 153.f / 255, 153.f / 255, 1);
-    glClear(GL_DEPTH_BUFFER_BIT);
-
     glPointSize(width / 640);
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_TEXTURE_2D);
@@ -111,7 +105,7 @@ void draw_pointcloud2(GLuint* vbo, const rs2::texture_coordinate* tex_coords, GL
     /* this segment actually prints the pointcloud */
     tex_coords = points.get_texture_coordinates(); // and texture coordinates
     glBindBuffer(GL_ARRAY_BUFFER, *vbo);
-
+    //glBufferData(GL_ARRAY_BUFFER, 407040 * 3 * sizeof(float), vertices, GL_DYNAMIC_DRAW);
     glEnableClientState(GL_VERTEX_ARRAY);
     glEnableClientState(GL_TEXTURE_COORD_ARRAY);
     glVertexPointer(3, GL_FLOAT, 0, 0);

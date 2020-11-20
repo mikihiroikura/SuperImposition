@@ -129,12 +129,12 @@ rs2::pipeline pipe;
 rs2::frameset frames;
 texture_gl tex;
 const rs2::vertex* vertices;
+rs2::vertex* new_vertices;
 const rs2::texture_coordinate* tex_coords;
+// map OpenGL buffer object for writing from CUDA
+float3* dptr;
 
 ////////////////////////////////////////////////////////////////////////////////
-// declaration, forward
-bool runTest(int argc, char** argv, char* ref_file);
-
 // GL functionality
 bool initGL(int* argc, char** argv);
 void deleteVBO(GLuint* vbo, struct cudaGraphicsResource* vbo_res);
@@ -148,7 +148,7 @@ const char* sSDKsample = "simpleGL (VBO)";
 //! Simple kernel to modify vertex positions in sine wave pattern
 //! @param data  data in global memory
 ///////////////////////////////////////////////////////////////////////////////
-__global__ void simple_vbo_kernel(float3* pos, const rs2::vertex* vertex, unsigned int width, unsigned int height, float rot_x, float rot_y, float trans_z)
+__global__ void simple_vbo_kernel(float3* pos, const rs2::vertex* vertex, unsigned int width, unsigned int height, float rot_x, float rot_y, float trans_z, float times)
 {
     //処理する位置
     unsigned int x = blockIdx.x * blockDim.x + threadIdx.x;
@@ -164,12 +164,12 @@ __global__ void simple_vbo_kernel(float3* pos, const rs2::vertex* vertex, unsign
 }
 
 
-void launch_kernel(float3* pos, const rs2::vertex* vertex, float rot_x, float rot_y, float trans_z)
+void launch_kernel(float3* pos, const rs2::vertex* vertex, float rot_x, float rot_y, float trans_z, float times)
 {
     // execute the kernel
     dim3 block(8, 8, 1);
     dim3 grid(mesh_width / block.x, mesh_height / block.y, 1);
-    simple_vbo_kernel << < grid, block >> > (pos, vertex, mesh_width, mesh_height, rot_x, rot_y, trans_z);
+    simple_vbo_kernel << < grid, block >> > (pos, vertex, mesh_width, mesh_height, rot_x, rot_y, trans_z, times);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -205,136 +205,6 @@ int main(int argc, char** argv)
         frames = pipe.wait_for_frames();
     }
 
-    runTest(argc, argv, ref_file);
-
-    printf("%s completed, returned %s\n", sSDKsample, (g_TotalErrors == 0) ? "OK" : "ERROR!");
-    exit(g_TotalErrors == 0 ? EXIT_SUCCESS : EXIT_FAILURE);
-}
-
-////////////////////////////////////////////////////////////////////////////////
-//! Initialize GL
-////////////////////////////////////////////////////////////////////////////////
-bool initGL(int* argc, char** argv)
-{
-    //GLFWの初期化
-    if (glfwInit() == GL_FALSE)
-    {
-        std::cerr << "Can't initilize GLFW" << std::endl;
-        return 1;
-    }
-
-    //Windowの作成
-    window = glfwCreateWindow(window_width, window_height, "Cuda GL Interop (VBO)", NULL, NULL);
-    if (window == nullptr)
-    {
-        std::cerr << "Can't create GLFW window." << std::endl;
-        glfwTerminate();
-        return 1;
-    }
-    
-    //WindowをOpenGLの対象にする
-    glfwMakeContextCurrent(window);
-    //MakeCOntextcurrentの後に行わないと失敗するらしい
-    if (glewInit() != GLEW_OK)
-    {
-        std::cerr << "Can't initilize GLEW" << std::endl;
-        return 1;
-    }
-
-    // default initialization
-    glClearColor(0.0, 0.0, 0.0, 1.0);   //背景色の指定
-    glDisable(GL_DEPTH_TEST);
-    
-    //vertShader = glCreateShader(GL_VERTEX_SHADER);
-    //fragShader = glCreateShader(GL_FRAGMENT_SHADER);
-
-    //////ソースプログラム読み込み
-    //if (readShaderSource(vertShader, "points.vert")) exit(1);
-    //if (readShaderSource(fragShader, "points.frag")) exit(1);
-
-    //////Shaderコンパイル
-    //glCompileShader(vertShader);
-    //glCompileShader(fragShader);
-
-    //////プログラムオブジェクトの作成
-    //gl2Program = glCreateProgram();
-    //glAttachShader(gl2Program, vertShader);
-    //glAttachShader(gl2Program, fragShader);
-    //glDeleteShader(vertShader);
-    //glDeleteShader(fragShader);
-
-    ////プログラムオブジェクトのリンク
-    //glBindAttribLocation(gl2Program, 0, "position");
-    //glBindFragDataLocation(gl2Program, 0, "gl_FragColor");
-    //glLinkProgram(gl2Program);
-
-    ////頂点配列オブジェクト
-    //glGenVertexArrays(1, &vao);
-    //glBindVertexArray(vao);
-
-    //頂点バッファオブジェクト
-    glGenBuffers(1, &vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    unsigned int size_vert = 407040 * 3 * sizeof(float);
-    glBufferData(GL_ARRAY_BUFFER, size_vert, vertices, GL_DYNAMIC_DRAW);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    checkCudaErrors(cudaGraphicsGLRegisterBuffer(&cuda_vbo_resource, vbo, cudaGraphicsRegisterFlagsWriteDiscard));//CUDAのグラフィックスリソースに登録する
-
-    //Tex coordinateバッファオブジェクト
-    glGenBuffers(1, &tcbo);
-    glBindBuffer(GL_ARRAY_BUFFER, tcbo);
-    unsigned int size_uv = 407040 * 2 * sizeof(float);
-    glBufferData(GL_ARRAY_BUFFER, size_uv, tex_coords, GL_DYNAMIC_DRAW);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    checkCudaErrors(cudaGraphicsGLRegisterBuffer(&cuda_tcbo_resource, tcbo, cudaGraphicsRegisterFlagsWriteDiscard));//CUDAのグラフィックスリソースに登録する
-
-    ////Vertexshaderの参照
-    //glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
-    //glEnableVertexAttribArray(0);
-
-    ////頂点バッファオブジェクトの結合解除
-    //glBindBuffer(GL_ARRAY_BUFFER, 0);
-    //glBindVertexArray(0);
-
-    
-    
-
-
-    // viewport
-    glViewport(0, 0, window_width, window_height);
-
-    // projection
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    gluPerspective(60.0, (GLfloat)window_width / (GLfloat)window_height, 0.1, 10.0);
-
-    // カメラ行列
-    //glm::mat4 View = glm::lookAt(
-    //    glm::vec3(4, 4, 4), // ワールド空間でカメラは(4,3,3)にあります。
-    //    glm::vec3(0, 0, 0), // 原点を見ています。
-    //    glm::vec3(0, 1, 0)  // 頭が上方向(0,-1,0にセットすると上下逆転します。)
-    //);
-    //glm::mat4 Projection = glm::perspective(glm::radians(60.0f), 4.0f / 3.0f, 0.1f, 10.0f);
-    //mvp = Projection;// *View;
-
-    //Matrix = glGetUniformLocation(gl2Program, "MVP");
-
-    //imguiの初期化
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO(); (void)io;
-
-    ImGui_ImplGlfw_InitForOpenGL(window, true);
-    ImGui_ImplOpenGL3_Init();
-
-    return true;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-//! Run a simple test for CUDA
-////////////////////////////////////////////////////////////////////////////////
-bool runTest(int argc, char** argv, char* ref_file)
-{
     // Create the CUTIL timer
     sdkCreateTimer(&timer);
 
@@ -379,12 +249,6 @@ bool runTest(int argc, char** argv, char* ref_file)
         //draw_pointcloud(vertices, &vbo, tex_coords, &tcbo, window_width, window_height, tex, points, translate_z, rotate_x, rotate_y);
         draw_pointcloud2(&vbo, tex_coords, &tcbo, window_width, window_height, tex, points, translate_z, rotate_x, rotate_y);
 
-        /*glBindBuffer(GL_ARRAY_BUFFER, vbo);
-        glVertexPointer(4, GL_FLOAT, 0, 0);
-        glEnableClientState(GL_VERTEX_ARRAY);
-        glColor3f(1.0, 0.0, 0.0);
-        glDrawArrays(GL_POINTS, 0, mesh_width * mesh_height);
-        glDisableClientState(GL_VERTEX_ARRAY);*/
         glPopMatrix();
 
         glfwPollEvents();
@@ -412,28 +276,92 @@ bool runTest(int argc, char** argv, char* ref_file)
 
     deleteVBO(&vbo, cuda_vbo_resource);
 
+    printf("%s completed, returned %s\n", sSDKsample, (g_TotalErrors == 0) ? "OK" : "ERROR!");
+    exit(g_TotalErrors == 0 ? EXIT_SUCCESS : EXIT_FAILURE);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+//! Initialize GL
+////////////////////////////////////////////////////////////////////////////////
+bool initGL(int* argc, char** argv)
+{
+    //GLFWの初期化
+    if (glfwInit() == GL_FALSE)
+    {
+        std::cerr << "Can't initilize GLFW" << std::endl;
+        return 1;
+    }
+
+    //Windowの作成
+    window = glfwCreateWindow(window_width, window_height, "Cuda GL Interop (VBO)", NULL, NULL);
+    if (window == nullptr)
+    {
+        std::cerr << "Can't create GLFW window." << std::endl;
+        glfwTerminate();
+        return 1;
+    }
+    
+    //WindowをOpenGLの対象にする
+    glfwMakeContextCurrent(window);
+    //MakeCOntextcurrentの後に行わないと失敗するらしい
+    if (glewInit() != GLEW_OK)
+    {
+        std::cerr << "Can't initilize GLEW" << std::endl;
+        return 1;
+    }
+
+    // default initialization
+    glClearColor(0.0, 0.0, 0.0, 1.0);   //背景色の指定
+    glDisable(GL_DEPTH_TEST);
+   
+    //頂点バッファオブジェクト
+    glGenBuffers(1, &vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    unsigned int size_vert = 407040 * 3 * sizeof(float);
+    glBufferData(GL_ARRAY_BUFFER, size_vert, new_vertices, GL_DYNAMIC_DRAW);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    checkCudaErrors(cudaGraphicsGLRegisterBuffer(&cuda_vbo_resource, vbo, cudaGraphicsRegisterFlagsWriteDiscard));//CUDAのグラフィックスリソースに登録する
+
+    //Tex coordinateバッファオブジェクト
+    glGenBuffers(1, &tcbo);
+    glBindBuffer(GL_ARRAY_BUFFER, tcbo);
+    unsigned int size_uv = 407040 * 2 * sizeof(float);
+    glBufferData(GL_ARRAY_BUFFER, size_uv, tex_coords, GL_DYNAMIC_DRAW);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    checkCudaErrors(cudaGraphicsGLRegisterBuffer(&cuda_tcbo_resource, tcbo, cudaGraphicsRegisterFlagsWriteDiscard));//CUDAのグラフィックスリソースに登録する
+
+    // viewport
+    glViewport(0, 0, window_width, window_height);
+
+    // projection
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    gluPerspective(60.0, (GLfloat)window_width / (GLfloat)window_height, 0.1, 10.0);
+
+    //imguiの初期化
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO(); (void)io;
+
+    ImGui_ImplGlfw_InitForOpenGL(window, true);
+    ImGui_ImplOpenGL3_Init();
+
     return true;
 }
+
 
 ////////////////////////////////////////////////////////////////////////////////
 //! Run the Cuda part of the computation
 ////////////////////////////////////////////////////////////////////////////////
 void runCuda(struct cudaGraphicsResource** vbo_resource, const rs2::vertex* vertex)
 {
-    // map OpenGL buffer object for writing from CUDA
-    float3* dptr;
+    
     checkCudaErrors(cudaGraphicsMapResources(1, vbo_resource, 0));
     size_t num_bytes;
     checkCudaErrors(cudaGraphicsResourceGetMappedPointer((void**)&dptr, &num_bytes,
         *vbo_resource));
-    //printf("CUDA mapped VBO: May access %ld bytes\n", num_bytes);
 
-    // execute the kernel
-    //    dim3 block(8, 8, 1);
-    //    dim3 grid(mesh_width / block.x, mesh_height / block.y, 1);
-    //    kernel<<< grid, block>>>(dptr, mesh_width, mesh_height, g_fAnim);
-
-    launch_kernel(dptr, vertex, rotate_x, rotate_y, translate_z);
+    launch_kernel(dptr, vertex, rotate_x, rotate_y, translate_z, g_fAnim);
 
     // unmap buffer object
     checkCudaErrors(cudaGraphicsUnmapResources(1, vbo_resource, 0));
@@ -454,40 +382,3 @@ void deleteVBO(GLuint* vbo, struct cudaGraphicsResource* vbo_res)
 
     *vbo = 0;
 }
-
-
-//////////////////////////////////////////////////////////////////////////////////
-////! Display callback
-//////////////////////////////////////////////////////////////////////////////////
-//void display()
-//{
-//    sdkStartTimer(&timer);
-//
-//    // run CUDA kernel to generate vertex positions
-//    runCuda(&cuda_vbo_resource);
-//
-//    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-//
-//    // set view matrix
-//    glMatrixMode(GL_MODELVIEW);
-//    glLoadIdentity();
-//    glTranslatef(0.0, 0.0, translate_z);
-//    glRotatef(rotate_x, 1.0, 0.0, 0.0);
-//    glRotatef(rotate_y, 0.0, 1.0, 0.0);
-//
-//    // render from the vbo
-//    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-//    glVertexPointer(4, GL_FLOAT, 0, 0);
-//
-//    glEnableClientState(GL_VERTEX_ARRAY);
-//    glColor3f(1.0, 0.0, 0.0);
-//    glDrawArrays(GL_POINTS, 0, mesh_width * mesh_height);
-//    glDisableClientState(GL_VERTEX_ARRAY);
-//
-//    glutSwapBuffers();
-//
-//    g_fAnim += 0.01f;
-//
-//    sdkStopTimer(&timer);
-//    computeFPS();
-//}
