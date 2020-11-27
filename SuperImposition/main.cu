@@ -96,7 +96,6 @@ GLuint vao;
 // vbo variables
 GLuint vbo, tcbo;
 struct cudaGraphicsResource* cuda_vbo_resource, *cuda_tcbo_resource;
-void* d_vbo_buffer = NULL;
 
 float g_fAnim = 0.0;
 
@@ -128,11 +127,14 @@ rs2::points points;
 rs2::pipeline pipe;
 rs2::frameset frames;
 texture_gl tex;
-const rs2::vertex* vertices;
-rs2::vertex* new_vertices;
+const rs2::vertex* h_vertices;
+float3* h_vertices_f;
 const rs2::texture_coordinate* tex_coords;
 // map OpenGL buffer object for writing from CUDA
-float3* dptr;
+//const rs2::vertex* d_vertices;
+float3* d_vertices;
+const rs2::vertex* gl_vertices;
+unsigned int size_vert;
 
 ////////////////////////////////////////////////////////////////////////////////
 // GL functionality
@@ -140,7 +142,7 @@ bool initGL(int* argc, char** argv);
 void deleteVBO(GLuint* vbo, struct cudaGraphicsResource* vbo_res);
 
 // Cuda functionality
-void runCuda(struct cudaGraphicsResource** vbo_resource, const rs2::vertex* vertex);
+void runCuda(struct cudaGraphicsResource** vbo_resource, rs2::points points);
 
 const char* sSDKsample = "simpleGL (VBO)";
 
@@ -148,28 +150,26 @@ const char* sSDKsample = "simpleGL (VBO)";
 //! Simple kernel to modify vertex positions in sine wave pattern
 //! @param data  data in global memory
 ///////////////////////////////////////////////////////////////////////////////
-__global__ void simple_vbo_kernel(float3* pos, const rs2::vertex* vertex, unsigned int width, unsigned int height, float rot_x, float rot_y, float trans_z, float times)
+__global__ void simple_vbo_kernel(float3* vertex, unsigned int width, unsigned int height, float rot_x, float rot_y, float trans_z, float times)
 {
     //処理する位置
     unsigned int x = blockIdx.x * blockDim.x + threadIdx.x;
     unsigned int y = blockIdx.y * blockDim.y + threadIdx.y;
     
     //座標変換
-    
 
 
     // write output vertex
-    //pos[y * width + x] = make_float3((vertex+ y * width + x)->x, (vertex + y * width + x)->y, (vertex + y * width + x)->z);
-    pos[y * width + x] = make_float3(x*0.01, y*0.01, 0);
+    vertex[y * width + x] = make_float3(vertex[y * width + x].x*0.1, vertex[y * width + x].y*0.1, vertex[y * width + x].z * 0.1);
 }
 
 
-void launch_kernel(float3* pos, const rs2::vertex* vertex, float rot_x, float rot_y, float trans_z, float times)
+void launch_kernel(float3* vertex, float rot_x, float rot_y, float trans_z, float times)
 {
     // execute the kernel
     dim3 block(8, 8, 1);
     dim3 grid(mesh_width / block.x, mesh_height / block.y, 1);
-    simple_vbo_kernel << < grid, block >> > (pos, vertex, mesh_width, mesh_height, rot_x, rot_y, trans_z, times);
+    simple_vbo_kernel << < grid, block >> > (vertex, mesh_width, mesh_height, rot_x, rot_y, trans_z, times);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -244,9 +244,11 @@ int main(int argc, char** argv)
         auto depth = frames.get_depth_frame();
         points = pc.calculate(depth);
         tex.upload(color);
-        vertices = points.get_vertices();
-        runCuda(&cuda_vbo_resource, vertices);
-        //draw_pointcloud(vertices, &vbo, tex_coords, &tcbo, window_width, window_height, tex, points, translate_z, rotate_x, rotate_y);
+        h_vertices = points.get_vertices();
+        h_vertices_f = (float3*)h_vertices;
+        cudaMemcpy(d_vertices, h_vertices_f, size_vert, cudaMemcpyHostToDevice);//デバイスメモリにホストメモリの値をコピー
+
+        runCuda(&cuda_vbo_resource, points);
         draw_pointcloud2(&vbo, tex_coords, &tcbo, window_width, window_height, tex, points, translate_z, rotate_x, rotate_y);
 
         glPopMatrix();
@@ -317,10 +319,10 @@ bool initGL(int* argc, char** argv)
     //頂点バッファオブジェクト
     glGenBuffers(1, &vbo);
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    unsigned int size_vert = 407040 * 3 * sizeof(float);
-    glBufferData(GL_ARRAY_BUFFER, size_vert, new_vertices, GL_DYNAMIC_DRAW);
+    size_vert = 407040 * 3 * sizeof(float);
+    glBufferData(GL_ARRAY_BUFFER, size_vert, h_vertices_f, GL_DYNAMIC_DRAW);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
-    checkCudaErrors(cudaGraphicsGLRegisterBuffer(&cuda_vbo_resource, vbo, cudaGraphicsRegisterFlagsWriteDiscard));//CUDAのグラフィックスリソースに登録する
+    checkCudaErrors(cudaGraphicsGLRegisterBuffer(&cuda_vbo_resource, vbo, cudaGraphicsRegisterFlagsNone));//CUDAのグラフィックスリソースに登録する
 
     //Tex coordinateバッファオブジェクト
     glGenBuffers(1, &tcbo);
@@ -328,7 +330,6 @@ bool initGL(int* argc, char** argv)
     unsigned int size_uv = 407040 * 2 * sizeof(float);
     glBufferData(GL_ARRAY_BUFFER, size_uv, tex_coords, GL_DYNAMIC_DRAW);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
-    checkCudaErrors(cudaGraphicsGLRegisterBuffer(&cuda_tcbo_resource, tcbo, cudaGraphicsRegisterFlagsWriteDiscard));//CUDAのグラフィックスリソースに登録する
 
     // viewport
     glViewport(0, 0, window_width, window_height);
@@ -353,15 +354,15 @@ bool initGL(int* argc, char** argv)
 ////////////////////////////////////////////////////////////////////////////////
 //! Run the Cuda part of the computation
 ////////////////////////////////////////////////////////////////////////////////
-void runCuda(struct cudaGraphicsResource** vbo_resource, const rs2::vertex* vertex)
+void runCuda(struct cudaGraphicsResource** vbo_resource, rs2::points points)
 {
     
     checkCudaErrors(cudaGraphicsMapResources(1, vbo_resource, 0));
     size_t num_bytes;
-    checkCudaErrors(cudaGraphicsResourceGetMappedPointer((void**)&dptr, &num_bytes,
+    checkCudaErrors(cudaGraphicsResourceGetMappedPointer((void**)&d_vertices, &num_bytes,
         *vbo_resource));
 
-    launch_kernel(dptr, vertex, rotate_x, rotate_y, translate_z, g_fAnim);
+    launch_kernel(d_vertices, rotate_x, rotate_y, translate_z, g_fAnim);
 
     // unmap buffer object
     checkCudaErrors(cudaGraphicsUnmapResources(1, vbo_resource, 0));
