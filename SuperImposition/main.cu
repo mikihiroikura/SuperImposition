@@ -176,7 +176,7 @@ __global__ void simple_vbo_kernel(float3* vertex, unsigned int width, unsigned i
 
 
     // write output vertex
-    vertex[y * width + x] = make_float3(vertex[y * width + x].x*0.1, vertex[y * width + x].y*0.1, vertex[y * width + x].z * 0.1);
+    vertex[y * width + x] = make_float3(vertex[y * width + x].x, vertex[y * width + x].y, vertex[y * width + x].z);
 }
 
 
@@ -326,6 +326,7 @@ int main(int argc, char** argv)
     }
 
     deleteVBO(&vbo, cuda_vbo_resource);
+    glDeleteBuffers(1, &tcbo);
 
     printf("%s completed, returned %s\n", sSDKsample, (g_TotalErrors == 0) ? "OK" : "ERROR!");
     exit(g_TotalErrors == 0 ? EXIT_SUCCESS : EXIT_FAILURE);
