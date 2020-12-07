@@ -29,7 +29,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <math.h>
+#include <cmath>
+#define _USE_MATH_DEFINES
 
 #include <algorithm>            // std::min, std::max
 #include <opencv2/opencv.hpp>
@@ -68,6 +69,7 @@
 #include <librealsense2/rs.hpp>
 #include "realsense_glfw.h"
 
+
 #define MAX_EPSILON_ERROR 10.0f
 #define THRESHOLD          0.30f
 #define REFRESH_DELAY     10 //ms
@@ -82,7 +84,6 @@ const unsigned int window_height = 720;
 const unsigned int mesh_width = 106*8;
 const unsigned int mesh_height = 60*8;
 
-glm::mat4 mvp;
 GLuint Matrix;
 
 //shader object
@@ -99,11 +100,25 @@ struct cudaGraphicsResource* cuda_vbo_resource, *cuda_tcbo_resource;
 
 float g_fAnim = 0.0;
 
+#pragma warning(disable:4996)
+
 // mouse controls
-int mouse_old_x, mouse_old_y;
-int mouse_buttons = 0;
 float rotate_x = 0.0, rotate_y = 0.0;
-float translate_z = -3.0;
+float translate_x = 0.0, translate_y = 0.0, translate_z = -.0;
+double mouse_x, mouse_y, mouse_x_old, mouse_y_old;
+double horiz_angle = -M_PI, vert_angle = 0.0;
+double mouse_speed = 0.01;
+double dx = 0.0, dy = 0.0;
+float init_fov = 60;
+float fov = init_fov;
+glm::vec3 position(0, 0, -1);
+glm::vec3 up(0, -1, 0);
+glm::vec3 direction(0, 0, 0);
+bool hovered;
+float Time = 0;
+float pointsize = 2.5;
+glm::mat4 mvp, Model, View, Projection;
+GLint matlocation;
 
 StopWatchInterface* timer = NULL;
 
@@ -140,6 +155,7 @@ unsigned int size_vert;
 // GL functionality
 bool initGL(int* argc, char** argv);
 void deleteVBO(GLuint* vbo, struct cudaGraphicsResource* vbo_res);
+static void setfov(GLFWwindow* window, double x, double y);
 
 // Cuda functionality
 void runCuda(struct cudaGraphicsResource** vbo_resource, rs2::points points);
@@ -229,13 +245,43 @@ int main(int argc, char** argv)
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+        glMatrixMode(GL_PROJECTION);
         glLoadIdentity();
+        gluPerspective(fov, (GLfloat)window_width / (GLfloat)window_height, 0.1f, 100.0f);
+
         glMatrixMode(GL_MODELVIEW);
         glPushMatrix();
-        gluLookAt(0, 0, 0, 0, 0, 1, 0, -1, 0); //これでカメラの上向きの軸を--y方向にすることで上下を合わせる
+        position = glm::vec3(cos(vert_angle) * sin(horiz_angle), sin(vert_angle), cos(vert_angle) * cos(horiz_angle));
+        gluLookAt(position.x, position.y, position.z, 0, 0, 1, 0, -1, 0); //これでカメラの上向きの軸を--y方向にすることで上下を合わせる
         glRotated(rotate_x, 1, 0, 0);
         glRotated(rotate_y, 0, 1, 0);
+        glTranslatef(translate_x, 0, 0);
+        glTranslatef(0, translate_y, 0);
         glTranslatef(0, 0, translate_z);
+
+        //カーソル位置から移動変化量を計算
+        glfwGetCursorPos(window, &mouse_x, &mouse_y);
+        dx = mouse_x - mouse_x_old;
+        dy = mouse_y - mouse_y_old;
+
+        //左クリックしていればかつIMGUI上のWindowにいなければ，移動変化量を基に角度更新
+        if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS && !hovered)
+        {
+            horiz_angle += mouse_speed * dx;
+            vert_angle += mouse_speed * dy;
+        }
+        mouse_x_old = mouse_x;
+        mouse_y_old = mouse_y;
+
+        //スペースキーを押していれば，パラメータリセット
+        if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS)
+        {
+            horiz_angle = -M_PI;
+            vert_angle = 0.0;
+            rotate_x = 0.0, rotate_y = 0.0;
+            translate_x = 0.0, translate_y = 0.0, translate_z = -.0;
+            fov = init_fov;
+        }
 
         //realsense
         auto frames = pipe.wait_for_frames();
@@ -260,10 +306,13 @@ int main(int argc, char** argv)
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
+        ImGui::SetNextWindowSize(ImVec2(320, 300), ImGuiCond_Once);
         ImGui::Begin("hello world");
         ImGui::Text("This is useful text");
         ImGui::DragFloat("rotate x", &rotate_x);
         ImGui::DragFloat("rotate y", &rotate_y);
+        ImGui::DragFloat("trans x", &translate_x);
+        ImGui::DragFloat("trans y", &translate_y);
         ImGui::DragFloat("trans z", &translate_z);
         ImGui::End();
 
@@ -339,6 +388,9 @@ bool initGL(int* argc, char** argv)
     glLoadIdentity();
     gluPerspective(60.0, (GLfloat)window_width / (GLfloat)window_height, 0.1, 10.0);
 
+    //スクロール時にCallbackする関数の指定
+    glfwSetScrollCallback(window, setfov);
+
     //imguiの初期化
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -382,4 +434,8 @@ void deleteVBO(GLuint* vbo, struct cudaGraphicsResource* vbo_res)
     glDeleteBuffers(1, vbo);
 
     *vbo = 0;
+}
+
+static void setfov(GLFWwindow* window, double x, double y) {
+    fov -= static_cast<GLfloat>(y);
 }
