@@ -24,7 +24,7 @@ int main() {
 	int height = 896;
 	float fps = 1000.0;
 	float exposuretime = 912.0;
-	int offsetx = 480;
+	int offsetx = 512;
 	int offsety = 92;
 
 	//カメラのインスタンス生成
@@ -46,7 +46,7 @@ int main() {
 	in_img = cv::Mat(cam.getParam(paramTypeCamera::paramInt::HEIGHT), cam.getParam(paramTypeCamera::paramInt::WIDTH), CV_8UC3, cv::Scalar::all(255));
 
 	//動画保存用のファイル作成
-	string save_dir = "D:\\Github_output\\SuperImpositionHSC\\GetCalibImgs\\";
+	string save_dir = "D:\\Github_output\\SuperImposition\\GetCalibImgs\\";
 	time_t now = time(NULL);
 	struct tm* pnow = localtime(&now);
 	char buff[128];
