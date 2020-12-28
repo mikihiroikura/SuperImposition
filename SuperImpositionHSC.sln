@@ -7,6 +7,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SuperImposition", "SuperImp
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "DetectLEDMarker", "DetectLEDMarker\DetectLEDMarker.vcxproj", "{ACDDDC6E-31D1-4018-8527-F790C264BEA0}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "GetCalibImgs", "GetCalibImgs\GetCalibImgs.vcxproj", "{92AF7EA9-3D95-4AA6-86F3-0FF3F2D7934C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -31,6 +33,14 @@ Global
 		{ACDDDC6E-31D1-4018-8527-F790C264BEA0}.Release|x64.Build.0 = Release|x64
 		{ACDDDC6E-31D1-4018-8527-F790C264BEA0}.Release|x86.ActiveCfg = Release|Win32
 		{ACDDDC6E-31D1-4018-8527-F790C264BEA0}.Release|x86.Build.0 = Release|Win32
+		{92AF7EA9-3D95-4AA6-86F3-0FF3F2D7934C}.Debug|x64.ActiveCfg = Debug|x64
+		{92AF7EA9-3D95-4AA6-86F3-0FF3F2D7934C}.Debug|x64.Build.0 = Debug|x64
+		{92AF7EA9-3D95-4AA6-86F3-0FF3F2D7934C}.Debug|x86.ActiveCfg = Debug|Win32
+		{92AF7EA9-3D95-4AA6-86F3-0FF3F2D7934C}.Debug|x86.Build.0 = Debug|Win32
+		{92AF7EA9-3D95-4AA6-86F3-0FF3F2D7934C}.Release|x64.ActiveCfg = Release|x64
+		{92AF7EA9-3D95-4AA6-86F3-0FF3F2D7934C}.Release|x64.Build.0 = Release|x64
+		{92AF7EA9-3D95-4AA6-86F3-0FF3F2D7934C}.Release|x86.ActiveCfg = Release|Win32
+		{92AF7EA9-3D95-4AA6-86F3-0FF3F2D7934C}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
