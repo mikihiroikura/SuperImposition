@@ -50,12 +50,22 @@ double ledimpos[4][2] = { 0 }, ledidimpos[4][2] = {0};
 double ledcamdir[4][3] = { 0 };
 double lednormdir[4][3] = { 0 };
 double Rm2c[3][3] = { 0 };
+double Tm2c[3] = { 0 };
 double* idimpos = &ledidimpos[0][0];
 double* impos = &ledimpos[0][0];
 double* camdir = &ledcamdir[0][0];
 double* normdir = &lednormdir[0][0];
 double* R = &Rm2c[0][0];
+double* T = &Tm2c[0];
 double phi, w, lambda;
+cv::Mat A = cv::Mat::zeros(12, 7, CV_64F);
+cv::Mat x = cv::Mat::zeros(7, 1, CV_64F);
+cv::Mat b = cv::Mat::zeros(12, 1, CV_64F);
+double* Asrc = A.ptr<double>(0);
+double* xsrc = x.ptr<double>(0);
+double* bsrc = b.ptr<double>(0);
+const double markeredge = 10;
+const double markerpos[4][2] = { {markeredge, markeredge}, {-markeredge, markeredge}, {-markeredge, -markeredge}, {markeredge, -markeredge} };
 
 ///プロトタイプ宣言
 void TakePicture(kayacoaxpress* cam, bool* flg);
@@ -215,11 +225,28 @@ void DetectLEDMarker() {
 		*(R + 1 * 3 + i) = *(normdir + i * 3 + 2) * *(normdir + (i + 2) * 3 + 0) - *(normdir + i * 3 + 0) * *(normdir + (i + 2) * 3 + 2);
 		*(R + 2 * 3 + i) = *(normdir + i * 3 + 0) * *(normdir + (i + 2) * 3 + 1) - *(normdir + i * 3 + 1) * *(normdir + (i + 2) * 3 + 0);
 	}
+	//ここで，方向ベクトルが画像処理の誤差を乗せて直交しないときに強引に直交する方向ベクトルを計算する
 
-	//カメラ-マーカ間の相対姿勢の計算
+	//カメラ-マーカ間の相対姿勢の計算(残りの方向ベクトルを外積で求める)
 	*(R + 0 * 3 + 2) = *(R + 1 * 3 + 0) * *(R + 2 * 3 + 1) - *(R + 2 * 3 + 0) * *(R + 1 * 3 + 1);
 	*(R + 1 * 3 + 2) = *(R + 2 * 3 + 0) * *(R + 0 * 3 + 1) - *(R + 0 * 3 + 0) * *(R + 2 * 3 + 1);
 	*(R + 2 * 3 + 2) = *(R + 0 * 3 + 0) * *(R + 1 * 3 + 1) - *(R + 1 * 3 + 0) * *(R + 0 * 3 + 1);
 
 	//魚眼モデルと相対姿勢を用いてカメラ-マーカ間の相対位置を計算
+	for (size_t i = 0; i < 4; i++)
+	{
+		Asrc[i * 7 * 3 + i] = *(camdir + i * 3 + 0);
+		Asrc[i * 7 * 3 + 7 + i] = *(camdir + i * 3 + 1);
+		Asrc[i * 7 * 3 + 14 + i] = *(camdir + i * 3 + 2);
+		Asrc[i * 7 * 3 + 4] = -1;
+		Asrc[i * 7 * 3 + 12] = -1;
+		Asrc[i * 7 * 3 + 20] = -1;
+		bsrc[i * 3 + 0] = *(R + 0 * 3 + 0) * markerpos[i][0] + *(R + 0 * 3 + 1) * markerpos[i][1];
+		bsrc[i * 3 + 1] = *(R + 1 * 3 + 0) * markerpos[i][0] + *(R + 1 * 3 + 1) * markerpos[i][1];
+		bsrc[i * 3 + 2] = *(R + 2 * 3 + 0) * markerpos[i][0] + *(R + 2 * 3 + 1) * markerpos[i][1];
+	}
+	x = A.inv(cv::DECOMP_SVD) * b;
+	*(T + 0) = xsrc[4];
+	*(T + 1) = xsrc[5];
+	*(T + 2) = xsrc[6];
 }
