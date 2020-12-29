@@ -66,7 +66,6 @@ int main() {
 	thread thr(TakePicture, &cam, &flg);
 	bool videocapflg = false;
 
-
 	while (true)
 	{
 		//Œ»İ‚Ì‰æ‘œ‚ğ•\¦
