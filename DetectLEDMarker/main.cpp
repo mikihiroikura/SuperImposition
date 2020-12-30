@@ -39,6 +39,7 @@ double taketime = 0;
 /// マーカ検出のためのパラメータ
 int detectid = 0;
 cv::Mat detectimg;
+uint8_t* detectimg_src;
 cv::Mat detectgreen, detectblue;
 const cv::Scalar greenLED_min(0, 220, 0);
 const cv::Scalar greenLED_max(256, 256, 256);
@@ -46,7 +47,9 @@ const cv::Scalar blueLED_min(220, 0, 0);
 const cv::Scalar blueLED_max(256, 256, 256);
 vector<cv::Point> bluepts, greenpts;
 double bluemass, bluemomx, bluemomy;
-double ledimpos[4][2] = { 0 }, ledidimpos[4][2] = {0};
+double greenmass[3] = { 0 }, greenmomx[3] = { 0 }, greenmomy[3] = { 0 };
+double ledimpos[4][2] = { 0 }, ledidimpos[4][2] = { 0 }, greenimpos[3][2] = { 0 };
+double ledcog[2] = { 0 };
 double ledcamdir[4][3] = { 0 };
 double lednormdir[4][3] = { 0 };
 double Rm2c[3][3] = { 0 };
@@ -66,6 +69,14 @@ double* xsrc = x.ptr<double>(0);
 double* bsrc = b.ptr<double>(0);
 const double markeredge = 10;
 const double markerpos[4][2] = { {markeredge, markeredge}, {-markeredge, markeredge}, {-markeredge, -markeredge}, {markeredge, -markeredge} };
+cv::Mat greenptsall, green_cluster;
+float* greenptsall_src;
+int* green_cluster_src;
+int green_cluster_num = 3;
+double cross, dot, theta[3], absmax;
+int absmaxid, posid, negid;
+
+
 
 ///プロトタイプ宣言
 void TakePicture(kayacoaxpress* cam, bool* flg);
@@ -168,6 +179,8 @@ void DetectLEDMarker() {
 	//LEDが未検出の時は，画像全体を探索する
 	if (detectimg.data!=NULL && (int)detectimg.data[0]!=255)
 	{
+		detectimg_src = detectimg.ptr<uint8_t>(0);
+
 		//青のLEDの検出
 		cv::inRange(detectimg, blueLED_min, blueLED_max, detectblue);
 		cv::findNonZero(detectblue, bluepts);
@@ -175,9 +188,9 @@ void DetectLEDMarker() {
 		//ここにBlueが検出できなかった時の処理を加える
 		for (const auto& bluept : bluepts)
 		{
-			bluemass += (double)detectimg.data[bluept.y * width * 3 + bluept.x * 3];
-			bluemomx += (double)detectimg.data[bluept.y * width * 3 + bluept.x * 3] * bluept.x;
-			bluemomy += (double)detectimg.data[bluept.y * width * 3 + bluept.x * 3] * bluept.y;
+			bluemass += (double)detectimg_src[bluept.y * width * 3 + bluept.x * 3];
+			bluemomx += (double)detectimg_src[bluept.y * width * 3 + bluept.x * 3] * bluept.x;
+			bluemomy += (double)detectimg_src[bluept.y * width * 3 + bluept.x * 3] * bluept.y;
 		}
 		ledimpos[0][0] = bluemomx / bluemass;
 		ledimpos[0][1] = bluemomy / bluemass;
@@ -186,6 +199,69 @@ void DetectLEDMarker() {
 		//3つの緑のLEDの検出
 		cv::inRange(detectimg, greenLED_min, greenLED_max, detectgreen);
 		//ここで緑の3つのLED分類する必要がある
+		cv::findNonZero(detectgreen, greenpts);
+		greenptsall = cv::Mat::zeros(greenpts.size(), 2, CV_32FC1);
+		green_cluster = cv::Mat::zeros(greenpts.size(), 1, CV_32SC1);
+		greenptsall_src = greenptsall.ptr<float>(0);
+		for (size_t i = 0; i < greenpts.size(); i++)
+		{
+			greenptsall_src[i * 2 + 0] = greenpts[i].x;
+			greenptsall_src[i * 2 + 1] = greenpts[i].y;
+		}
+		//K means法で緑のLEDの輝点を3つのクラスタに分類
+		cv::kmeans(greenptsall, green_cluster_num, green_cluster, cvTermCriteria(CV_TERMCRIT_EPS | CV_TERMCRIT_ITER, 10, 1.0), 1, cv::KMEANS_PP_CENTERS);
+		greenmass[0] = 0, greenmass[1] = 0, greenmass[2] = 0;
+		greenmomx[0] = 0, greenmomx[1] = 0, greenmomx[2] = 0;
+		greenmomy[0] = 0, greenmomy[1] = 0, greenmomy[2] = 0;
+		green_cluster_src = green_cluster.ptr<int>(0);
+		for (size_t i = 0; i < greenpts.size(); i++)
+		{
+			greenmass[green_cluster_src[i]] += (double)detectimg_src[greenpts[i].y * width * 3 + greenpts[i].x * 3 + 1];
+			greenmomx[green_cluster_src[i]] += (double)detectimg_src[greenpts[i].y * width * 3 + greenpts[i].x * 3 + 1] * greenpts[i].x;
+			greenmomy[green_cluster_src[i]] += (double)detectimg_src[greenpts[i].y * width * 3 + greenpts[i].x * 3 + 1] * greenpts[i].y;
+		}
+		for (size_t i = 0; i < 3; i++)
+		{
+			greenimpos[i][0] = greenmomx[i] / greenmass[i];
+			greenimpos[i][1] = greenmomy[i] / greenmass[i];
+		}
+
+		//青色から時計回りに緑LEDの位置を当てはめる
+		ledcog[0] = (ledimpos[0][0] + greenimpos[0][0] + greenimpos[1][0] + greenimpos[2][0]) / 4;
+		ledcog[1] = (ledimpos[0][1] + greenimpos[0][1] + greenimpos[1][1] + greenimpos[2][1]) / 4;
+		absmax = 0;
+		for (size_t i = 0; i < 3; i++)
+		{
+			dot = (ledimpos[0][0] - ledcog[0]) * (greenimpos[i][0] - ledcog[0]) + (ledimpos[0][1] - ledcog[1]) * (greenimpos[i][1] - ledcog[1]);
+			cross = (ledimpos[0][0] - ledcog[0]) * (greenimpos[i][1] - ledcog[1]) - (ledimpos[0][1] - ledcog[1]) * (greenimpos[i][0] - ledcog[0]);
+			theta[i] = atan2(cross, dot);
+			if (absmax < abs(theta[i])) 
+			{
+				absmax = abs(theta[i]);
+				absmaxid = i;
+			}
+		}
+		for (size_t i = 0; i < 3; i++)
+		{
+			if (i==absmaxid)
+			{
+				ledimpos[2][0] = greenimpos[i][0];
+				ledimpos[2][1] = greenimpos[i][1];
+			}
+			else
+			{
+				if (theta[i]>0)
+				{
+					ledimpos[1][0] = greenimpos[i][0];
+					ledimpos[1][1] = greenimpos[i][1];
+				}
+				else
+				{
+					ledimpos[3][0] = greenimpos[i][0];
+					ledimpos[3][1] = greenimpos[i][1];
+				}
+			}
+		}
 
 	}
 	//LEDが一度検出されているときは，前の結果からROIを設定する
