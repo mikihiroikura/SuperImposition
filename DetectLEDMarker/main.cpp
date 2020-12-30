@@ -332,65 +332,69 @@ void DetectLEDMarker() {
 
 
 	//LEDの位置から，4つの方向ベクトルを求める
-	///理想ピクセル座標系に変換
-	for (size_t i = 0; i < 4; i++)
-	{
-		ledidimpos[i][0] = det * ((ledimpos[i][0] - distort[0]) - stretch_mat[1] * (ledimpos[i][1] - distort[1]));
-		ledidimpos[i][1] = det * (-stretch_mat[2] * (ledimpos[i][0] - distort[0]) + stretch_mat[0] * (ledimpos[i][1] - distort[1]));
-	}
-	///理想ピクセル->方向ベクトル
-	for (size_t i = 0; i < 4; i++)
-	{
-		phi = hypot(ledidimpos[i][0], ledidimpos[i][1]);
-		w = map_coeff[0] + map_coeff[1] * pow(phi, 2) +
-			map_coeff[2] * pow(phi, 3) + map_coeff[3] * pow(phi, 4);
-		lambda = 1 / pow(pow(ledidimpos[i][0], 2) + pow(ledidimpos[i][1], 2) + pow(w, 2), 0.5);
-		ledcamdir[i][0] = lambda * ledidimpos[i][0];
-		ledcamdir[i][1] = lambda * ledidimpos[i][1];
-		ledcamdir[i][2] = lambda * w;
-	}
+	if (bluedetected && greendetected)
+	{//緑LEDと青LEDの両方が検出されたときに位置姿勢を更新する
+		///理想ピクセル座標系に変換
+		for (size_t i = 0; i < 4; i++)
+		{
+			ledidimpos[i][0] = det * ((ledimpos[i][0] - distort[0]) - stretch_mat[1] * (ledimpos[i][1] - distort[1]));
+			ledidimpos[i][1] = det * (-stretch_mat[2] * (ledimpos[i][0] - distort[0]) + stretch_mat[0] * (ledimpos[i][1] - distort[1]));
+		}
+		///理想ピクセル->方向ベクトル
+		for (size_t i = 0; i < 4; i++)
+		{
+			phi = hypot(ledidimpos[i][0], ledidimpos[i][1]);
+			w = map_coeff[0] + map_coeff[1] * pow(phi, 2) +
+				map_coeff[2] * pow(phi, 3) + map_coeff[3] * pow(phi, 4);
+			lambda = 1 / pow(pow(ledidimpos[i][0], 2) + pow(ledidimpos[i][1], 2) + pow(w, 2), 0.5);
+			ledcamdir[i][0] = lambda * ledidimpos[i][0];
+			ledcamdir[i][1] = lambda * ledidimpos[i][1];
+			ledcamdir[i][2] = lambda * w;
+		}
 
-	//4つの方向ベクトルから，斜面の法線ベクトルを求める
-	for (size_t i = 0; i < 4; i++)
-	{
-		lednormdir[i][0] = ledcamdir[i][1] * ledcamdir[(i + 1) % 4][2] - ledcamdir[i][2] * ledcamdir[(i + 1) % 4][1];
-		lednormdir[i][1] = ledcamdir[i][2] * ledcamdir[(i + 1) % 4][0] - ledcamdir[i][0] * ledcamdir[(i + 1) % 4][2];
-		lednormdir[i][2] = ledcamdir[i][0] * ledcamdir[(i + 1) % 4][1] - ledcamdir[i][1] * ledcamdir[(i + 1) % 4][0];
+		//4つの方向ベクトルから，斜面の法線ベクトルを求める
+		for (size_t i = 0; i < 4; i++)
+		{
+			lednormdir[i][0] = ledcamdir[i][1] * ledcamdir[(i + 1) % 4][2] - ledcamdir[i][2] * ledcamdir[(i + 1) % 4][1];
+			lednormdir[i][1] = ledcamdir[i][2] * ledcamdir[(i + 1) % 4][0] - ledcamdir[i][0] * ledcamdir[(i + 1) % 4][2];
+			lednormdir[i][2] = ledcamdir[i][0] * ledcamdir[(i + 1) % 4][1] - ledcamdir[i][1] * ledcamdir[(i + 1) % 4][0];
+		}
+
+		//法線ベクトルから，LEDマーカの辺の方向ベクトルを2つ求める
+		for (size_t i = 0; i < 2; i++)
+		{
+			Rm2c[0][i] = lednormdir[i][1] * lednormdir[(i + 2)][2] - lednormdir[i][2] * lednormdir[(i + 2)][1];
+			Rm2c[1][i] = lednormdir[i][2] * lednormdir[(i + 2)][0] - lednormdir[i][0] * lednormdir[(i + 2)][2];
+			Rm2c[2][i] = lednormdir[i][0] * lednormdir[(i + 2)][1] - lednormdir[i][1] * lednormdir[(i + 2)][0];
+		}
+
+		//カメラ-マーカ間の相対姿勢の計算(残りの方向ベクトルを外積で求める)
+		Rm2c[0][2] = Rm2c[1][0] * Rm2c[2][1] - Rm2c[2][0] * Rm2c[1][1];
+		Rm2c[1][2] = Rm2c[2][0] * Rm2c[0][1] - Rm2c[0][0] * Rm2c[2][1];
+		Rm2c[2][2] = Rm2c[0][0] * Rm2c[1][1] - Rm2c[1][0] * Rm2c[0][1];
+
+		//ここで，方向ベクトルが画像処理の誤差を乗せて直交しないときに強引に直交する方向ベクトルを計算する
+		Rm2c[0][1] = Rm2c[1][2] * Rm2c[2][0] - Rm2c[2][2] * Rm2c[1][0];
+		Rm2c[1][1] = Rm2c[2][2] * Rm2c[0][0] - Rm2c[0][2] * Rm2c[2][0];
+		Rm2c[2][1] = Rm2c[0][2] * Rm2c[1][0] - Rm2c[1][2] * Rm2c[0][0];
+
+		//魚眼モデルと相対姿勢を用いてカメラ-マーカ間の相対位置を計算
+		for (size_t i = 0; i < 4; i++)
+		{
+			Asrc[i * 7 * 3 + i] = ledcamdir[i][0];
+			Asrc[i * 7 * 3 + 7 + i] = ledcamdir[i][1];
+			Asrc[i * 7 * 3 + 14 + i] = ledcamdir[i][2];
+			Asrc[i * 7 * 3 + 4] = -1;
+			Asrc[i * 7 * 3 + 12] = -1;
+			Asrc[i * 7 * 3 + 20] = -1;
+			bsrc[i * 3 + 0] = Rm2c[0][0] * markerpos[i][0] + Rm2c[0][1] * markerpos[i][1];
+			bsrc[i * 3 + 1] = Rm2c[1][0] * markerpos[i][0] + Rm2c[1][1] * markerpos[i][1];
+			bsrc[i * 3 + 2] = Rm2c[2][0] * markerpos[i][0] + Rm2c[2][1] * markerpos[i][1];
+		}
+		x = A.inv(cv::DECOMP_SVD) * b;
+		Tm2c[0] = xsrc[4];
+		Tm2c[1] = xsrc[5];
+		Tm2c[2] = xsrc[6];
 	}
-
-	//法線ベクトルから，LEDマーカの辺の方向ベクトルを2つ求める
-	for (size_t i = 0; i < 2; i++)
-	{
-		Rm2c[0][i] = lednormdir[i][1] * lednormdir[(i + 2)][2] - lednormdir[i][2] * lednormdir[(i + 2)][1];
-		Rm2c[1][i] = lednormdir[i][2] * lednormdir[(i + 2)][0] - lednormdir[i][0] * lednormdir[(i + 2)][2];
-		Rm2c[2][i] = lednormdir[i][0] * lednormdir[(i + 2)][1] - lednormdir[i][1] * lednormdir[(i + 2)][0];
-	}
-
-	//カメラ-マーカ間の相対姿勢の計算(残りの方向ベクトルを外積で求める)
-	Rm2c[0][2] = Rm2c[1][0] * Rm2c[2][1] - Rm2c[2][0] * Rm2c[1][1];
-	Rm2c[1][2] = Rm2c[2][0] * Rm2c[0][1] - Rm2c[0][0] * Rm2c[2][1];
-	Rm2c[2][2] = Rm2c[0][0] * Rm2c[1][1] - Rm2c[1][0] * Rm2c[0][1];
-
-	//ここで，方向ベクトルが画像処理の誤差を乗せて直交しないときに強引に直交する方向ベクトルを計算する
-	Rm2c[0][1] = Rm2c[1][2] * Rm2c[2][0] - Rm2c[2][2] * Rm2c[1][0];
-	Rm2c[1][1] = Rm2c[2][2] * Rm2c[0][0] - Rm2c[0][2] * Rm2c[2][0];
-	Rm2c[2][1] = Rm2c[0][2] * Rm2c[1][0] - Rm2c[1][2] * Rm2c[0][0];
-
-	//魚眼モデルと相対姿勢を用いてカメラ-マーカ間の相対位置を計算
-	for (size_t i = 0; i < 4; i++)
-	{
-		Asrc[i * 7 * 3 + i] = ledcamdir[i][0];
-		Asrc[i * 7 * 3 + 7 + i] = ledcamdir[i][1];
-		Asrc[i * 7 * 3 + 14 + i] = ledcamdir[i][2];
-		Asrc[i * 7 * 3 + 4] = -1;
-		Asrc[i * 7 * 3 + 12] = -1;
-		Asrc[i * 7 * 3 + 20] = -1;
-		bsrc[i * 3 + 0] = Rm2c[0][0] * markerpos[i][0] + Rm2c[0][1] * markerpos[i][1];
-		bsrc[i * 3 + 1] = Rm2c[1][0] * markerpos[i][0] + Rm2c[1][1] * markerpos[i][1];
-		bsrc[i * 3 + 2] = Rm2c[2][0] * markerpos[i][0] + Rm2c[2][1] * markerpos[i][1];
-	}
-	x = A.inv(cv::DECOMP_SVD) * b;
-	Tm2c[0] = xsrc[4];
-	Tm2c[1] = xsrc[5];
-	Tm2c[2] = xsrc[6];
+	
 }
