@@ -6,6 +6,7 @@
 #include <iostream>
 #include <Windows.h>
 #include <thread>
+#include <vector>
 
 #ifdef _DEBUG
 #define LIB_EXT "d.lib"
@@ -38,8 +39,9 @@ LARGE_INTEGER takestart, takeend, freq;
 double taketime = 0;
 /// マーカ検出のためのパラメータ
 int detectid = 0;
-cv::Mat detectimg;
-uint8_t* detectimg_src;
+vector<cv::Mat> detectimg;
+cv::Mat diffimg;
+uint8_t* diffimg_src;
 cv::Mat detectgreen, detectblue;
 const cv::Scalar greenLED_min(0, 220, 0);
 const cv::Scalar greenLED_max(256, 256, 256);
@@ -123,6 +125,12 @@ int main() {
 		processflgs.push_back(false);
 	}
 
+	//LED位置検出のためのMat vector作成
+	for (size_t i = 0; i < 2; i++)
+	{
+		detectimg.push_back(zero.clone());
+	}
+
 	//カメラ起動
 	cout << "Camera Start!" << endl;
 	cam.start();
@@ -174,17 +182,22 @@ void DetectLEDMarker() {
 	detectid = (in_imgs_saveid - 1 + cyclebuffersize) % cyclebuffersize;
 	if (processflgs[detectid])
 	{
-		memcpy(detectimg.data, in_imgs[detectid].data, height * width * 3);
+		if (detectid%2==0){ memcpy(detectimg[1].data, in_imgs[detectid].data, height * width * 3); }
+		else { memcpy(detectimg[0].data, in_imgs[detectid].data, height * width * 3); }
+		
 	}
 	//LEDが未検出の時は，画像全体を探索する
-	if (detectimg.data!=NULL && (int)detectimg.data[0]!=255)
+	if (detectimg[0].data!=NULL && detectimg[1].data != NULL && (int)detectimg[0].data[0]!=255 && (int)detectimg[1].data[0] != 255)
 	{
-		detectimg_src = detectimg.ptr<uint8_t>(0);
+		//差分画像の生成
+		cv::absdiff(detectimg[0], detectimg[1], diffimg);
+
+		diffimg_src = diffimg.ptr<uint8_t>(0);
 
 		//青のLEDの検出
 		if (!bluedetected)
 		{
-			cv::inRange(detectimg, blueLED_min, blueLED_max, detectblue);
+			cv::inRange(diffimg, blueLED_min, blueLED_max, detectblue);
 			cv::findNonZero(detectblue, bluepts);
 			bluemass = 0, bluemomx = 0, bluemomy = 0;
 			//ここにBlueが検出できなかった時の処理を加える
@@ -192,9 +205,9 @@ void DetectLEDMarker() {
 			{
 				for (const auto& bluept : bluepts)
 				{
-					bluemass += (double)detectimg_src[bluept.y * width * 3 + bluept.x * 3];
-					bluemomx += (double)detectimg_src[bluept.y * width * 3 + bluept.x * 3] * bluept.x;
-					bluemomy += (double)detectimg_src[bluept.y * width * 3 + bluept.x * 3] * bluept.y;
+					bluemass += (double)diffimg_src[bluept.y * width * 3 + bluept.x * 3];
+					bluemomx += (double)diffimg_src[bluept.y * width * 3 + bluept.x * 3] * bluept.x;
+					bluemomy += (double)diffimg_src[bluept.y * width * 3 + bluept.x * 3] * bluept.y;
 				}
 				ledimpos[0][0] = bluemomx / bluemass;
 				ledimpos[0][1] = bluemomy / bluemass;
@@ -204,7 +217,7 @@ void DetectLEDMarker() {
 		else
 		{//前フレームで青色LEDを検出していたらROIを設定し検出する
 			roi_blue.x = ledimpos[0][0], roi_blue.y = ledimpos[0][1];
-			cv::inRange(detectimg(roi_blue), blueLED_min, blueLED_max, detectblue);
+			cv::inRange(diffimg(roi_blue), blueLED_min, blueLED_max, detectblue);
 			cv::findNonZero(detectblue, bluepts);
 			bluemass = 0, bluemomx = 0, bluemomy = 0;
 			//ここにBlueが検出できなかった時の処理を加える
@@ -212,9 +225,9 @@ void DetectLEDMarker() {
 			{
 				for (const auto& bluept : bluepts)
 				{
-					bluemass += (double)detectimg_src[(bluept.y + roi_blue.y) * width * 3 + (bluept.x + roi_blue.x) * 3];
-					bluemomx += (double)detectimg_src[(bluept.y + roi_blue.y) * width * 3 + (bluept.x + roi_blue.x) * 3] * ((double)bluept.x + roi_blue.x);
-					bluemomy += (double)detectimg_src[(bluept.y + roi_blue.y) * width * 3 + (bluept.x + roi_blue.x) * 3] * ((double)bluept.y + roi_blue.y);
+					bluemass += (double)diffimg_src[(bluept.y + roi_blue.y) * width * 3 + (bluept.x + roi_blue.x) * 3];
+					bluemomx += (double)diffimg_src[(bluept.y + roi_blue.y) * width * 3 + (bluept.x + roi_blue.x) * 3] * ((double)bluept.x + roi_blue.x);
+					bluemomy += (double)diffimg_src[(bluept.y + roi_blue.y) * width * 3 + (bluept.x + roi_blue.x) * 3] * ((double)bluept.y + roi_blue.y);
 				}
 				ledimpos[0][0] = bluemomx / bluemass;
 				ledimpos[0][1] = bluemomy / bluemass;
@@ -229,7 +242,7 @@ void DetectLEDMarker() {
 		//3つの緑のLEDの検出
 		if (!greendetected)
 		{
-			cv::inRange(detectimg, greenLED_min, greenLED_max, detectgreen);
+			cv::inRange(diffimg, greenLED_min, greenLED_max, detectgreen);
 			//ここで緑の3つのLED分類する必要がある
 			cv::findNonZero(detectgreen, greenpts);
 			if (greenpts.size() > 0)
@@ -254,9 +267,9 @@ void DetectLEDMarker() {
 				green_cluster_src = green_cluster.ptr<int>(0);
 				for (size_t i = 0; i < greenpts.size(); i++)
 				{
-					greenmass[green_cluster_src[i]] += (double)detectimg_src[greenpts[i].y * width * 3 + greenpts[i].x * 3 + 1];
-					greenmomx[green_cluster_src[i]] += (double)detectimg_src[greenpts[i].y * width * 3 + greenpts[i].x * 3 + 1] * greenpts[i].x;
-					greenmomy[green_cluster_src[i]] += (double)detectimg_src[greenpts[i].y * width * 3 + greenpts[i].x * 3 + 1] * greenpts[i].y;
+					greenmass[green_cluster_src[i]] += (double)diffimg_src[greenpts[i].y * width * 3 + greenpts[i].x * 3 + 1];
+					greenmomx[green_cluster_src[i]] += (double)diffimg_src[greenpts[i].y * width * 3 + greenpts[i].x * 3 + 1] * greenpts[i].x;
+					greenmomy[green_cluster_src[i]] += (double)diffimg_src[greenpts[i].y * width * 3 + greenpts[i].x * 3 + 1] * greenpts[i].y;
 				}
 				for (size_t i = 0; i < 3; i++)
 				{
@@ -308,16 +321,16 @@ void DetectLEDMarker() {
 			for (size_t i = 0; i < 3; i++)
 			{
 				roi_greens[i].x = ledimpos[i + 1][0], roi_greens[i].y = ledimpos[i + 1][1];
-				cv::inRange(detectimg(roi_greens[i]), greenLED_min, greenLED_max, detectgreen);
+				cv::inRange(diffimg(roi_greens[i]), greenLED_min, greenLED_max, detectgreen);
 				cv::findNonZero(detectgreen, greenpts);
 				greenmass[i] = 0, greenmomx[i] = 0, greenmomy[i] = 0;
 				if (greenpts.size() > 0)
 				{
 					for (const auto& greenpt: greenpts)
 					{
-						greenmass[i] += (double)detectimg_src[(greenpt.y + roi_greens[i].y) * width * 3 + (greenpt.x + roi_greens[i].x) * 3 + 1];
-						greenmomx[i] += (double)detectimg_src[(greenpt.y + roi_greens[i].y) * width * 3 + (greenpt.x + roi_greens[i].x) * 3 + 1] * ((double)greenpt.x + roi_greens[i].x);
-						greenmomy[i] += (double)detectimg_src[(greenpt.y + roi_greens[i].y) * width * 3 + (greenpt.x + roi_greens[i].x) * 3 + 1] * ((double)greenpt.y + roi_greens[i].y);
+						greenmass[i] += (double)diffimg_src[(greenpt.y + roi_greens[i].y) * width * 3 + (greenpt.x + roi_greens[i].x) * 3 + 1];
+						greenmomx[i] += (double)diffimg_src[(greenpt.y + roi_greens[i].y) * width * 3 + (greenpt.x + roi_greens[i].x) * 3 + 1] * ((double)greenpt.x + roi_greens[i].x);
+						greenmomy[i] += (double)diffimg_src[(greenpt.y + roi_greens[i].y) * width * 3 + (greenpt.x + roi_greens[i].x) * 3 + 1] * ((double)greenpt.y + roi_greens[i].y);
 					}
 					ledimpos[i + 1][0] = greenmomx[i] / greenmass[i];
 					ledimpos[i + 1][1] = greenmomy[i] / greenmass[i];
