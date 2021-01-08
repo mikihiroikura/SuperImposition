@@ -158,7 +158,7 @@ void deleteVBO(GLuint* vbo, struct cudaGraphicsResource* vbo_res);
 static void setfov(GLFWwindow* window, double x, double y);
 
 // Cuda functionality
-void runCuda(struct cudaGraphicsResource** vbo_resource, rs2::points points);
+void runCuda(struct cudaGraphicsResource** vbo_resource);
 
 const char* sSDKsample = "simpleGL (VBO)";
 
@@ -294,7 +294,7 @@ int main(int argc, char** argv)
         h_vertices_f = (float3*)h_vertices;
         cudaMemcpy(d_vertices, h_vertices_f, size_vert, cudaMemcpyHostToDevice);//デバイスメモリにホストメモリの値をコピー
 
-        runCuda(&cuda_vbo_resource, points);
+        runCuda(&cuda_vbo_resource);
         draw_pointcloud2(&vbo, tex_coords, &tcbo, window_width, window_height, tex, points, translate_z, rotate_x, rotate_y);
 
         glPopMatrix();
@@ -309,6 +309,7 @@ int main(int argc, char** argv)
         ImGui::SetNextWindowSize(ImVec2(320, 300), ImGuiCond_Once);
         ImGui::Begin("hello world");
         ImGui::Text("This is useful text");
+        hovered = ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem); //IMGUI上のWindowでのカーソル処理時のフラグを立てる
         ImGui::DragFloat("rotate x", &rotate_x);
         ImGui::DragFloat("rotate y", &rotate_y);
         ImGui::DragFloat("trans x", &translate_x);
@@ -407,7 +408,7 @@ bool initGL(int* argc, char** argv)
 ////////////////////////////////////////////////////////////////////////////////
 //! Run the Cuda part of the computation
 ////////////////////////////////////////////////////////////////////////////////
-void runCuda(struct cudaGraphicsResource** vbo_resource, rs2::points points)
+void runCuda(struct cudaGraphicsResource** vbo_resource)
 {
     
     checkCudaErrors(cudaGraphicsMapResources(1, vbo_resource, 0));
