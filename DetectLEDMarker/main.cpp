@@ -25,18 +25,19 @@ const int width = 896;
 const int height = 896;
 const float fps = 1000.0;
 const float exposuretime = 912.0;
-const int offsetx = 480;
+const int offsetx = 512;
 const int offsety = 92;
 double map_coeff[4], stretch_mat[4], det, distort[4];
 /// 画像に関するパラメータ
-const int cyclebuffersize = 100;
+const int cyclebuffersize = 10;
 vector<cv::Mat> in_imgs;
 vector<bool> processflgs;
 cv::Mat zero, full;
 int takepicid, in_imgs_saveid;
 /// 時間計測に関するパラメータ
 LARGE_INTEGER takestart, takeend, freq;
-double taketime = 0;
+LARGE_INTEGER showstart, showend;
+double taketime = 0, showtime = 0;
 /// マーカ検出のためのパラメータ
 int detectid = 0;
 vector<cv::Mat> detectimg;
@@ -74,11 +75,15 @@ int absmaxid, posid, negid;
 bool bluedetected = false, greendetected = false;
 cv::Rect roi_blue;
 vector<cv::Rect> roi_greens;
-int roi_width = 30;
+const int roi_width = 30;
+
+#define SHOW_PROCESSING_TIME_
+#define SHOW_IMGS_OPENGL_
 
 ///プロトタイプ宣言
 void TakePicture(kayacoaxpress* cam, bool* flg);
 void DetectLEDMarker();
+void ShowAllLogs(bool* flg);
 
 
 int main() {
@@ -87,7 +92,7 @@ int main() {
 	QueryPerformanceFrequency(&freq);
 
 	kayacoaxpress cam;
-	cam.connect(0);
+	cam.connect(1);
 
 	//パラメータの設定
 	cout << "Set Camera Params..." << endl;
@@ -103,7 +108,7 @@ int main() {
 
 	//レーザCalibrationの結果の呼び出し
 	FILE* fcam;
-	fcam = fopen("202011251943_fisheyeparam.csv", "r");
+	fcam = fopen("202012300316_fisheyeparam.csv", "r");
 	for (size_t i = 0; i < 4; i++) { fscanf(fcam, "%lf,", &map_coeff[i]); }
 	for (size_t i = 0; i < 4; i++) { fscanf(fcam, "%lf,", &stretch_mat[i]); }
 	swap(stretch_mat[1], stretch_mat[2]);
@@ -137,6 +142,9 @@ int main() {
 
 	//Threadの作成
 	thread thr1(TakePicture, &cam, &flg);
+#ifdef SHOW_IMGS_OPENGL_
+	thread thr2(ShowAllLogs, &flg);
+#endif // SHOW_IMGS_OPENGL_
 
 
 	while (flg)
@@ -144,7 +152,15 @@ int main() {
 		DetectLEDMarker();
 	}
 
+	//カメラの停止，RS232Cの切断
+	cam.stop();
+	cam.disconnect();
 
+	//スレッドの削除
+	if (thr1.joinable()) thr1.join();
+#ifdef SHOW_IMGS_OPENGL_
+	if (thr2.joinable())thr2.join();
+#endif // SHOW_IMGS_OPENGL_
 
 	return 0;
 }
@@ -172,8 +188,39 @@ void TakePicture(kayacoaxpress* cam, bool* flg) {
 			QueryPerformanceCounter(&takeend);
 			taketime = (double)(takeend.QuadPart - takestart.QuadPart) / freq.QuadPart;
 		}
-
+#ifdef SHOW_PROCESSING_TIME_
 		std::cout << "TakePicture() time: " << taketime << endl;
+#endif // SHOW_PROCESSING_TIME_
+	}
+}
+
+//画像とOpenGLの点群全てを表示
+void ShowAllLogs(bool* flg) {
+	while (*flg)
+	{
+		QueryPerformanceCounter(&showstart);
+
+		//OpenCVで画像表示
+		cv::imshow("img", in_imgs[(in_imgs_saveid - 2 + cyclebuffersize) % cyclebuffersize]);
+		int key = cv::waitKey(1);
+		if (key == 'q') *flg = false;
+
+#ifdef SAVE_IMGS_
+		memcpy((imglog + log_img_cnt)->data, in_imgs[(in_imgs_saveid - 2 + cyclebuffersize) % cyclebuffersize].data, height * width * 3);
+		log_img_cnt++;
+		if (log_img_cnt > log_img_finish_cnt) *flg = false;
+#endif // SAVE_IMGS_
+
+		QueryPerformanceCounter(&showend);
+		showtime = (double)(showend.QuadPart - showstart.QuadPart) / freq.QuadPart;
+		while (showtime < 0.033)
+		{
+			QueryPerformanceCounter(&showend);
+			showtime = (double)(showend.QuadPart - showstart.QuadPart) / freq.QuadPart;
+		}
+#ifdef SHOW_PROCESSING_TIME_
+		std::cout << "ShowAllLogs() time: " << showtime << endl;
+#endif // SHOW_PROCESSING_TIME_
 	}
 }
 
@@ -216,7 +263,32 @@ void DetectLEDMarker() {
 		}
 		else
 		{//前フレームで青色LEDを検出していたらROIを設定し検出する
-			roi_blue.x = ledimpos[0][0], roi_blue.y = ledimpos[0][1];
+			if (ledimpos[0][0] < roi_width/ 2) {
+				roi_blue.x = 0;
+				roi_blue.width = roi_width / 2 + ledimpos[0][0];
+			}
+			else if(ledimpos[0][0] > (double)(width - roi_width / 2)) { 
+				roi_blue.x = ledimpos[0][0] - roi_width / 2;;
+				roi_blue.width = roi_width / 2  + width - ledimpos[0][0];
+			}
+			else
+			{
+				roi_blue.x = ledimpos[0][0] - roi_width / 2;
+				roi_blue.width = roi_width;
+			}
+			if (ledimpos[0][1] < roi_width / 2) {
+				roi_blue.y = 0;
+				roi_blue.height = roi_width / 2 + ledimpos[0][1];
+			}
+			else if (ledimpos[0][1] > (double)(height - roi_width / 2)) {
+				roi_blue.y = ledimpos[0][1] - roi_width / 2;;
+				roi_blue.height = roi_width / 2 + height - ledimpos[0][1];
+			}
+			else
+			{
+				roi_blue.y = ledimpos[0][1] - roi_width / 2;
+				roi_blue.height = roi_width;
+			}
 			cv::inRange(diffimg(roi_blue), blueLED_min, blueLED_max, detectblue);
 			cv::findNonZero(detectblue, bluepts);
 			bluemass = 0, bluemomx = 0, bluemomy = 0;
@@ -239,108 +311,108 @@ void DetectLEDMarker() {
 		}
 		
 
-		//3つの緑のLEDの検出
-		if (!greendetected)
-		{
-			cv::inRange(diffimg, greenLED_min, greenLED_max, detectgreen);
-			//ここで緑の3つのLED分類する必要がある
-			cv::findNonZero(detectgreen, greenpts);
-			if (greenpts.size() > 0)
-			{
-				greenptsall = cv::Mat::zeros(greenpts.size(), 2, CV_32FC1);
-				green_cluster = cv::Mat::zeros(greenpts.size(), 1, CV_32SC1);
-				greenptsall_src = greenptsall.ptr<float>(0);
-				for (size_t i = 0; i < greenpts.size(); i++)
-				{
-					greenptsall_src[i * 2 + 0] = greenpts[i].x;
-					greenptsall_src[i * 2 + 1] = greenpts[i].y;
-				}
-				//K means法で緑のLEDの輝点を3つのクラスタに分類
-				cv::kmeans(greenptsall, green_cluster_num, green_cluster, cvTermCriteria(CV_TERMCRIT_EPS | CV_TERMCRIT_ITER, 10, 1.0), 1, cv::KMEANS_PP_CENTERS);
-				//ここで3つのクラスタがしっかり3つ分のLEDになっているとは限らない(1つのLEDから強引に2つにクラスタ分けしてしまう可能性がある)
-				//3つのクラスタの重心位置がそれぞれ閾値以上離れているかどうか判定する
+		////3つの緑のLEDの検出
+		//if (!greendetected)
+		//{
+		//	cv::inRange(diffimg, greenLED_min, greenLED_max, detectgreen);
+		//	//ここで緑の3つのLED分類する必要がある
+		//	cv::findNonZero(detectgreen, greenpts);
+		//	if (greenpts.size() > 0)
+		//	{
+		//		greenptsall = cv::Mat::zeros(greenpts.size(), 2, CV_32FC1);
+		//		green_cluster = cv::Mat::zeros(greenpts.size(), 1, CV_32SC1);
+		//		greenptsall_src = greenptsall.ptr<float>(0);
+		//		for (size_t i = 0; i < greenpts.size(); i++)
+		//		{
+		//			greenptsall_src[i * 2 + 0] = greenpts[i].x;
+		//			greenptsall_src[i * 2 + 1] = greenpts[i].y;
+		//		}
+		//		//K means法で緑のLEDの輝点を3つのクラスタに分類
+		//		cv::kmeans(greenptsall, green_cluster_num, green_cluster, cvTermCriteria(CV_TERMCRIT_EPS | CV_TERMCRIT_ITER, 10, 1.0), 1, cv::KMEANS_PP_CENTERS);
+		//		//ここで3つのクラスタがしっかり3つ分のLEDになっているとは限らない(1つのLEDから強引に2つにクラスタ分けしてしまう可能性がある)
+		//		//3つのクラスタの重心位置がそれぞれ閾値以上離れているかどうか判定する
 
 
-				greenmass[0] = 0, greenmass[1] = 0, greenmass[2] = 0;
-				greenmomx[0] = 0, greenmomx[1] = 0, greenmomx[2] = 0;
-				greenmomy[0] = 0, greenmomy[1] = 0, greenmomy[2] = 0;
-				green_cluster_src = green_cluster.ptr<int>(0);
-				for (size_t i = 0; i < greenpts.size(); i++)
-				{
-					greenmass[green_cluster_src[i]] += (double)diffimg_src[greenpts[i].y * width * 3 + greenpts[i].x * 3 + 1];
-					greenmomx[green_cluster_src[i]] += (double)diffimg_src[greenpts[i].y * width * 3 + greenpts[i].x * 3 + 1] * greenpts[i].x;
-					greenmomy[green_cluster_src[i]] += (double)diffimg_src[greenpts[i].y * width * 3 + greenpts[i].x * 3 + 1] * greenpts[i].y;
-				}
-				for (size_t i = 0; i < 3; i++)
-				{
-					greenimpos[i][0] = greenmomx[i] / greenmass[i];
-					greenimpos[i][1] = greenmomy[i] / greenmass[i];
-				}
+		//		greenmass[0] = 0, greenmass[1] = 0, greenmass[2] = 0;
+		//		greenmomx[0] = 0, greenmomx[1] = 0, greenmomx[2] = 0;
+		//		greenmomy[0] = 0, greenmomy[1] = 0, greenmomy[2] = 0;
+		//		green_cluster_src = green_cluster.ptr<int>(0);
+		//		for (size_t i = 0; i < greenpts.size(); i++)
+		//		{
+		//			greenmass[green_cluster_src[i]] += (double)diffimg_src[greenpts[i].y * width * 3 + greenpts[i].x * 3 + 1];
+		//			greenmomx[green_cluster_src[i]] += (double)diffimg_src[greenpts[i].y * width * 3 + greenpts[i].x * 3 + 1] * greenpts[i].x;
+		//			greenmomy[green_cluster_src[i]] += (double)diffimg_src[greenpts[i].y * width * 3 + greenpts[i].x * 3 + 1] * greenpts[i].y;
+		//		}
+		//		for (size_t i = 0; i < 3; i++)
+		//		{
+		//			greenimpos[i][0] = greenmomx[i] / greenmass[i];
+		//			greenimpos[i][1] = greenmomy[i] / greenmass[i];
+		//		}
 
-				//青色から時計回りに緑LEDの位置を当てはめる
-				ledcog[0] = (ledimpos[0][0] + greenimpos[0][0] + greenimpos[1][0] + greenimpos[2][0]) / 4;
-				ledcog[1] = (ledimpos[0][1] + greenimpos[0][1] + greenimpos[1][1] + greenimpos[2][1]) / 4;
-				absmax = 0;
-				for (size_t i = 0; i < 3; i++)
-				{
-					dot = (ledimpos[0][0] - ledcog[0]) * (greenimpos[i][0] - ledcog[0]) + (ledimpos[0][1] - ledcog[1]) * (greenimpos[i][1] - ledcog[1]);
-					cross = (ledimpos[0][0] - ledcog[0]) * (greenimpos[i][1] - ledcog[1]) - (ledimpos[0][1] - ledcog[1]) * (greenimpos[i][0] - ledcog[0]);
-					theta[i] = atan2(cross, dot);
-					if (absmax < abs(theta[i]))
-					{
-						absmax = abs(theta[i]);
-						absmaxid = i;
-					}
-				}
-				for (size_t i = 0; i < 3; i++)
-				{
-					if (i == absmaxid)
-					{
-						ledimpos[2][0] = greenimpos[i][0];
-						ledimpos[2][1] = greenimpos[i][1];
-					}
-					else
-					{
-						if (theta[i] > 0)
-						{
-							ledimpos[1][0] = greenimpos[i][0];
-							ledimpos[1][1] = greenimpos[i][1];
-						}
-						else
-						{
-							ledimpos[3][0] = greenimpos[i][0];
-							ledimpos[3][1] = greenimpos[i][1];
-						}
-					}
-				}
-				greendetected = true;
-			}
-		}
-		else
-		{//前フレームで緑LEDを3つすべて検出している場合，ROIを設定して位置を求める
-			for (size_t i = 0; i < 3; i++)
-			{
-				roi_greens[i].x = ledimpos[i + 1][0], roi_greens[i].y = ledimpos[i + 1][1];
-				cv::inRange(diffimg(roi_greens[i]), greenLED_min, greenLED_max, detectgreen);
-				cv::findNonZero(detectgreen, greenpts);
-				greenmass[i] = 0, greenmomx[i] = 0, greenmomy[i] = 0;
-				if (greenpts.size() > 0)
-				{
-					for (const auto& greenpt: greenpts)
-					{
-						greenmass[i] += (double)diffimg_src[(greenpt.y + roi_greens[i].y) * width * 3 + (greenpt.x + roi_greens[i].x) * 3 + 1];
-						greenmomx[i] += (double)diffimg_src[(greenpt.y + roi_greens[i].y) * width * 3 + (greenpt.x + roi_greens[i].x) * 3 + 1] * ((double)greenpt.x + roi_greens[i].x);
-						greenmomy[i] += (double)diffimg_src[(greenpt.y + roi_greens[i].y) * width * 3 + (greenpt.x + roi_greens[i].x) * 3 + 1] * ((double)greenpt.y + roi_greens[i].y);
-					}
-					ledimpos[i + 1][0] = greenmomx[i] / greenmass[i];
-					ledimpos[i + 1][1] = greenmomy[i] / greenmass[i];
-				}
-				else
-				{
-					greendetected = false;
-				}
-			}
-		}
+		//		//青色から時計回りに緑LEDの位置を当てはめる
+		//		ledcog[0] = (ledimpos[0][0] + greenimpos[0][0] + greenimpos[1][0] + greenimpos[2][0]) / 4;
+		//		ledcog[1] = (ledimpos[0][1] + greenimpos[0][1] + greenimpos[1][1] + greenimpos[2][1]) / 4;
+		//		absmax = 0;
+		//		for (size_t i = 0; i < 3; i++)
+		//		{
+		//			dot = (ledimpos[0][0] - ledcog[0]) * (greenimpos[i][0] - ledcog[0]) + (ledimpos[0][1] - ledcog[1]) * (greenimpos[i][1] - ledcog[1]);
+		//			cross = (ledimpos[0][0] - ledcog[0]) * (greenimpos[i][1] - ledcog[1]) - (ledimpos[0][1] - ledcog[1]) * (greenimpos[i][0] - ledcog[0]);
+		//			theta[i] = atan2(cross, dot);
+		//			if (absmax < abs(theta[i]))
+		//			{
+		//				absmax = abs(theta[i]);
+		//				absmaxid = i;
+		//			}
+		//		}
+		//		for (size_t i = 0; i < 3; i++)
+		//		{
+		//			if (i == absmaxid)
+		//			{
+		//				ledimpos[2][0] = greenimpos[i][0];
+		//				ledimpos[2][1] = greenimpos[i][1];
+		//			}
+		//			else
+		//			{
+		//				if (theta[i] > 0)
+		//				{
+		//					ledimpos[1][0] = greenimpos[i][0];
+		//					ledimpos[1][1] = greenimpos[i][1];
+		//				}
+		//				else
+		//				{
+		//					ledimpos[3][0] = greenimpos[i][0];
+		//					ledimpos[3][1] = greenimpos[i][1];
+		//				}
+		//			}
+		//		}
+		//		greendetected = true;
+		//	}
+		//}
+		//else
+		//{//前フレームで緑LEDを3つすべて検出している場合，ROIを設定して位置を求める
+		//	for (size_t i = 0; i < 3; i++)
+		//	{
+		//		roi_greens[i].x = ledimpos[i + 1][0], roi_greens[i].y = ledimpos[i + 1][1];
+		//		cv::inRange(diffimg(roi_greens[i]), greenLED_min, greenLED_max, detectgreen);
+		//		cv::findNonZero(detectgreen, greenpts);
+		//		greenmass[i] = 0, greenmomx[i] = 0, greenmomy[i] = 0;
+		//		if (greenpts.size() > 0)
+		//		{
+		//			for (const auto& greenpt: greenpts)
+		//			{
+		//				greenmass[i] += (double)diffimg_src[(greenpt.y + roi_greens[i].y) * width * 3 + (greenpt.x + roi_greens[i].x) * 3 + 1];
+		//				greenmomx[i] += (double)diffimg_src[(greenpt.y + roi_greens[i].y) * width * 3 + (greenpt.x + roi_greens[i].x) * 3 + 1] * ((double)greenpt.x + roi_greens[i].x);
+		//				greenmomy[i] += (double)diffimg_src[(greenpt.y + roi_greens[i].y) * width * 3 + (greenpt.x + roi_greens[i].x) * 3 + 1] * ((double)greenpt.y + roi_greens[i].y);
+		//			}
+		//			ledimpos[i + 1][0] = greenmomx[i] / greenmass[i];
+		//			ledimpos[i + 1][1] = greenmomy[i] / greenmass[i];
+		//		}
+		//		else
+		//		{
+		//			greendetected = false;
+		//		}
+		//	}
+		//}
 	}
 
 
