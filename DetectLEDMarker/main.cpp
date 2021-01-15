@@ -7,6 +7,7 @@
 #include <Windows.h>
 #include <thread>
 #include <vector>
+#include "RS232c.h"
 
 #ifdef _DEBUG
 #define LIB_EXT "d.lib"
@@ -20,6 +21,11 @@
 using namespace std;
 
 //グローバル変数
+/// MBEDに関するパラメータ
+RS232c mbed;
+char command[256] = "";
+char led = 'O';
+#define READBUFFERSIZE 256
 /// カメラパラメータ
 const int width = 896;
 const int height = 896;
@@ -81,7 +87,7 @@ const int roi_width = 30;
 #define SHOW_IMGS_OPENGL_
 
 ///プロトタイプ宣言
-void TakePicture(kayacoaxpress* cam, bool* flg);
+void TakePicture(kayacoaxpress* cam, bool* flg, RS232c* mbed);
 void DetectLEDMarker();
 void ShowAllLogs(bool* flg);
 
@@ -136,12 +142,19 @@ int main() {
 		detectimg.push_back(zero.clone());
 	}
 
+	//MBEDとの接続設定
+	mbed.Connect("COM4", 115200, 8, NOPARITY, 0, 0, 0, 5000, 20000);
+	//動作開始のコマンド
+	snprintf(command, READBUFFERSIZE, "%c,\r", led);
+	mbed.Send(command);
+	memset(command, '\0', READBUFFERSIZE);
+
 	//カメラ起動
 	cout << "Camera Start!" << endl;
 	cam.start();
 
 	//Threadの作成
-	thread thr1(TakePicture, &cam, &flg);
+	thread thr1(TakePicture, &cam, &flg, &mbed);
 #ifdef SHOW_IMGS_OPENGL_
 	thread thr2(ShowAllLogs, &flg);
 #endif // SHOW_IMGS_OPENGL_
@@ -166,7 +179,7 @@ int main() {
 }
 
 //画像を格納する
-void TakePicture(kayacoaxpress* cam, bool* flg) {
+void TakePicture(kayacoaxpress* cam, bool* flg, RS232c* mbed) {
 	cv::Mat temp = zero.clone();
 	while (*flg)
 	{
@@ -178,6 +191,12 @@ void TakePicture(kayacoaxpress* cam, bool* flg) {
 		takepicid = in_imgs_saveid % cyclebuffersize;
 #endif // !SAVE_IMGS
 		cam->captureFrame(in_imgs[takepicid].data);
+		//MBEDにLEDのONOFFコマンド送信
+		if (led == 'O') led = 'F';
+		else led = 'O';
+		snprintf(command, READBUFFERSIZE, "%c,\r", led);
+		mbed->Send(command);
+		memset(command, '\0', READBUFFERSIZE);
 		//memcpy(in_imgs[takepicid].data, temp.data, height * width * 3);
 		processflgs[takepicid] = true;
 		in_imgs_saveid = (in_imgs_saveid + 1) % cyclebuffersize;
