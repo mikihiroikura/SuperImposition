@@ -36,7 +36,7 @@ const int offsety = 92;
 double map_coeff[4], stretch_mat[4], det, distort[4];
 /// 画像に関するパラメータ
 const int cyclebuffersize = 10;
-vector<cv::Mat> in_imgs;
+vector<cv::Mat> in_imgs_on, in_imgs_off;
 vector<bool> processflgs;
 cv::Mat zero, full;
 int takepicid, in_imgs_saveid;
@@ -47,14 +47,16 @@ double taketime = 0, showtime = 0;
 /// マーカ検出のためのパラメータ
 int detectid = 0;
 vector<cv::Mat> detectimg;
-cv::Mat diffimg;
-uint8_t* diffimg_src;
-cv::Mat detectgreen, detectblue;
+cv::Mat diffimg ,diffimg_hsv;
+uint8_t* diffimg_src, *detectimg_on_src;
+cv::Mat detectgreen, detectblue, detectV;
 const cv::Scalar greenLED_min(0, 220, 0);
 const cv::Scalar greenLED_max(256, 256, 256);
 const cv::Scalar blueLED_min(220, 0, 0);
 const cv::Scalar blueLED_max(256, 256, 256);
-vector<cv::Point> bluepts, greenpts;
+const cv::Scalar HSVLED_min(0, 0, 150);
+const cv::Scalar HSVLED_max(256, 256, 256);
+vector<cv::Point> bluepts, greenpts, Vpts;
 double bluemass, bluemomx, bluemomy;
 double greenmass[3] = { 0 }, greenmomx[3] = { 0 }, greenmomy[3] = { 0 };
 double ledimpos[4][2] = { 0 }, ledidimpos[4][2] = { 0 }, greenimpos[3][2] = { 0 };
@@ -132,7 +134,8 @@ int main() {
 	cout << "Set Mat Cycle Buffer..." << endl;
 	for (size_t i = 0; i < cyclebuffersize; i++)
 	{
-		in_imgs.push_back(zero.clone());
+		in_imgs_on.push_back(zero.clone());
+		in_imgs_off.push_back(zero.clone());
 		processflgs.push_back(false);
 	}
 
@@ -141,6 +144,9 @@ int main() {
 	{
 		detectimg.push_back(zero.clone());
 	}
+	detectimg_on_src = detectimg[0].ptr<uint8_t>(0);
+	diffimg = zero.clone();
+	diffimg_src = diffimg.ptr<uint8_t>(0);
 
 	//MBEDとの接続設定
 	mbed.Connect("COM4", 115200, 8, NOPARITY, 0, 0, 0, 5000, 20000);
@@ -184,22 +190,22 @@ void TakePicture(kayacoaxpress* cam, bool* flg, RS232c* mbed) {
 	while (*flg)
 	{
 		QueryPerformanceCounter(&takestart);
-#ifdef SAVE_IMGS_
-		takepicid = in_imgs_saveid;
-#endif // SAVE_IMG
-#ifndef SAVE_IMGS_
 		takepicid = in_imgs_saveid % cyclebuffersize;
-#endif // !SAVE_IMGS
-		cam->captureFrame(in_imgs[takepicid].data);
 		//MBEDにLEDのONOFFコマンド送信
-		if (led == 'O') led = 'F';
-		else led = 'O';
+		if (led == 'O') {
+			cam->captureFrame(in_imgs_on[takepicid].data);
+			led = 'F';
+		}
+		else {
+			cam->captureFrame(in_imgs_off[takepicid].data);
+			led = 'O';
+			in_imgs_saveid = (in_imgs_saveid + 1) % cyclebuffersize;
+		}
 		snprintf(command, READBUFFERSIZE, "%c,\r", led);
 		mbed->Send(command);
 		memset(command, '\0', READBUFFERSIZE);
 		//memcpy(in_imgs[takepicid].data, temp.data, height * width * 3);
 		processflgs[takepicid] = true;
-		in_imgs_saveid = (in_imgs_saveid + 1) % cyclebuffersize;
 		QueryPerformanceCounter(&takeend);
 		taketime = (double)(takeend.QuadPart - takestart.QuadPart) / freq.QuadPart;
 		while (taketime < 0.001)
@@ -220,7 +226,7 @@ void ShowAllLogs(bool* flg) {
 		QueryPerformanceCounter(&showstart);
 
 		//OpenCVで画像表示
-		cv::imshow("img", in_imgs[(in_imgs_saveid - 2 + cyclebuffersize) % cyclebuffersize]);
+		cv::imshow("img", in_imgs_on[(in_imgs_saveid - 2 + cyclebuffersize) % cyclebuffersize]);
 		int key = cv::waitKey(1);
 		if (key == 'q') *flg = false;
 
@@ -248,23 +254,32 @@ void DetectLEDMarker() {
 	detectid = (in_imgs_saveid - 1 + cyclebuffersize) % cyclebuffersize;
 	if (processflgs[detectid])
 	{
-		if (detectid%2==0){ memcpy(detectimg[1].data, in_imgs[detectid].data, height * width * 3); }
-		else { memcpy(detectimg[0].data, in_imgs[detectid].data, height * width * 3); }
-		
+		memcpy(detectimg[0].data, in_imgs_on[detectid].data, height * width * 3);
+		memcpy(detectimg[1].data, in_imgs_off[detectid].data, height * width * 3);	
 	}
 	//LEDが未検出の時は，画像全体を探索する
 	if (detectimg[0].data!=NULL && detectimg[1].data != NULL && (int)detectimg[0].data[0]!=255 && (int)detectimg[1].data[0] != 255)
 	{
-		//差分画像の生成
-		cv::absdiff(detectimg[0], detectimg[1], diffimg);
-
-		diffimg_src = diffimg.ptr<uint8_t>(0);
-
-		//青のLEDの検出
-		if (!bluedetected)
+		//青と緑両方検出していろ，以外の時
+		if (!(bluedetected&&greendetected))
 		{
-			cv::inRange(diffimg, blueLED_min, blueLED_max, detectblue);
-			cv::findNonZero(detectblue, bluepts);
+			//差分画像の生成
+			cv::absdiff(detectimg[0], detectimg[1], diffimg);
+			cv::cvtColor(diffimg, diffimg_hsv, CV_BGR2HSV);
+			//HSV画像でVが閾値以上の座標を検出
+			cv::inRange(diffimg_hsv, HSVLED_min, HSVLED_max, detectV);
+			cv::findNonZero(detectV, Vpts);
+
+			//青と緑の画像座標の取得
+			bluepts.clear();
+			greenpts.clear();
+			for (const auto& Vpt : Vpts)
+			{
+				if ((double)detectimg_on_src[Vpt.y * width * 3 + Vpt.x * 3] > blueLED_min[0]) { bluepts.push_back(Vpt); }
+				else if ((double)detectimg_on_src[Vpt.y * width * 3 + Vpt.x * 3 + 1] > greenLED_min[1]) { greenpts.push_back(Vpt); }
+			}
+
+			//青のLEDの検出
 			bluemass = 0, bluemomx = 0, bluemomy = 0;
 			//ここにBlueが検出できなかった時の処理を加える
 			if (bluepts.size() > 0)
@@ -279,16 +294,92 @@ void DetectLEDMarker() {
 				ledimpos[0][1] = bluemomy / bluemass;
 				bluedetected = true;
 			}
+
+			//緑のLEDの検出
+			if (greenpts.size() > 0)
+			{
+				greenptsall = cv::Mat::zeros(greenpts.size(), 2, CV_32FC1);
+				green_cluster = cv::Mat::zeros(greenpts.size(), 1, CV_32SC1);
+				greenptsall_src = greenptsall.ptr<float>(0);
+				for (size_t i = 0; i < greenpts.size(); i++)
+				{
+					greenptsall_src[i * 2 + 0] = greenpts[i].x;
+					greenptsall_src[i * 2 + 1] = greenpts[i].y;
+				}
+				//K means法で緑のLEDの輝点を3つのクラスタに分類
+				cv::kmeans(greenptsall, green_cluster_num, green_cluster, cvTermCriteria(CV_TERMCRIT_EPS | CV_TERMCRIT_ITER, 10, 1.0), 1, cv::KMEANS_PP_CENTERS);
+				//ここで3つのクラスタがしっかり3つ分のLEDになっているとは限らない(1つのLEDから強引に2つにクラスタ分けしてしまう可能性がある)
+				//3つのクラスタの重心位置がそれぞれ閾値以上離れているかどうか判定する
+
+
+				greenmass[0] = 0, greenmass[1] = 0, greenmass[2] = 0;
+				greenmomx[0] = 0, greenmomx[1] = 0, greenmomx[2] = 0;
+				greenmomy[0] = 0, greenmomy[1] = 0, greenmomy[2] = 0;
+				green_cluster_src = green_cluster.ptr<int>(0);
+				for (size_t i = 0; i < greenpts.size(); i++)
+				{
+					greenmass[green_cluster_src[i]] += (double)diffimg_src[greenpts[i].y * width * 3 + greenpts[i].x * 3 + 1];
+					greenmomx[green_cluster_src[i]] += (double)diffimg_src[greenpts[i].y * width * 3 + greenpts[i].x * 3 + 1] * greenpts[i].x;
+					greenmomy[green_cluster_src[i]] += (double)diffimg_src[greenpts[i].y * width * 3 + greenpts[i].x * 3 + 1] * greenpts[i].y;
+				}
+				for (size_t i = 0; i < 3; i++)
+				{
+					greenimpos[i][0] = greenmomx[i] / greenmass[i];
+					greenimpos[i][1] = greenmomy[i] / greenmass[i];
+				}
+
+				//青色から時計回りに緑LEDの位置を当てはめる
+				ledcog[0] = (ledimpos[0][0] + greenimpos[0][0] + greenimpos[1][0] + greenimpos[2][0]) / 4;
+				ledcog[1] = (ledimpos[0][1] + greenimpos[0][1] + greenimpos[1][1] + greenimpos[2][1]) / 4;
+				absmax = 0;
+				for (size_t i = 0; i < 3; i++)
+				{
+					dot = (ledimpos[0][0] - ledcog[0]) * (greenimpos[i][0] - ledcog[0]) + (ledimpos[0][1] - ledcog[1]) * (greenimpos[i][1] - ledcog[1]);
+					cross = (ledimpos[0][0] - ledcog[0]) * (greenimpos[i][1] - ledcog[1]) - (ledimpos[0][1] - ledcog[1]) * (greenimpos[i][0] - ledcog[0]);
+					theta[i] = atan2(cross, dot);
+					if (absmax < abs(theta[i]))
+					{
+						absmax = abs(theta[i]);
+						absmaxid = i;
+					}
+				}
+				for (size_t i = 0; i < 3; i++)
+				{
+					if (i == absmaxid)
+					{
+						ledimpos[2][0] = greenimpos[i][0];
+						ledimpos[2][1] = greenimpos[i][1];
+					}
+					else
+					{
+						if (theta[i] > 0)
+						{
+							ledimpos[1][0] = greenimpos[i][0];
+							ledimpos[1][1] = greenimpos[i][1];
+						}
+						else
+						{
+							ledimpos[3][0] = greenimpos[i][0];
+							ledimpos[3][1] = greenimpos[i][1];
+						}
+					}
+				}
+				greendetected = true;
+			}
 		}
+
+		//青と緑両方検出しているとき
 		else
-		{//前フレームで青色LEDを検出していたらROIを設定し検出する
-			if (ledimpos[0][0] < roi_width/ 2) {
+		{
+			//青のLEDの検出：ROIを用いる
+			//前フレームで青色LEDを検出していたらROIを設定し検出する
+			if (ledimpos[0][0] < roi_width / 2) {
 				roi_blue.x = 0;
 				roi_blue.width = roi_width / 2 + ledimpos[0][0];
 			}
-			else if(ledimpos[0][0] > (double)(width - roi_width / 2)) { 
+			else if (ledimpos[0][0] > (double)(width - roi_width / 2)) {
 				roi_blue.x = ledimpos[0][0] - roi_width / 2;;
-				roi_blue.width = roi_width / 2  + width - ledimpos[0][0];
+				roi_blue.width = roi_width / 2 + width - ledimpos[0][0];
 			}
 			else
 			{
@@ -308,7 +399,7 @@ void DetectLEDMarker() {
 				roi_blue.y = ledimpos[0][1] - roi_width / 2;
 				roi_blue.height = roi_width;
 			}
-			cv::inRange(diffimg(roi_blue), blueLED_min, blueLED_max, detectblue);
+			cv::inRange(detectimg[0](roi_blue), blueLED_min, blueLED_max, detectblue);
 			cv::findNonZero(detectblue, bluepts);
 			bluemass = 0, bluemomx = 0, bluemomy = 0;
 			//ここにBlueが検出できなかった時の処理を加える
@@ -327,8 +418,145 @@ void DetectLEDMarker() {
 			{
 				bluedetected = false;
 			}
+
+			//緑のLEDの検出：ROIを用いる
+			//前フレームで緑LEDを3つすべて検出している場合，ROIを設定して位置を求める
+			for (size_t i = 0; i < 3; i++)
+			{
+				if (ledimpos[i+1][0] < roi_width / 2) {
+					roi_greens[i].x = 0;
+					roi_greens[i].width = roi_width / 2 + ledimpos[i + 1][0];
+				}
+				else if (ledimpos[i + 1][0] > (double)(width - roi_width / 2)) {
+					roi_greens[i].x = ledimpos[i + 1][0] - roi_width / 2;;
+					roi_greens[i].width = roi_width / 2 + width - ledimpos[i + 1][0];
+				}
+				else
+				{
+					roi_greens[i].x = ledimpos[i + 1][0] - roi_width / 2;
+					roi_greens[i].width = roi_width;
+				}
+				if (ledimpos[i + 1][1] < roi_width / 2) {
+					roi_greens[i].y = 0;
+					roi_greens[i].height = roi_width / 2 + ledimpos[i + 1][1];
+				}
+				else if (ledimpos[i + 1][1] > (double)(height - roi_width / 2)) {
+					roi_greens[i].y = ledimpos[i + 1][1] - roi_width / 2;;
+					roi_greens[i].height = roi_width / 2 + height - ledimpos[i + 1][1];
+				}
+				else
+				{
+					roi_greens[i].y = ledimpos[i + 1][1] - roi_width / 2;
+					roi_greens[i].height = roi_width;
+				}
+				cv::inRange(detectimg[0](roi_greens[i]), greenLED_min, greenLED_max, detectgreen);
+				cv::findNonZero(detectgreen, greenpts);
+				greenmass[i] = 0, greenmomx[i] = 0, greenmomy[i] = 0;
+				if (greenpts.size() > 0)
+				{
+					for (const auto& greenpt : greenpts)
+					{
+						greenmass[i] += (double)diffimg_src[(greenpt.y + roi_greens[i].y) * width * 3 + (greenpt.x + roi_greens[i].x) * 3 + 1];
+						greenmomx[i] += (double)diffimg_src[(greenpt.y + roi_greens[i].y) * width * 3 + (greenpt.x + roi_greens[i].x) * 3 + 1] * ((double)greenpt.x + roi_greens[i].x);
+						greenmomy[i] += (double)diffimg_src[(greenpt.y + roi_greens[i].y) * width * 3 + (greenpt.x + roi_greens[i].x) * 3 + 1] * ((double)greenpt.y + roi_greens[i].y);
+					}
+					ledimpos[i + 1][0] = greenmomx[i] / greenmass[i];
+					ledimpos[i + 1][1] = greenmomy[i] / greenmass[i];
+				}
+				else
+				{
+					greendetected = false;
+				}
+			}
 		}
+
 		
+
+		////青のLEDの検出
+		//if (!bluedetected)
+		//{
+		//	bluemass = 0, bluemomx = 0, bluemomy = 0;
+		//	//cv::inRange(diffimg, blueLED_min, blueLED_max, detectblue);
+		//	//cv::findNonZero(detectblue, bluepts);
+		//	//ここにBlueが検出できなかった時の処理を加える
+		//	if (bluepts.size() > 0)
+		//	{
+		//		for (const auto& bluept : bluepts)
+		//		{
+		//			bluemass += (double)diffimg_src[bluept.y * width * 3 + bluept.x * 3];
+		//			bluemomx += (double)diffimg_src[bluept.y * width * 3 + bluept.x * 3] * bluept.x;
+		//			bluemomy += (double)diffimg_src[bluept.y * width * 3 + bluept.x * 3] * bluept.y;
+		//		}
+		//		ledimpos[0][0] = bluemomx / bluemass;
+		//		ledimpos[0][1] = bluemomy / bluemass;
+		//		bluedetected = true;
+		//	}
+		//	//if (Vpts.size() > 0)
+		//	//{
+		//	//	for (const auto& Vpt : Vpts)
+		//	//	{
+		//	//		if ((double)diffimg_src[Vpt.y * width * 3 + Vpt.x * 3] > blueLED_min[0])
+		//	//		{
+		//	//			cv::Point bluept = Vpt;
+		//	//			bluemass += (double)diffimg_src[bluept.y * width * 3 + bluept.x * 3];
+		//	//			bluemomx += (double)diffimg_src[bluept.y * width * 3 + bluept.x * 3] * bluept.x;
+		//	//			bluemomy += (double)diffimg_src[bluept.y * width * 3 + bluept.x * 3] * bluept.y;
+		//	//		}
+		//	//	}
+		//	//	ledimpos[0][0] = bluemomx / bluemass;
+		//	//	ledimpos[0][1] = bluemomy / bluemass;
+		//	//	bluedetected = true;
+		//	//}
+		//}
+		//else
+		//{//前フレームで青色LEDを検出していたらROIを設定し検出する
+		//	if (ledimpos[0][0] < roi_width/ 2) {
+		//		roi_blue.x = 0;
+		//		roi_blue.width = roi_width / 2 + ledimpos[0][0];
+		//	}
+		//	else if(ledimpos[0][0] > (double)(width - roi_width / 2)) { 
+		//		roi_blue.x = ledimpos[0][0] - roi_width / 2;;
+		//		roi_blue.width = roi_width / 2  + width - ledimpos[0][0];
+		//	}
+		//	else
+		//	{
+		//		roi_blue.x = ledimpos[0][0] - roi_width / 2;
+		//		roi_blue.width = roi_width;
+		//	}
+		//	if (ledimpos[0][1] < roi_width / 2) {
+		//		roi_blue.y = 0;
+		//		roi_blue.height = roi_width / 2 + ledimpos[0][1];
+		//	}
+		//	else if (ledimpos[0][1] > (double)(height - roi_width / 2)) {
+		//		roi_blue.y = ledimpos[0][1] - roi_width / 2;;
+		//		roi_blue.height = roi_width / 2 + height - ledimpos[0][1];
+		//	}
+		//	else
+		//	{
+		//		roi_blue.y = ledimpos[0][1] - roi_width / 2;
+		//		roi_blue.height = roi_width;
+		//	}
+		//	cv::inRange(diffimg(roi_blue), blueLED_min, blueLED_max, detectblue);
+		//	cv::findNonZero(detectblue, bluepts);
+		//	bluemass = 0, bluemomx = 0, bluemomy = 0;
+		//	//ここにBlueが検出できなかった時の処理を加える
+		//	if (bluepts.size() > 0)
+		//	{
+		//		for (const auto& bluept : bluepts)
+		//		{
+		//			bluemass += (double)diffimg_src[(bluept.y + roi_blue.y) * width * 3 + (bluept.x + roi_blue.x) * 3];
+		//			bluemomx += (double)diffimg_src[(bluept.y + roi_blue.y) * width * 3 + (bluept.x + roi_blue.x) * 3] * ((double)bluept.x + roi_blue.x);
+		//			bluemomy += (double)diffimg_src[(bluept.y + roi_blue.y) * width * 3 + (bluept.x + roi_blue.x) * 3] * ((double)bluept.y + roi_blue.y);
+		//		}
+		//		ledimpos[0][0] = bluemomx / bluemass;
+		//		ledimpos[0][1] = bluemomy / bluemass;
+		//	}
+		//	else
+		//	{
+		//		bluedetected = false;
+		//	}
+		//}
+		//
 
 		////3つの緑のLEDの検出
 		//if (!greendetected)
@@ -432,6 +660,11 @@ void DetectLEDMarker() {
 		//		}
 		//	}
 		//}
+	}
+	else
+	{
+		bluedetected = false;
+		greendetected = false;
 	}
 
 
