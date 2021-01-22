@@ -149,15 +149,19 @@ int main() {
 	diffimg_src = diffimg.ptr<uint8_t>(0);
 
 	//MBEDとの接続設定
-	mbed.Connect("COM4", 115200, 8, NOPARITY, 0, 0, 0, 5000, 20000);
+	mbed.Connect("COM3", 115200, 8, NOPARITY, 0, 0, 0, 5000, 20000);
 	//動作開始のコマンド
-	snprintf(command, READBUFFERSIZE, "%c,\r", led);
-	mbed.Send(command);
-	memset(command, '\0', READBUFFERSIZE);
+	//snprintf(command, READBUFFERSIZE, "%c,\r", led);
+	//mbed.Send(command);
+	//memset(command, '\0', READBUFFERSIZE);
 
 	//カメラ起動
 	cout << "Camera Start!" << endl;
 	cam.start();
+	led = 'S';
+	snprintf(command, READBUFFERSIZE, "%c,\r", led);
+	mbed.Send(command);
+	memset(command, '\0', READBUFFERSIZE);
 
 	//Threadの作成
 	thread thr1(TakePicture, &cam, &flg, &mbed);
@@ -168,7 +172,8 @@ int main() {
 
 	while (flg)
 	{
-		DetectLEDMarker();
+		//DetectLEDMarker();
+		cout << "Detect LED marker dummy" << endl;
 	}
 
 	//カメラの停止，RS232Cの切断
@@ -201,10 +206,9 @@ void TakePicture(kayacoaxpress* cam, bool* flg, RS232c* mbed) {
 			led = 'O';
 			in_imgs_saveid = (in_imgs_saveid + 1) % cyclebuffersize;
 		}
-		snprintf(command, READBUFFERSIZE, "%c,\r", led);
-		mbed->Send(command);
-		memset(command, '\0', READBUFFERSIZE);
-		//memcpy(in_imgs[takepicid].data, temp.data, height * width * 3);
+		//snprintf(command, READBUFFERSIZE, "%c,\r", led);
+		//mbed->Send(command);
+		//memset(command, '\0', READBUFFERSIZE);
 		processflgs[takepicid] = true;
 		QueryPerformanceCounter(&takeend);
 		taketime = (double)(takeend.QuadPart - takestart.QuadPart) / freq.QuadPart;
