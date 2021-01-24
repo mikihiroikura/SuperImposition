@@ -122,6 +122,7 @@ int main() {
 	swap(stretch_mat[1], stretch_mat[2]);
 	for (size_t i = 0; i < 2; i++) { fscanf(fcam, "%lf,", &distort[i]); }
 	fclose(fcam);
+	det = 1 / (stretch_mat[0] - stretch_mat[1] * stretch_mat[2]);
 
 	full = cv::Mat(cam.getParam(paramTypeCamera::paramInt::HEIGHT), cam.getParam(paramTypeCamera::paramInt::WIDTH), CV_8UC3, cv::Scalar::all(255));
 	zero = cv::Mat(cam.getParam(paramTypeCamera::paramInt::HEIGHT), cam.getParam(paramTypeCamera::paramInt::WIDTH), CV_8UC3, cv::Scalar::all(0));
@@ -704,20 +705,32 @@ void DetectLEDMarker() {
 		//法線ベクトルから，LEDマーカの辺の方向ベクトルを2つ求める
 		for (size_t i = 0; i < 2; i++)
 		{
-			Rm2c[0][i] = lednormdir[i][1] * lednormdir[(i + 2)][2] - lednormdir[i][2] * lednormdir[(i + 2)][1];
-			Rm2c[1][i] = lednormdir[i][2] * lednormdir[(i + 2)][0] - lednormdir[i][0] * lednormdir[(i + 2)][2];
-			Rm2c[2][i] = lednormdir[i][0] * lednormdir[(i + 2)][1] - lednormdir[i][1] * lednormdir[(i + 2)][0];
+			Rm2c[0][i] = -(lednormdir[i][1] * lednormdir[(i + 2)][2] - lednormdir[i][2] * lednormdir[(i + 2)][1]);
+			Rm2c[1][i] = -(lednormdir[i][2] * lednormdir[(i + 2)][0] - lednormdir[i][0] * lednormdir[(i + 2)][2]);
+			Rm2c[2][i] = -(lednormdir[i][0] * lednormdir[(i + 2)][1] - lednormdir[i][1] * lednormdir[(i + 2)][0]);
+			lambda = 1 / pow(pow(Rm2c[0][i], 2) + pow(Rm2c[1][i], 2) + pow(Rm2c[2][i], 2), 0.5);
+			Rm2c[0][i] *= lambda;
+			Rm2c[1][i] *= lambda;
+			Rm2c[2][i] *= lambda;
 		}
 
 		//カメラ-マーカ間の相対姿勢の計算(残りの方向ベクトルを外積で求める)
 		Rm2c[0][2] = Rm2c[1][0] * Rm2c[2][1] - Rm2c[2][0] * Rm2c[1][1];
 		Rm2c[1][2] = Rm2c[2][0] * Rm2c[0][1] - Rm2c[0][0] * Rm2c[2][1];
 		Rm2c[2][2] = Rm2c[0][0] * Rm2c[1][1] - Rm2c[1][0] * Rm2c[0][1];
+		lambda = 1 / pow(pow(Rm2c[0][2], 2) + pow(Rm2c[1][2], 2) + pow(Rm2c[2][2], 2), 0.5);
+		Rm2c[0][2] *= lambda;
+		Rm2c[1][2] *= lambda;
+		Rm2c[2][2] *= lambda;
 
 		//ここで，方向ベクトルが画像処理の誤差を乗せて直交しないときに強引に直交する方向ベクトルを計算する
 		Rm2c[0][1] = Rm2c[1][2] * Rm2c[2][0] - Rm2c[2][2] * Rm2c[1][0];
 		Rm2c[1][1] = Rm2c[2][2] * Rm2c[0][0] - Rm2c[0][2] * Rm2c[2][0];
 		Rm2c[2][1] = Rm2c[0][2] * Rm2c[1][0] - Rm2c[1][2] * Rm2c[0][0];
+		lambda = 1 / pow(pow(Rm2c[0][1], 2) + pow(Rm2c[1][1], 2) + pow(Rm2c[2][1], 2), 0.5);
+		Rm2c[0][1] *= lambda;
+		Rm2c[1][1] *= lambda;
+		Rm2c[2][1] *= lambda;
 
 		//魚眼モデルと相対姿勢を用いてカメラ-マーカ間の相対位置を計算
 		for (size_t i = 0; i < 4; i++)
