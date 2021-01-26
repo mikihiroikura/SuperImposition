@@ -22,8 +22,10 @@ vector<cv::Point> bluepts, greenpts, Vpts;
 cv::Mat diffimg, diffimg_hsv, diffimg_hsv2;
 cv::Mat detectgreen, detectblue, detectV;
 vector<cv::Mat> detectimg;
+vector<cv::Mat> vecimgs;
 vector<cv::Rect> rois, rois_rand;
 uint8_t* diffimg_src, * detectimg_on_src, *diffimg_hsv2_src;
+uint8_t* detectimg_src, *vecimg_src;
 cv::Mat labels;
 int32_t h;
 int greenbluecnt[4][2] = { 0 };
@@ -76,12 +78,21 @@ int main() {
 	for (size_t i = 0; i < 2; i++)
 	{
 		detectimg.push_back(zero.clone());
+		vecimgs.push_back(zero.clone());
 	}
+	cv::Mat vecimg2 = cv::Mat(896 * 2, 896, CV_8UC3, cv::Scalar::all(0));
 	
 	diffimg = zero.clone();
 	diffimg_src = diffimg.ptr<uint8_t>(0);
 	detectimg[0] = cv::imread(img0_dir);
 	detectimg[1] = cv::imread(img1_dir);
+
+	//Vector Mat‚Ì˜A‘±«Šm”F
+	detectimg_src = detectimg[0].ptr<uint8_t>(0);
+	vecimg_src = vecimg2.ptr<uint8_t>(0);
+	memcpy(vecimg_src, detectimg_src, width * height * 3);
+	memcpy(vecimg_src + width * height * 3, detectimg[1].data, width * height * 3);
+
 	detectimg_on_src = detectimg[0].ptr<uint8_t>(0);
 
 	cv::absdiff(detectimg[0], detectimg[1], diffimg);
