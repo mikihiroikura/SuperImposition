@@ -31,8 +31,9 @@ const int offsety = 92;
 const int cyclebuffersize = 10;
 vector<cv::Mat> in_imgs_on, in_imgs_off, in_imgs;
 vector<bool> processflgs;
-cv::Mat zero, full;
+cv::Mat zero, full, zerotwice;
 int takepicid, in_imgs_saveid;
+uint8_t* in_img_twice_src;
 /// 時間計測に関するパラメータ
 LARGE_INTEGER takestart, takeend, freq;
 LARGE_INTEGER showstart, showend;
@@ -54,7 +55,7 @@ int main() {
 
 	//パラメータの設定
 	cout << "Set Camera Params..." << endl;
-	cam.setParam(paramTypeKAYACoaXpress::AcquisitionMode::TriggerMode, 1);
+	//cam.setParam(paramTypeKAYACoaXpress::AcquisitionMode::TriggerMode, 1);
 	cam.setParam(paramTypeCamera::paramInt::WIDTH, width);
 	cam.setParam(paramTypeCamera::paramInt::HEIGHT, height);
 	cam.setParam(paramTypeKAYACoaXpress::paramInt::OffsetX, offsetx);
@@ -67,14 +68,14 @@ int main() {
 
 	full = cv::Mat(cam.getParam(paramTypeCamera::paramInt::HEIGHT), cam.getParam(paramTypeCamera::paramInt::WIDTH), CV_8UC3, cv::Scalar::all(255));
 	zero = cv::Mat(cam.getParam(paramTypeCamera::paramInt::HEIGHT), cam.getParam(paramTypeCamera::paramInt::WIDTH), CV_8UC3, cv::Scalar::all(0));
+	zerotwice = cv::Mat(cam.getParam(paramTypeCamera::paramInt::HEIGHT) * 2, cam.getParam(paramTypeCamera::paramInt::WIDTH), CV_8UC3, cv::Scalar::all(0));
+
 
 	//Cycle Bufferの生成
 	cout << "Set Mat Cycle Buffer..." << endl;
 	for (size_t i = 0; i < cyclebuffersize; i++)
 	{
-		in_imgs_on.push_back(zero.clone());
-		in_imgs_off.push_back(zero.clone());
-		in_imgs.push_back(zero.clone());
+		in_imgs.push_back(zerotwice.clone());
 		processflgs.push_back(false);
 	}
 
@@ -84,26 +85,13 @@ int main() {
 
 	thread thr2(ShowAllLogs, &flg);
 
-	cv::Mat temp = zero.clone();
 	while (flg)
 	{
 		QueryPerformanceCounter(&takestart);
 		takepicid = in_imgs_saveid % cyclebuffersize;
-		//MBEDにLEDのONOFFコマンド送信
-		/*if (takepicid % 2 == 0) {
-			cam.captureFrame(in_imgs_on[takepicid].data);
-		}
-		else {
-			cam.captureFrame(in_imgs_off[takepicid].data);
-		}*/
-		cam.captureFrame(in_imgs[takepicid].data);
-		if (takepicid % 2 == 0) {
-			memcpy(in_imgs_on[takepicid / 2].data, in_imgs[takepicid].data, height * width * 3);
-		}
-		else
-		{
-			memcpy(in_imgs_off[takepicid / 2].data, in_imgs[takepicid].data, height * width * 3);
-		}
+		in_img_twice_src = in_imgs[takepicid].ptr<uint8_t>(0);
+
+		cam.captureFrame(in_img_twice_src, 2);
 		in_imgs_saveid = (in_imgs_saveid + 1) % cyclebuffersize;
 		processflgs[takepicid] = true;
 		QueryPerformanceCounter(&takeend);
