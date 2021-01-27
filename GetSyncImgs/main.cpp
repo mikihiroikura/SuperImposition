@@ -55,7 +55,7 @@ int main() {
 
 	//ƒpƒ‰ƒ[ƒ^‚Ìİ’è
 	cout << "Set Camera Params..." << endl;
-	//cam.setParam(paramTypeKAYACoaXpress::AcquisitionMode::TriggerMode, 1);
+	cam.setParam(paramTypeKAYACoaXpress::AcquisitionMode::TriggerMode, 1);
 	cam.setParam(paramTypeCamera::paramInt::WIDTH, width);
 	cam.setParam(paramTypeCamera::paramInt::HEIGHT, height);
 	cam.setParam(paramTypeKAYACoaXpress::paramInt::OffsetX, offsetx);
