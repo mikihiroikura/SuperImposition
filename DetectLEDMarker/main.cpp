@@ -74,7 +74,9 @@ const double markeredge = 10;
 const double markerpos[4][2] = { {markeredge, markeredge}, {-markeredge, markeredge}, {-markeredge, -markeredge}, {markeredge, -markeredge} };
 double cross, dot, theta[3], absmax;
 bool leddetected = false;
-cv::Mat labels;
+cv::Mat pts, labels, centers;
+float* center_src;
+int32_t* labelptr;
 int greenbluecnt[4][2] = { 0 };
 int on_img_id;
 int on_img_cnt;
@@ -87,6 +89,7 @@ double ledmass[4] = { 0 }, ledmomx[4] = { 0 }, ledmomy[4] = { 0 };
 vector<cv::Rect> rois, rois_rand;
 const int roi_led_margin = 10;
 double thetamax, thetamin, thetamaxid, thetaminid;
+double dist, dist_cluster_thr = 30, dist_centers_thr = 40;
 
 #define SHOW_PROCESSING_TIME_
 #define SHOW_IMGS_OPENGL_
@@ -265,25 +268,42 @@ int DetectLEDMarker() {
 		memcpy(roi_led_miny, roi_led_miny_ini, sizeof(roi_led_miny_ini));
 		memcpy(roi_led_maxy, roi_led_maxy_ini, sizeof(roi_led_maxy_ini));
 
-		//青と緑両方検出していろ，以外の時
+		//4つ全てのLEDを検出していない時
 		if (!(leddetected))
 		{
 			//差分画像の生成&HSV画像への変換
 			cv::absdiff(detectimg[0], detectimg[1], diffimg);
 			cv::cvtColor(diffimg, diffimg_hsv, CV_BGR2HSV);
 			//HSV画像でVが閾値以上の座標を検出
-			cv::inRange(diffimg_hsv, HSVLED_min, HSVLED_max, detectV);
+			cv::inRange(diffimg_hsv, HSVLED_min, HSVLED_max, detectV);//差分画像なので閾値が小さい
 			cv::findNonZero(detectV, Vpts);
 
 			//輝度の高い点群を4か所にクラスタリング
-			cv::Mat pts = cv::Mat::zeros(Vpts.size(), 1, CV_32FC2);
+			pts = cv::Mat::zeros(Vpts.size(), 1, CV_32FC2);
 			float* ptsptr = pts.ptr<float>(0);
 			for (size_t i = 0; i < Vpts.size(); i++)
 			{
 				ptsptr[i * 2 + 0] = (float)Vpts[i].x;
 				ptsptr[i * 2 + 1] = (float)Vpts[i].y;
 			}
-			cv::kmeans(pts, 4, labels, cvTermCriteria(CV_TERMCRIT_EPS | CV_TERMCRIT_ITER, 10, 1.0), 1, cv::KMEANS_PP_CENTERS);
+			cv::kmeans(pts, 4, labels, cvTermCriteria(CV_TERMCRIT_EPS | CV_TERMCRIT_ITER, 10, 1.0), 1, cv::KMEANS_PP_CENTERS, centers);
+			center_src = centers.ptr<float>(0);
+			//クラスタ間の距離が閾値以下ならば未検出と判定
+			for (size_t i = 0; i < 4; i++)
+			{
+				for (size_t j = 0; j < 4; j++)
+				{
+					if (i != j)
+					{
+						dist = hypot(center_src[i * 2 + 0] - center_src[j * 2 + 0], center_src[i * 2 + 1] - center_src[j * 2 + 1]);
+						if (dist < dist_centers_thr) {
+							processflgs[detectid] = false;
+							return 1;
+						}
+					}
+				}
+			}
+
 
 #ifdef DEBUG_
 			//デバッグ:分類結果の確認
@@ -327,7 +347,7 @@ int DetectLEDMarker() {
 			for (size_t i = 0; i < Vpts.size(); i++)
 			{
 				if ((int32_t)detectimg0_src[Vpts[0].y * width * 3 + Vpts[0].x * 3] > (int32_t)detectimg1_src[Vpts[0].y * width * 3 + Vpts[0].x * 3])
-				{
+				{//2枚の画像で輝度値を比較
 					on_img_cnt++;
 				}
 			}
@@ -338,7 +358,7 @@ int DetectLEDMarker() {
 			//分類ごとに青緑の個数のカウント
 			cv::cvtColor(detectimg[on_img_id], detectimg_on_hsv, CV_BGR2HSV);
 			detectimghsv_on_src = detectimg_on_hsv.ptr<uint8_t>(0);
-			int32_t* labelptr = labels.ptr<int32_t>(0);
+			labelptr = labels.ptr<int32_t>(0);
 			memset(greenbluecnt, 0, sizeof(int) * 4 * 2);
 			for (size_t i = 0; i < Vpts.size(); i++)
 			{
@@ -372,27 +392,42 @@ int DetectLEDMarker() {
 				if (greenbluecnt[i][0] < greenbluecnt[i][1]) blueno = (int)i;
 			}
 
-			
+			//クラスタごとに輝度重心の計算
 			for (size_t i = 0; i < Vpts.size(); i++)
 			{
 				labelno = (int)labelptr[i];
-				if (labelno == blueno)
+				dist = hypot(center_src[labelno * 2 + 0] - Vpts[i].x, center_src[labelno * 2 + 1] - Vpts[i].y);
+				if (dist < dist_cluster_thr)
 				{
-					ledmass[labelno] += (double)detectimg_on_src[Vpts[i].y * width * 3 + Vpts[i].x * 3];
-					ledmomx[labelno] += (double)detectimg_on_src[Vpts[i].y * width * 3 + Vpts[i].x * 3] * Vpts[i].x;
-					ledmomy[labelno] += (double)detectimg_on_src[Vpts[i].y * width * 3 + Vpts[i].x * 3] * Vpts[i].y;
+					if (labelno == blueno)
+					{
+						if ((int32_t)detectimg_on_src[Vpts[i].y * width * 3 + Vpts[i].x * 3] > blueLED_min(0))
+						{//On画像の青の閾値はもっと高い
+							ledmass[labelno] += (double)detectimg_on_src[Vpts[i].y * width * 3 + Vpts[i].x * 3];
+							ledmomx[labelno] += (double)detectimg_on_src[Vpts[i].y * width * 3 + Vpts[i].x * 3] * Vpts[i].x;
+							ledmomy[labelno] += (double)detectimg_on_src[Vpts[i].y * width * 3 + Vpts[i].x * 3] * Vpts[i].y;
+							//ROIも計算
+							if (roi_led_maxx[labelno] < Vpts[i].x) roi_led_maxx[labelno] = Vpts[i].x;
+							if (roi_led_minx[labelno] > Vpts[i].x) roi_led_minx[labelno] = Vpts[i].x;
+							if (roi_led_maxy[labelno] < Vpts[i].y) roi_led_maxy[labelno] = Vpts[i].y;
+							if (roi_led_miny[labelno] > Vpts[i].y) roi_led_miny[labelno] = Vpts[i].y;
+						}
+					}
+					else
+					{//On画像の緑の閾値はもっと高い
+						if ((int32_t)detectimg_on_src[Vpts[i].y * width * 3 + Vpts[i].x * 3 + 1] > greenLED_min(1))
+						{
+							ledmass[labelno] += (double)detectimg_on_src[Vpts[i].y * width * 3 + Vpts[i].x * 3 + 1];
+							ledmomx[labelno] += (double)detectimg_on_src[Vpts[i].y * width * 3 + Vpts[i].x * 3 + 1] * Vpts[i].x;
+							ledmomy[labelno] += (double)detectimg_on_src[Vpts[i].y * width * 3 + Vpts[i].x * 3 + 1] * Vpts[i].y;
+							//ROIも計算
+							if (roi_led_maxx[labelno] < Vpts[i].x) roi_led_maxx[labelno] = Vpts[i].x;
+							if (roi_led_minx[labelno] > Vpts[i].x) roi_led_minx[labelno] = Vpts[i].x;
+							if (roi_led_maxy[labelno] < Vpts[i].y) roi_led_maxy[labelno] = Vpts[i].y;
+							if (roi_led_miny[labelno] > Vpts[i].y) roi_led_miny[labelno] = Vpts[i].y;
+						}
+					}
 				}
-				else
-				{
-					ledmass[labelno] += (double)detectimg_on_src[Vpts[i].y * width * 3 + Vpts[i].x * 3 + 1];
-					ledmomx[labelno] += (double)detectimg_on_src[Vpts[i].y * width * 3 + Vpts[i].x * 3 + 1] * Vpts[i].x;
-					ledmomy[labelno] += (double)detectimg_on_src[Vpts[i].y * width * 3 + Vpts[i].x * 3 + 1] * Vpts[i].y;
-				}
-				//ROIも計算
-				if (roi_led_maxx[labelno] < Vpts[i].x) roi_led_maxx[labelno] = Vpts[i].x;
-				if (roi_led_minx[labelno] > Vpts[i].x) roi_led_minx[labelno] = Vpts[i].x;
-				if (roi_led_maxy[labelno] < Vpts[i].y) roi_led_maxy[labelno] = Vpts[i].y;
-				if (roi_led_miny[labelno] > Vpts[i].y) roi_led_miny[labelno] = Vpts[i].y;
 			}
 			for (size_t i = 0; i < 4; i++)
 			{
@@ -408,11 +443,20 @@ int DetectLEDMarker() {
 				rois_rand[i].width = roi_led_maxx[i] - roi_led_minx[i];
 				rois_rand[i].y = roi_led_miny[i];
 				rois_rand[i].height = roi_led_maxy[i] - roi_led_miny[i];
+#ifdef DEBUG_
+				cv::rectangle(afterlabel, rois_rand[i], cv::Scalar(255, 255, 255), 1);
+#endif // DEBUG_
+
 			}
 
 			//順番バラバラでもLEDの輝度重心計算
 			for (size_t i = 0; i < 4; i++)
 			{
+				//クラスタ内部に閾値以上の輝点が存在しないときは未検出で終了
+				if (ledmass[i] <= 0) {
+					processflgs[detectid] = false;
+					return 1;
+				}
 				ledimpos_rand[i][0] = ledmomx[i] / ledmass[i];
 				ledimpos_rand[i][1] = ledmomy[i] / ledmass[i];
 			}
@@ -465,7 +509,7 @@ int DetectLEDMarker() {
 				}
 			}
 
-			//leddetected = true;
+			leddetected = true;
 		}
 
 		//青と緑両方検出しているとき
@@ -507,6 +551,13 @@ int DetectLEDMarker() {
 						}
 					}
 				}
+				if (ledmass[i] <= 0)
+				{
+					//ROI内部に閾値以上の輝点が存在しないときに終了
+					leddetected = false;
+					processflgs[detectid] = false;
+					return 1;
+				}
 				ledimpos[i][0] = ledmomx[i] / ledmass[i];
 				ledimpos[i][1] = ledmomy[i] / ledmass[i];
 
@@ -524,88 +575,92 @@ int DetectLEDMarker() {
 				rois[i].height = roi_led_maxy[i] - roi_led_miny[i];
 			}
 		}
+
+		//4つのLEDから位置姿勢計算
+		///理想ピクセル座標系に変換
+		for (size_t i = 0; i < 4; i++)
+		{
+			ledidimpos[i][0] = det * ((ledimpos[i][0] - distort[0]) - stretch_mat[1] * (ledimpos[i][1] - distort[1]));
+			ledidimpos[i][1] = det * (-stretch_mat[2] * (ledimpos[i][0] - distort[0]) + stretch_mat[0] * (ledimpos[i][1] - distort[1]));
+		}
+		///理想ピクセル->方向ベクトル
+		for (size_t i = 0; i < 4; i++)
+		{
+			phi = hypot(ledidimpos[i][0], ledidimpos[i][1]);
+			w = map_coeff[0] + map_coeff[1] * pow(phi, 2) +
+				map_coeff[2] * pow(phi, 3) + map_coeff[3] * pow(phi, 4);
+			lambda = 1 / pow(pow(ledidimpos[i][0], 2) + pow(ledidimpos[i][1], 2) + pow(w, 2), 0.5);
+			ledcamdir[i][0] = lambda * ledidimpos[i][0];
+			ledcamdir[i][1] = lambda * ledidimpos[i][1];
+			ledcamdir[i][2] = lambda * w;
+		}
+
+		//4つの方向ベクトルから，斜面の法線ベクトルを求める
+		for (size_t i = 0; i < 4; i++)
+		{
+			lednormdir[i][0] = ledcamdir[i][1] * ledcamdir[(i + 1) % 4][2] - ledcamdir[i][2] * ledcamdir[(i + 1) % 4][1];
+			lednormdir[i][1] = ledcamdir[i][2] * ledcamdir[(i + 1) % 4][0] - ledcamdir[i][0] * ledcamdir[(i + 1) % 4][2];
+			lednormdir[i][2] = ledcamdir[i][0] * ledcamdir[(i + 1) % 4][1] - ledcamdir[i][1] * ledcamdir[(i + 1) % 4][0];
+		}
+
+		//法線ベクトルから，LEDマーカの辺の方向ベクトルを2つ求める
+		for (size_t i = 0; i < 2; i++)
+		{
+			Rm2c[0][i] = -(lednormdir[i][1] * lednormdir[(i + 2)][2] - lednormdir[i][2] * lednormdir[(i + 2)][1]);
+			Rm2c[1][i] = -(lednormdir[i][2] * lednormdir[(i + 2)][0] - lednormdir[i][0] * lednormdir[(i + 2)][2]);
+			Rm2c[2][i] = -(lednormdir[i][0] * lednormdir[(i + 2)][1] - lednormdir[i][1] * lednormdir[(i + 2)][0]);
+			lambda = 1 / pow(pow(Rm2c[0][i], 2) + pow(Rm2c[1][i], 2) + pow(Rm2c[2][i], 2), 0.5);
+			Rm2c[0][i] *= lambda;
+			Rm2c[1][i] *= lambda;
+			Rm2c[2][i] *= lambda;
+		}
+
+		//カメラ-マーカ間の相対姿勢の計算(残りの方向ベクトルを外積で求める)
+		Rm2c[0][2] = Rm2c[1][0] * Rm2c[2][1] - Rm2c[2][0] * Rm2c[1][1];
+		Rm2c[1][2] = Rm2c[2][0] * Rm2c[0][1] - Rm2c[0][0] * Rm2c[2][1];
+		Rm2c[2][2] = Rm2c[0][0] * Rm2c[1][1] - Rm2c[1][0] * Rm2c[0][1];
+		lambda = 1 / pow(pow(Rm2c[0][2], 2) + pow(Rm2c[1][2], 2) + pow(Rm2c[2][2], 2), 0.5);
+		Rm2c[0][2] *= lambda;
+		Rm2c[1][2] *= lambda;
+		Rm2c[2][2] *= lambda;
+
+		//ここで，方向ベクトルが画像処理の誤差を乗せて直交しないときに強引に直交する方向ベクトルを計算する
+		Rm2c[0][1] = Rm2c[1][2] * Rm2c[2][0] - Rm2c[2][2] * Rm2c[1][0];
+		Rm2c[1][1] = Rm2c[2][2] * Rm2c[0][0] - Rm2c[0][2] * Rm2c[2][0];
+		Rm2c[2][1] = Rm2c[0][2] * Rm2c[1][0] - Rm2c[1][2] * Rm2c[0][0];
+		lambda = 1 / pow(pow(Rm2c[0][1], 2) + pow(Rm2c[1][1], 2) + pow(Rm2c[2][1], 2), 0.5);
+		Rm2c[0][1] *= lambda;
+		Rm2c[1][1] *= lambda;
+		Rm2c[2][1] *= lambda;
+
+		//魚眼モデルと相対姿勢を用いてカメラ-マーカ間の相対位置を計算
+		for (size_t i = 0; i < 4; i++)
+		{
+			Asrc[i * 7 * 3 + i] = ledcamdir[i][0];
+			Asrc[i * 7 * 3 + 7 + i] = ledcamdir[i][1];
+			Asrc[i * 7 * 3 + 14 + i] = ledcamdir[i][2];
+			Asrc[i * 7 * 3 + 4] = -1;
+			Asrc[i * 7 * 3 + 12] = -1;
+			Asrc[i * 7 * 3 + 20] = -1;
+			bsrc[i * 3 + 0] = Rm2c[0][0] * markerpos[i][0] + Rm2c[0][1] * markerpos[i][1];
+			bsrc[i * 3 + 1] = Rm2c[1][0] * markerpos[i][0] + Rm2c[1][1] * markerpos[i][1];
+			bsrc[i * 3 + 2] = Rm2c[2][0] * markerpos[i][0] + Rm2c[2][1] * markerpos[i][1];
+		}
+		x = A.inv(cv::DECOMP_SVD) * b;
+		Tm2c[0] = xsrc[4];
+		Tm2c[1] = xsrc[5];
+		Tm2c[2] = xsrc[6];
+		//計算された位置に連続性が確認されないときはエラーとする
+
+
+		processflgs[detectid] = false;
+		return 0;
+		//位置姿勢も計算できて正常終了
 	}
 	else
 	{
+		//入力画像が異常であるときに，強制終了
 		leddetected = false;
 		return 1;
 	}
-
-	//4つのLEDから位置姿勢計算
-	///理想ピクセル座標系に変換
-	for (size_t i = 0; i < 4; i++)
-	{
-		ledidimpos[i][0] = det * ((ledimpos[i][0] - distort[0]) - stretch_mat[1] * (ledimpos[i][1] - distort[1]));
-		ledidimpos[i][1] = det * (-stretch_mat[2] * (ledimpos[i][0] - distort[0]) + stretch_mat[0] * (ledimpos[i][1] - distort[1]));
-	}
-	///理想ピクセル->方向ベクトル
-	for (size_t i = 0; i < 4; i++)
-	{
-		phi = hypot(ledidimpos[i][0], ledidimpos[i][1]);
-		w = map_coeff[0] + map_coeff[1] * pow(phi, 2) +
-			map_coeff[2] * pow(phi, 3) + map_coeff[3] * pow(phi, 4);
-		lambda = 1 / pow(pow(ledidimpos[i][0], 2) + pow(ledidimpos[i][1], 2) + pow(w, 2), 0.5);
-		ledcamdir[i][0] = lambda * ledidimpos[i][0];
-		ledcamdir[i][1] = lambda * ledidimpos[i][1];
-		ledcamdir[i][2] = lambda * w;
-	}
-
-	//4つの方向ベクトルから，斜面の法線ベクトルを求める
-	for (size_t i = 0; i < 4; i++)
-	{
-		lednormdir[i][0] = ledcamdir[i][1] * ledcamdir[(i + 1) % 4][2] - ledcamdir[i][2] * ledcamdir[(i + 1) % 4][1];
-		lednormdir[i][1] = ledcamdir[i][2] * ledcamdir[(i + 1) % 4][0] - ledcamdir[i][0] * ledcamdir[(i + 1) % 4][2];
-		lednormdir[i][2] = ledcamdir[i][0] * ledcamdir[(i + 1) % 4][1] - ledcamdir[i][1] * ledcamdir[(i + 1) % 4][0];
-	}
-
-	//法線ベクトルから，LEDマーカの辺の方向ベクトルを2つ求める
-	for (size_t i = 0; i < 2; i++)
-	{
-		Rm2c[0][i] = -(lednormdir[i][1] * lednormdir[(i + 2)][2] - lednormdir[i][2] * lednormdir[(i + 2)][1]);
-		Rm2c[1][i] = -(lednormdir[i][2] * lednormdir[(i + 2)][0] - lednormdir[i][0] * lednormdir[(i + 2)][2]);
-		Rm2c[2][i] = -(lednormdir[i][0] * lednormdir[(i + 2)][1] - lednormdir[i][1] * lednormdir[(i + 2)][0]);
-		lambda = 1 / pow(pow(Rm2c[0][i], 2) + pow(Rm2c[1][i], 2) + pow(Rm2c[2][i], 2), 0.5);
-		Rm2c[0][i] *= lambda;
-		Rm2c[1][i] *= lambda;
-		Rm2c[2][i] *= lambda;
-	}
-
-	//カメラ-マーカ間の相対姿勢の計算(残りの方向ベクトルを外積で求める)
-	Rm2c[0][2] = Rm2c[1][0] * Rm2c[2][1] - Rm2c[2][0] * Rm2c[1][1];
-	Rm2c[1][2] = Rm2c[2][0] * Rm2c[0][1] - Rm2c[0][0] * Rm2c[2][1];
-	Rm2c[2][2] = Rm2c[0][0] * Rm2c[1][1] - Rm2c[1][0] * Rm2c[0][1];
-	lambda = 1 / pow(pow(Rm2c[0][2], 2) + pow(Rm2c[1][2], 2) + pow(Rm2c[2][2], 2), 0.5);
-	Rm2c[0][2] *= lambda;
-	Rm2c[1][2] *= lambda;
-	Rm2c[2][2] *= lambda;
-
-	//ここで，方向ベクトルが画像処理の誤差を乗せて直交しないときに強引に直交する方向ベクトルを計算する
-	Rm2c[0][1] = Rm2c[1][2] * Rm2c[2][0] - Rm2c[2][2] * Rm2c[1][0];
-	Rm2c[1][1] = Rm2c[2][2] * Rm2c[0][0] - Rm2c[0][2] * Rm2c[2][0];
-	Rm2c[2][1] = Rm2c[0][2] * Rm2c[1][0] - Rm2c[1][2] * Rm2c[0][0];
-	lambda = 1 / pow(pow(Rm2c[0][1], 2) + pow(Rm2c[1][1], 2) + pow(Rm2c[2][1], 2), 0.5);
-	Rm2c[0][1] *= lambda;
-	Rm2c[1][1] *= lambda;
-	Rm2c[2][1] *= lambda;
-
-	//魚眼モデルと相対姿勢を用いてカメラ-マーカ間の相対位置を計算
-	for (size_t i = 0; i < 4; i++)
-	{
-		Asrc[i * 7 * 3 + i] = ledcamdir[i][0];
-		Asrc[i * 7 * 3 + 7 + i] = ledcamdir[i][1];
-		Asrc[i * 7 * 3 + 14 + i] = ledcamdir[i][2];
-		Asrc[i * 7 * 3 + 4] = -1;
-		Asrc[i * 7 * 3 + 12] = -1;
-		Asrc[i * 7 * 3 + 20] = -1;
-		bsrc[i * 3 + 0] = Rm2c[0][0] * markerpos[i][0] + Rm2c[0][1] * markerpos[i][1];
-		bsrc[i * 3 + 1] = Rm2c[1][0] * markerpos[i][0] + Rm2c[1][1] * markerpos[i][1];
-		bsrc[i * 3 + 2] = Rm2c[2][0] * markerpos[i][0] + Rm2c[2][1] * markerpos[i][1];
-	}
-	x = A.inv(cv::DECOMP_SVD) * b;
-	Tm2c[0] = xsrc[4];
-	Tm2c[1] = xsrc[5];
-	Tm2c[2] = xsrc[6];
-
-	processflgs[detectid] = false;
-	return 0;
 }

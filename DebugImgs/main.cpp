@@ -52,7 +52,8 @@ double* xsrc = x.ptr<double>(0);
 double* bsrc = b.ptr<double>(0);
 const double markeredge = 50;
 const double markerpos[4][2] = { {markeredge, markeredge}, {-markeredge, markeredge}, {-markeredge, -markeredge}, {markeredge, -markeredge} };
-
+double dist;
+cv::Mat centers;
 
 
 /// カメラパラメータ
@@ -120,7 +121,8 @@ int main() {
 		ptsptr[i * 2 + 0] = (float)Vpts[i].x;
 		ptsptr[i * 2 + 1] = (float)Vpts[i].y;
 	}
-	cv::kmeans(pts, 4, labels, cvTermCriteria(CV_TERMCRIT_EPS | CV_TERMCRIT_ITER, 10, 1.0), 1, cv::KMEANS_PP_CENTERS);
+	cv::kmeans(pts, 4, labels, cvTermCriteria(CV_TERMCRIT_EPS | CV_TERMCRIT_ITER, 10, 1.0), 1, cv::KMEANS_PP_CENTERS, centers);
+	float* center_src = centers.ptr<float>(0);
 
 	//分類結果の確認
 	cv::Mat afterlabel = cv::Mat(896, 896, CV_8UC3, cv::Scalar::all(0));
@@ -200,23 +202,39 @@ int main() {
 	for (size_t i = 0; i < Vpts.size(); i++)
 	{
 		labelno = (int)labelptr[i];
-		if (labelno == blueno)
+		dist = hypot(center_src[labelno * 2 + 0] - Vpts[i].x, center_src[labelno * 2 + 1] - Vpts[i].y);
+		if (dist < 30)
 		{
-			ledmass[labelno] += (double)detectimg_on_src[Vpts[i].y * width * 3 + Vpts[i].x * 3];
-			ledmomx[labelno] += (double)detectimg_on_src[Vpts[i].y * width * 3 + Vpts[i].x * 3] * Vpts[i].x;
-			ledmomy[labelno] += (double)detectimg_on_src[Vpts[i].y * width * 3 + Vpts[i].x * 3] * Vpts[i].y;
+			if (labelno == blueno)
+			{
+				if ((int32_t)detectimg_on_src[Vpts[i].y * width * 3 + Vpts[i].x * 3] > blueLED_min(0))
+				{//On画像の青の閾値はもっと高い
+					ledmass[labelno] += (double)detectimg_on_src[Vpts[i].y * width * 3 + Vpts[i].x * 3];
+					ledmomx[labelno] += (double)detectimg_on_src[Vpts[i].y * width * 3 + Vpts[i].x * 3] * Vpts[i].x;
+					ledmomy[labelno] += (double)detectimg_on_src[Vpts[i].y * width * 3 + Vpts[i].x * 3] * Vpts[i].y;
+					//ROIも計算
+					if (roi_led_maxx[labelno] < Vpts[i].x) roi_led_maxx[labelno] = Vpts[i].x;
+					if (roi_led_minx[labelno] > Vpts[i].x) roi_led_minx[labelno] = Vpts[i].x;
+					if (roi_led_maxy[labelno] < Vpts[i].y) roi_led_maxy[labelno] = Vpts[i].y;
+					if (roi_led_miny[labelno] > Vpts[i].y) roi_led_miny[labelno] = Vpts[i].y;
+				}
+			}
+			else
+			{
+				if ((int32_t)detectimg_on_src[Vpts[i].y * width * 3 + Vpts[i].x * 3 + 1] > greenLED_min(1))
+				{
+					ledmass[labelno] += (double)detectimg_on_src[Vpts[i].y * width * 3 + Vpts[i].x * 3 + 1];
+					ledmomx[labelno] += (double)detectimg_on_src[Vpts[i].y * width * 3 + Vpts[i].x * 3 + 1] * Vpts[i].x;
+					ledmomy[labelno] += (double)detectimg_on_src[Vpts[i].y * width * 3 + Vpts[i].x * 3 + 1] * Vpts[i].y;
+					//ROIも計算
+					if (roi_led_maxx[labelno] < Vpts[i].x) roi_led_maxx[labelno] = Vpts[i].x;
+					if (roi_led_minx[labelno] > Vpts[i].x) roi_led_minx[labelno] = Vpts[i].x;
+					if (roi_led_maxy[labelno] < Vpts[i].y) roi_led_maxy[labelno] = Vpts[i].y;
+					if (roi_led_miny[labelno] > Vpts[i].y) roi_led_miny[labelno] = Vpts[i].y;
+				}
+			}
+			
 		}
-		else
-		{
-			ledmass[labelno] += (double)detectimg_on_src[Vpts[i].y * width * 3 + Vpts[i].x * 3 + 1];
-			ledmomx[labelno] += (double)detectimg_on_src[Vpts[i].y * width * 3 + Vpts[i].x * 3 + 1] * Vpts[i].x;
-			ledmomy[labelno] += (double)detectimg_on_src[Vpts[i].y * width * 3 + Vpts[i].x * 3 + 1] * Vpts[i].y;
-		}
-		//ROIも計算
-		if (roi_led_maxx[labelno] < Vpts[i].x) roi_led_maxx[labelno] = Vpts[i].x;
-		if (roi_led_minx[labelno] > Vpts[i].x) roi_led_minx[labelno] = Vpts[i].x;
-		if (roi_led_maxy[labelno] < Vpts[i].y) roi_led_maxy[labelno] = Vpts[i].y;
-		if (roi_led_miny[labelno] > Vpts[i].y) roi_led_miny[labelno] = Vpts[i].y;
 	}
 	for (size_t i = 0; i < 4; i++)
 	{
@@ -232,6 +250,7 @@ int main() {
 		rois_rand[i].width = roi_led_maxx[i] - roi_led_minx[i];
 		rois_rand[i].y = roi_led_miny[i];
 		rois_rand[i].height = roi_led_maxy[i] - roi_led_miny[i];
+		cv::rectangle(afterlabel, rois_rand[i], cv::Scalar(255, 255, 255), 1);
 	}
 
 	for (size_t i = 0; i < 4; i++)
@@ -351,6 +370,7 @@ int main() {
 		rois[i].width = roi_led_maxx[i] - roi_led_minx[i];
 		rois[i].y = roi_led_miny[i];
 		rois[i].height = roi_led_maxy[i] - roi_led_miny[i];
+		cv::rectangle(afterlabel, rois[i], cv::Scalar(200, 200, 200), 1);
 	}
 
 	//4津のLEDから位置姿勢計算
