@@ -17,3 +17,18 @@ void main()
     gl_Position = MVP * v;
     vertextexCoords = texcoord;
 }
+
+/*layout (location = 0) in vec3 position; // the position variable has attribute position 0
+layout (location = 1) in vec3 color;
+
+//shader program“à‚ÌGlobal•Ï”
+uniform mat4 MVP;
+//out‚Ì•Ï”‚Æ.frag‚Ìin‚ª–¼‘O‚ªˆê’v‚µ‚Ä‚¢‚ê‚Îˆø‚«Œp‚ª‚ê‚é
+out vec4 vertexColor;
+
+void main()
+{
+    vec4 v = vec4(position, 1.0);
+    gl_Position = MVP * v;
+    vertexColor = vec4(color, 1.0);
+}*/

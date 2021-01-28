@@ -173,7 +173,7 @@ void initGL() {
 
 void drawGL_realsense(float *pts0, int *pc0_ringid, float *pc0_texcoords) {
     //点群の位置更新
-    memcpy(realsense_pc, pts0 + (*pc0_ringid * 3 * vert_cnt), sizeof(float) * 3 * vert_cnt);
+    memcpy(&realsense_pc[0][0], pts0 + (unsigned long long)*pc0_ringid * 3 * vert_cnt, sizeof(float) * 3 * vert_cnt);
 
     //シェーダプログラムの開始
     glUseProgram(gl2Program);

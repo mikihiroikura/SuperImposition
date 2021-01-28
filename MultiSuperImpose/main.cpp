@@ -14,19 +14,26 @@
 #include "realsense.h"
 #include <thread>
 #include <vector>
+#include "graphics.h"
 
 //Realsenseに関するパラメータ
 vector<realsense> rs_devices;
 rs2::context context;
-const int vert_cnt = 407040;
+
 const int ring_size_realsense = 5;
 int getpc_id = 0;
+float* texcoords_src;
+int update_ringid;
+
+#pragma warning(disable:4996)
 
 //ログに関するパラメータ
 struct PointCloud
 {
 	const rs2::vertex* pc_buffer;
+	const rs2::texture_coordinate* texcoords;
 	float* pc_ringbuffer;
+	float* texcoords_ringbuffer;
 	int pc_ringid = 0;
 };
 
@@ -42,6 +49,7 @@ int main() {
 	PointCloud pc0, pc1;
 	pc0.pc_ringbuffer = (float*)malloc(sizeof(float) * ring_size_realsense * vert_cnt * 3);
 	pc1.pc_ringbuffer = (float*)malloc(sizeof(float) * ring_size_realsense * vert_cnt * 3);
+	pc0.texcoords_ringbuffer = (float*)malloc(sizeof(float) * ring_size_realsense * vert_cnt * 2);
 
 	//PointCloud取得用バッファ
 	pc0.pc_buffer = (rs2::vertex*)malloc(sizeof(float) * vert_cnt * 3);
@@ -58,20 +66,30 @@ int main() {
 	}
 	cout << "OK!" << endl;
 
+	//OpenGLの初期化
+	initGL();
+
 	//スレッド作成
 	thread thr1(GetPointClouds, &rs_devices[0], &flg, &pc0);
-	thread thr2(GetPointClouds, &rs_devices[1], &flg, &pc1);
+	//thread thr2(GetPointClouds, &rs_devices[1], &flg, &pc1);
 
 	//メインループ
 	cout << "Main loop start!" << endl;
 	while (flg)
 	{
 		if (GetAsyncKeyState(VK_SPACE) & 0x8000) flg = false;
+		getpc_id = pc0.pc_ringid - 1;
+		texcoords_src = pc0.texcoords_ringbuffer + getpc_id * vert_cnt * 2;
+		drawGL_realsense(pc0.pc_ringbuffer, &pc0.pc_ringid, texcoords_src);
 	}
+
+	//OpenGLの終了
+	finishGL();
+
 
 	//スレッド削除
 	if (thr1.joinable())thr1.join();
-	if (thr2.joinable())thr2.join();
+	//if (thr2.joinable())thr2.join();
 
 	//動的メモリの開放
 	free(pc0.pc_ringbuffer);
@@ -92,7 +110,12 @@ void GetPointClouds(realsense* rs, bool* flg, PointCloud* pc) {
 		rs->update_depth();
 		rs->calc_pointcloud();
 		pc->pc_buffer = rs->points.get_vertices();
+		pc->texcoords = rs->points.get_texture_coordinates();
 		//取得点群をリングバッファに保存
-		memcpy((pc->pc_ringbuffer + sizeof(float) * pc->pc_ringid * vert_cnt * 3), pc->pc_buffer, sizeof(float) * vert_cnt * 3);
+		memcpy((pc->pc_ringbuffer + pc->pc_ringid * vert_cnt * 3), pc->pc_buffer, sizeof(float) * vert_cnt * 3);
+		memcpy((pc->texcoords_ringbuffer + pc->pc_ringid * vert_cnt * 2), pc->texcoords, sizeof(float) * vert_cnt * 2);
+		
+		//リングバッファの番号を更新
+		pc->pc_ringid = (pc->pc_ringid + 1) % ring_size_realsense;
 	}
 }

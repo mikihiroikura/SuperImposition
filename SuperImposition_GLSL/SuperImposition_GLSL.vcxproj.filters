@@ -14,13 +14,19 @@
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
     <Filter Include="ソース ファイル\imgui">
-      <UniqueIdentifier>{b2dcce79-3d64-4351-983d-217a7d9341bd}</UniqueIdentifier>
+      <UniqueIdentifier>{8dbe52d7-1abd-481d-89c7-7da1fa7c3394}</UniqueIdentifier>
     </Filter>
     <Filter Include="ヘッダー ファイル\imgui">
-      <UniqueIdentifier>{b5721fb2-6a6d-4829-896d-7fa239f35b27}</UniqueIdentifier>
+      <UniqueIdentifier>{698fa72f-ab33-4ada-8200-69d9d1353299}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="realsense.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="realsense_glfw.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
     <ClCompile Include="main.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
@@ -42,17 +48,18 @@
     <ClCompile Include="imgui\imgui_widgets.cpp">
       <Filter>ソース ファイル\imgui</Filter>
     </ClCompile>
-    <ClCompile Include="realsense_glfw.cpp">
-      <Filter>ソース ファイル</Filter>
-    </ClCompile>
-    <ClCompile Include="graphics.cpp">
-      <Filter>ソース ファイル</Filter>
-    </ClCompile>
-    <ClCompile Include="realsense.cpp">
-      <Filter>ソース ファイル</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <None Include="graphics.frag" />
+    <None Include="graphics.vert" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="realsense.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="realsense_glfw.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
     <ClInclude Include="imgui\imconfig.h">
       <Filter>ヘッダー ファイル\imgui</Filter>
     </ClInclude>
@@ -77,18 +84,5 @@
     <ClInclude Include="imgui\imstb_truetype.h">
       <Filter>ヘッダー ファイル\imgui</Filter>
     </ClInclude>
-    <ClInclude Include="realsense_glfw.h">
-      <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
-    <ClInclude Include="graphics.h">
-      <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
-    <ClInclude Include="realsense.h">
-      <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="graphics.frag" />
-    <None Include="graphics.vert" />
   </ItemGroup>
 </Project>

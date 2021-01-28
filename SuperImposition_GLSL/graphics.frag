@@ -12,3 +12,10 @@ void main(void)
   vec4 color = texture2D(texture, vertextexCoords);
   gl_FragColor = color;
 }
+
+/*in vec4 vertexColor;
+ 
+void main(void)
+{
+  gl_FragColor = vertexColor;
+}*/
