@@ -79,7 +79,7 @@ float* center_src;
 int32_t* labelptr;
 int greenbluecnt[4][2] = { 0 };
 int on_img_id;
-int on_img_cnt;
+int on_img_cnt, total_cnt;
 int32_t h_on;
 int blueno = -1, labelno;
 const int roi_led_minx_ini[4] = { width, width, width, width },
@@ -89,7 +89,9 @@ double ledmass[4] = { 0 }, ledmomx[4] = { 0 }, ledmomy[4] = { 0 };
 vector<cv::Rect> rois, rois_rand;
 const int roi_led_margin = 10;
 double thetamax, thetamin, thetamaxid, thetaminid;
-double dist, dist_cluster_thr = 30, dist_centers_thr = 40;
+double dist, dist_cluster_thr = 20, dist_centers_thr = 10;
+int detectled_result;
+
 
 #define SHOW_PROCESSING_TIME_
 #define SHOW_IMGS_OPENGL_
@@ -174,8 +176,8 @@ int main() {
 
 	while (flg)
 	{
-		DetectLEDMarker();
-		//cout << "Detect LED marker dummy" << endl;
+		detectled_result = DetectLEDMarker();
+		cout << "Detect LED marker result: " << detectled_result << endl;
 	}
 
 	//カメラの停止，RS232Cの切断
@@ -455,7 +457,7 @@ int DetectLEDMarker() {
 				//クラスタ内部に閾値以上の輝点が存在しないときは未検出で終了
 				if (ledmass[i] <= 0) {
 					processflgs[detectid] = false;
-					return 1;
+					return 2;
 				}
 				ledimpos_rand[i][0] = ledmomx[i] / ledmass[i];
 				ledimpos_rand[i][1] = ledmomy[i] / ledmass[i];
@@ -515,6 +517,30 @@ int DetectLEDMarker() {
 		//青と緑両方検出しているとき
 		else
 		{
+			//ON画像がどちらか判定する
+			detectimg0_src = detectimg[0].ptr<uint8_t>(0);
+			detectimg1_src = detectimg[1].ptr<uint8_t>(0);
+			on_img_cnt = 0;
+			total_cnt = 0;
+			for (size_t i = 0; i < 4; i++)
+			{
+				for (size_t k = rois[i].x; k < static_cast<unsigned long long>(rois[i].x) + rois[i].width; k++)
+				{
+					for (size_t j = rois[i].y; j < static_cast<unsigned long long>(rois[i].y) + rois[i].height; j++)
+					{
+						if ((int32_t)detectimg0_src[j * width * 3 + k * 3] > (int32_t)detectimg1_src[j * width * 3 + k * 3])
+						{//2枚の画像で輝度値を比較
+							on_img_cnt++;
+						}
+						total_cnt++;
+					}
+				}
+				
+			}
+			if (on_img_cnt > total_cnt / 2) on_img_id = 0;
+			else on_img_id = 1;
+			detectimg_on_src = detectimg[on_img_id].ptr<uint8_t>(0);
+
 			for (size_t i = 0; i < 4; i++)
 			{
 				for (size_t k = rois[i].x; k < static_cast<unsigned long long>(rois[i].x) + rois[i].width; k++)
@@ -556,7 +582,7 @@ int DetectLEDMarker() {
 					//ROI内部に閾値以上の輝点が存在しないときに終了
 					leddetected = false;
 					processflgs[detectid] = false;
-					return 1;
+					return 3;
 				}
 				ledimpos[i][0] = ledmomx[i] / ledmass[i];
 				ledimpos[i][1] = ledmomy[i] / ledmass[i];
@@ -661,6 +687,6 @@ int DetectLEDMarker() {
 	{
 		//入力画像が異常であるときに，強制終了
 		leddetected = false;
-		return 1;
+		return 4;
 	}
 }
