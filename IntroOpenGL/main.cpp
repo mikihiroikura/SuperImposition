@@ -22,6 +22,8 @@ using namespace std;
 const unsigned int window_width = 1280;
 const unsigned int window_height = 720;
 GLFWwindow* window;
+const unsigned int points_width = 100;
+const unsigned int points_height = 100;
 
 //shader object
 static GLuint vertShader, fragShader, gl2Program;
@@ -31,7 +33,7 @@ GLuint vbo, cbo, tcbo, vao, tex;
 float vertices[2][2][3];
 float colors[2][2][3];
 float texcoords[2][2][2];
-float textureimg[2][2][3];
+GLubyte textureimg[4][3];
 
 //imgui
 float rotate_x = 0.0, rotate_y = 0.0;
@@ -121,45 +123,48 @@ int main() {
     texlocation = glGetUniformLocation(gl2Program, "texture");//シェーダプログラム上の"MVP" uniformの位置の検索
 
     //positionの初期化
-    for (size_t i = 0; i < 2; i++)
-    {
-        for (size_t j = 0; j < 2; j++)
-        {
-            vertices[i][j][0] = (float)i - 2 / 2;
-            vertices[i][j][1] = 0;
-            vertices[i][j][2] = (float)j - 2 / 2;
-            colors[i][j][0] = 1;
-            colors[i][j][1] = 0;
-            colors[i][j][2] = 0.0;
-        }
-    }
+    vertices[0][0][0] = -0.7;
+    vertices[0][0][1] = 0.7;
+    vertices[0][0][2] = 0;
+
+    vertices[0][1][0] = -0.7;
+    vertices[0][1][1] = -0.7;
+    vertices[0][1][2] = 0;
+
+    vertices[1][0][0] = 0.7;
+    vertices[1][0][1] = -0.7;
+    vertices[1][0][2] = 0;
+
+    vertices[1][1][0] = +0.7;
+    vertices[1][1][1] = +0.7;
+    vertices[1][1][2] = 0;
 
     //テクスチャ座標系の初期化
     texcoords[0][0][0] = 0;
     texcoords[0][0][1] = 1;
-    texcoords[1][0][0] = 0;
-    texcoords[1][0][1] = 0;
-    texcoords[0][1][0] = 1;
+    texcoords[0][1][0] = 0;
     texcoords[0][1][1] = 0;
+    texcoords[1][0][0] = 1;
+    texcoords[1][0][1] = 0;
     texcoords[1][1][0] = 1;
     texcoords[1][1][1] = 1;
 
     //テクスチャ画像の初期化
-    textureimg[0][0][0] = 255;
-    textureimg[0][0][1] = 0;
-    textureimg[0][0][2] = 0;
+    textureimg[0][0] = 255;
+    textureimg[0][1] = 0;
+    textureimg[0][2] = 0;
 
-    textureimg[1][0][0] = 0;
-    textureimg[1][0][1] = 255;
-    textureimg[1][0][2] = 0;
+    textureimg[1][0] = 0;
+    textureimg[1][1] = 255;
+    textureimg[1][2] = 0;
 
-    textureimg[0][1][0] = 0;
-    textureimg[0][1][1] = 0;
-    textureimg[0][1][2] = 255;
+    textureimg[2][0] = 0;
+    textureimg[2][1] = 0;
+    textureimg[2][2] = 255;
 
-    textureimg[1][1][0] = 255;
-    textureimg[1][1][1] = 255;
-    textureimg[1][1][2] = 255;
+    textureimg[3][0] = 255;
+    textureimg[3][1] = 255;
+    textureimg[3][2] = 255;
    
 
     //VAOのバインド
@@ -182,13 +187,12 @@ int main() {
     glEnableVertexAttribArray(1);
     //glEnableVertexArrayAttrib(vao, 1);
 
-    glBindBuffer(GL_ARRAY_BUFFER, 0); //EnableVertexAttribArrayの後に行う
-    glBindVertexArray(0);//VAOに上のVBOの処理をまとめる，ループで一度これを呼べばvertexattrib,enablevertexattribは実行される
-
     //テクスチャ座標バッファの作成
     glGenBuffers(1, &tcbo);
     glBindBuffer(GL_ARRAY_BUFFER, tcbo);
     glBufferData(GL_ARRAY_BUFFER, sizeof(texcoords), nullptr, GL_DYNAMIC_DRAW);
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 0, 0);
+    glEnableVertexAttribArray(2);
 
     //テクスチャの作成
     glGenTextures(1, &tex);
@@ -197,6 +201,13 @@ int main() {
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 2, 2, 0, GL_RGB, GL_UNSIGNED_BYTE, textureimg);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0); //EnableVertexAttribArrayの後に行う
+    glBindVertexArray(0);//VAOに上のVBOの処理をまとめる，ループで一度これを呼べばvertexattrib,enablevertexattribは実行される
+
+    
+
+    
 
     //スクロール時にCallbackする関数の指定
     glfwSetScrollCallback(window, setfov);
@@ -215,37 +226,69 @@ int main() {
         //時間計測開始
         QueryPerformanceCounter(&glstart);
 
-        //点群の位置と色の更新
-        for (size_t i = 0; i < 2; i++)
-        {
-            for (size_t j = 0; j < 2; j++)
-            {
-                vertices[i][j][0] = (float)i  - 2 / 2;
-                vertices[i][j][1] = sin((float)i + Time) * cos((float)j + Time);
-                vertices[i][j][2] = (float)j  - 2   / 2;
-                if (vertices[i][j][1]<0.5 && vertices[i][j][1] > -0.5)
-                {
-                    colors[i][j][1] = 0;
-                    colors[i][j][2] = 0.0;
-                    if (hide_red) colors[i][j][0] = 0;
-                    else colors[i][j][0] = 1;
-                }
-                else if (vertices[i][j][1] > 0.5)
-                {
-                    colors[i][j][0] = 0;
-                    colors[i][j][2] = 0.0;
-                    if (hide_green) colors[i][j][1] = 0.0;
-                    else colors[i][j][1] = 1.0;
-                }
-                else
-                {
-                    colors[i][j][0] = 0;
-                    colors[i][j][1] = 0;
-                    if (hide_blue) colors[i][j][2] = 0.0;
-                    else colors[i][j][2] = 1.0;
-                }
-            }
-        }
+        ////点群の位置と色の更新
+        //for (size_t i = 0; i < 2; i++)
+        //{
+        //    for (size_t j = 0; j < 2; j++)
+        //    {
+        //        vertices[i][j][0] = (float)i  - 2 / 2;
+        //        vertices[i][j][1] = sin((float)i + Time) * cos((float)j + Time);
+        //        vertices[i][j][2] = (float)j  - 2   / 2;
+        //        if (vertices[i][j][1]<0.5 && vertices[i][j][1] > -0.5)
+        //        {
+        //            colors[i][j][1] = 0;
+        //            colors[i][j][2] = 0.0;
+        //            if (hide_red) colors[i][j][0] = 0;
+        //            else colors[i][j][0] = 1;
+        //        }
+        //        else if (vertices[i][j][1] > 0.5)
+        //        {
+        //            colors[i][j][0] = 0;
+        //            colors[i][j][2] = 0.0;
+        //            if (hide_green) colors[i][j][1] = 0.0;
+        //            else colors[i][j][1] = 1.0;
+        //        }
+        //        else
+        //        {
+        //            colors[i][j][0] = 0;
+        //            colors[i][j][1] = 0;
+        //            if (hide_blue) colors[i][j][2] = 0.0;
+        //            else colors[i][j][2] = 1.0;
+        //        }
+        //    }
+        //}
+        vertices[0][0][0] = -0.7;
+        vertices[0][0][1] = 0.7;
+        vertices[0][0][2] = sin(Time);
+
+        vertices[0][1][0] = -0.7;
+        vertices[0][1][1] = -0.7;
+        vertices[0][1][2] = sin(Time);
+
+        vertices[1][0][0] = 0.7;
+        vertices[1][0][1] = -0.7;
+        vertices[1][0][2] = sin(Time);
+
+        vertices[1][1][0] = +0.7;
+        vertices[1][1][1] = +0.7;
+        vertices[1][1][2] = sin(Time);
+
+        //テクスチャ画像の初期化
+        textureimg[0][0] = 255 * abs(sin(Time));
+        textureimg[0][1] = 0;
+        textureimg[0][2] = 0;
+
+        textureimg[1][0] = 0;
+        textureimg[1][1] = 255 * abs(sin(Time));
+        textureimg[1][2] = 0;
+
+        textureimg[2][0] = 0;
+        textureimg[2][1] = 0;
+        textureimg[2][2] = 255 * abs(sin(Time));
+
+        textureimg[3][0] = 255 * abs(sin(Time));
+        textureimg[3][1] = 255 * abs(sin(Time));
+        textureimg[3][2] = 255 * abs(sin(Time));
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -298,19 +341,15 @@ int main() {
         glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices); //VBO内の点群の位置の更新
         glBindBuffer(GL_ARRAY_BUFFER, cbo);
         glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(colors), colors);//VBO内の色を更新
-        glEnableVertexAttribArray(2);
         glBindBuffer(GL_ARRAY_BUFFER, tcbo);
-        glVertexAttribPointer(
-            2,                  // 属性1
-            2,                  // １要素の個数。GLfloatのu,vなので2
-            GL_FLOAT,           // タイプ
-            GL_FALSE,           // 正規化しない（データが整数型の時）
-            0,                  // ストライド
-            (void*)0            // 配列バッファオフセット
-        );
+        glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(texcoords), texcoords);
+        glBindTexture(GL_TEXTURE_2D, tex);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 2, 2, GL_RGB, GL_UNSIGNED_BYTE, textureimg);
         glBindVertexArray(vao);//VBOでの点群位置と色更新をまとめたVAOをバインドして実行
-        glDrawArrays(GL_POINTS, 0, 2 * 2);//実際の描画
+        glDrawArrays(GL_TRIANGLE_FAN, 0, 2 * 2);//実際の描画
         glBindVertexArray(0);//VBOのアンバインド
+
+        
 
         glfwPollEvents(); //マウスイベントを取り出し記録
 

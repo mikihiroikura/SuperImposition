@@ -169,7 +169,7 @@ void GetPointClouds(realsense* rs, bool* flg, PointCloud* pc) {
 		rs->update_depth();
 		rs->calc_pointcloud();
 		pc->pc_buffer = rs->points.get_vertices();
-        cout << "pointssize " << rs->points.size() << endl;
+        //cout << "pointssize " << rs->points.size() << endl;
 		pc->texcoords = rs->points.get_texture_coordinates();
 		//取得点群をリングバッファに保存
 		memcpy((&pc->pc_ringbuffer[0][0] + (unsigned long long)pc->pc_ringid * vert_cnt * 3), pc->pc_buffer, sizeof(float) * vert_cnt * 3);
@@ -281,23 +281,7 @@ void initGL() {
     matlocation = glGetUniformLocation(gl2Program, "MVP");//シェーダプログラム上の"MVP" uniformの位置の検索
     texturelocation = glGetUniformLocation(gl2Program, "texture");//シェーダプログラム上の"texture" uniformの位置の検索
 
-    //テクスチャオブジェクト
-    glUniform1i(texturelocation, 0);
-    glActiveTexture(GL_TEXTURE0);
-    glGenTextures(1, &tex);
-    glBindTexture(GL_TEXTURE_2D, tex);
-    cv::Mat dummy = cv::Mat(1080, 1920, CV_8UC3, cv::Scalar::all(255));
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 1920, 1080, 0, GL_RGB, GL_UNSIGNED_BYTE, (void*)dummy.data);
-    float tex_border_color[] = { 0.8f, 0.8f, 0.8f, 0.8f };
-    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, tex_border_color);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, 0x812F); // GL_CLAMP_TO_EDGE
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, 0x812F); // GL_CLAMP_TO_EDGE
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
-    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
-    glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-    glBindTexture(GL_TEXTURE_2D, 0);
+    
 
     //VAOのバインド
     glGenVertexArrays(1, &vao);
@@ -318,6 +302,20 @@ void initGL() {
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, 0);
     glEnableVertexAttribArray(1);
     //glEnableVertexArrayAttrib(vao, 1);
+
+    //テクスチャオブジェクト
+    glGenTextures(1, &tex);
+    glBindTexture(GL_TEXTURE_2D, tex);
+    cv::Mat dummy = cv::Mat(1080, 1920, CV_8UC3, cv::Scalar::all(255));
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 1920, 1080, 0, GL_RGB, GL_UNSIGNED_BYTE, (void*)dummy.data);
+    float tex_border_color[] = { 0.8f, 0.8f, 0.8f, 0.8f };
+    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, tex_border_color);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, 0x812F); // GL_CLAMP_TO_EDGE
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, 0x812F); // GL_CLAMP_TO_EDGE
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+    glBindTexture(GL_TEXTURE_2D, 0);
 
     //VAOのアンバインド
     glBindBuffer(GL_ARRAY_BUFFER, 0); //EnableVertexAttribArrayの後に行う
@@ -385,28 +383,7 @@ void drawGL_realsense(float* pts0, int* pc0_ringid, float* pc0_texcoords, rs2::f
 
     //テクスチャの更新
     glBindTexture(GL_TEXTURE_2D, tex);
-    rs2::video_frame img = colorframes[*pc0_ringid];
-    auto width = img.get_width();
-    auto height = img.get_height();
-    auto format = img.get_profile().format();
-    cout << width << height << format << endl;
-    cv::Mat imgcolor = cv::Mat(cv::Size(width, height), CV_8UC3, (void*)colorframes[*pc0_ringid].get_data());
-    cv::imshow("img", imgcolor);
-    cv::waitKey(1);
-    //glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, (void*)colorframes[*pc0_ringid].get_data());
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, (void*)colorframes[*pc0_ringid].get_data());
-    glActiveTexture(GL_TEXTURE0);
-    glUniform1i(texturelocation, 0);
-    float tex_border_color[] = { 0.8f, 0.8f, 0.8f, 0.8f };
-    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, tex_border_color);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, 0x812F); // GL_CLAMP_TO_EDGE
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, 0x812F); // GL_CLAMP_TO_EDGE
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
-    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
-    glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-    //glBindTexture(GL_TEXTURE_2D, 0);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 1920, 1080, GL_RGB, GL_UNSIGNED_BYTE, (void*)colorframes[*pc0_ringid].get_data());
     
     //点群の位置とテクスチャ座標を更新
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
