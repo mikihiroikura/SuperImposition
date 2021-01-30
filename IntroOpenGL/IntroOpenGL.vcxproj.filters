@@ -14,19 +14,13 @@
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
     <Filter Include="ソース ファイル\imgui">
-      <UniqueIdentifier>{8dbe52d7-1abd-481d-89c7-7da1fa7c3394}</UniqueIdentifier>
+      <UniqueIdentifier>{7d284daa-ece3-43dc-8c11-b49d652384af}</UniqueIdentifier>
     </Filter>
     <Filter Include="ヘッダー ファイル\imgui">
-      <UniqueIdentifier>{698fa72f-ab33-4ada-8200-69d9d1353299}</UniqueIdentifier>
+      <UniqueIdentifier>{85804d00-6559-427f-a00e-90d01f389c31}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="realsense.cpp">
-      <Filter>ソース ファイル</Filter>
-    </ClCompile>
-    <ClCompile Include="realsense_glfw.cpp">
-      <Filter>ソース ファイル</Filter>
-    </ClCompile>
     <ClCompile Include="main.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
@@ -50,12 +44,10 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="realsense.h">
-      <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
-    <ClInclude Include="realsense_glfw.h">
-      <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
+    <None Include="graphics.frag" />
+    <None Include="graphics.vert" />
+  </ItemGroup>
+  <ItemGroup>
     <ClInclude Include="imgui\imconfig.h">
       <Filter>ヘッダー ファイル\imgui</Filter>
     </ClInclude>
@@ -80,9 +72,5 @@
     <ClInclude Include="imgui\imstb_truetype.h">
       <Filter>ヘッダー ファイル\imgui</Filter>
     </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="graphics.frag" />
-    <None Include="graphics.vert" />
   </ItemGroup>
 </Project>

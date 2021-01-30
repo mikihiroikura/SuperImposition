@@ -26,7 +26,7 @@
 #include "imgui/imgui_impl_opengl3.h"
 #include "imgui/imgui_impl_glfw.h"
 
-const int vert_cnt = 407040;
+const int vert_cnt = 921600;
 const int realsense_cnt = 1;
 
 rs2::context context;
@@ -34,6 +34,9 @@ const int ring_size_realsense = 5;
 int getpc_id = 0;
 float* texcoords_src;
 int update_ringid;
+
+//時間に関する変数
+LARGE_INTEGER start, stop, freq;
 
 #pragma warning(disable:4996)
 struct PointCloud
@@ -79,6 +82,7 @@ glm::mat4 mvp, Model, View, Projection;
 
 //出力点群に関するパラメータ
 float realsense_pc[vert_cnt * realsense_cnt][3] = { 0 };
+float realsense_texcoord[vert_cnt * realsense_cnt][2] = { 0 };
 
 //プロトタイプ宣言
 void GetPointClouds(realsense* rs, bool* flg, PointCloud* pc);
@@ -92,6 +96,7 @@ void drawGL_realsense(float* pts0, int* pc0_ringid, float* pc0_texcoords, rs2::f
 int main() {
 	//パラメータ
 	bool flg = true;
+    if (!QueryPerformanceFrequency(&freq)) { return 0; }// 単位習得
 
 	//ログ初期化
 	cout << "Set PointCloud buffers....";
@@ -121,12 +126,20 @@ int main() {
 
 	//メインループ
 	cout << "Main loop start!" << endl;
+    QueryPerformanceCounter(&start);
+    double timer = 0;
+    while (timer < 1.5)
+    {
+        QueryPerformanceCounter(&stop);
+        timer = (double)(stop.QuadPart - start.QuadPart) / freq.QuadPart;
+    }
 	while (flg)
 	{
 		if (GetAsyncKeyState(VK_SPACE) & 0x8000) flg = false;
-		getpc_id = pc0.pc_ringid - 1;
-		texcoords_src = &pc0.texcoords_ringbuffer[0][0] + (unsigned long long)getpc_id * vert_cnt * 2;
-		drawGL_realsense(&pc0.pc_ringbuffer[0][0], &pc0.pc_ringid, texcoords_src, &pc0.colorframe_buffer[0]);
+		getpc_id = pc0.pc_ringid;
+        if (getpc_id < 0) getpc_id + ring_size_realsense;
+		texcoords_src = &pc0.texcoords_ringbuffer[0][0];
+		drawGL_realsense(&pc0.pc_ringbuffer[0][0], &getpc_id, texcoords_src, &pc0.colorframe_buffer[0]);
 	}
 
 	//OpenGLの終了
@@ -156,6 +169,7 @@ void GetPointClouds(realsense* rs, bool* flg, PointCloud* pc) {
 		rs->update_depth();
 		rs->calc_pointcloud();
 		pc->pc_buffer = rs->points.get_vertices();
+        cout << "pointssize " << rs->points.size() << endl;
 		pc->texcoords = rs->points.get_texture_coordinates();
 		//取得点群をリングバッファに保存
 		memcpy((&pc->pc_ringbuffer[0][0] + (unsigned long long)pc->pc_ringid * vert_cnt * 3), pc->pc_buffer, sizeof(float) * vert_cnt * 3);
@@ -264,11 +278,26 @@ void initGL() {
     //シェーダプログラムのリンク
     glLinkProgram(gl2Program);
 
-    //シェーダプログラムのリンク
-    glLinkProgram(gl2Program);
-
     matlocation = glGetUniformLocation(gl2Program, "MVP");//シェーダプログラム上の"MVP" uniformの位置の検索
     texturelocation = glGetUniformLocation(gl2Program, "texture");//シェーダプログラム上の"texture" uniformの位置の検索
+
+    //テクスチャオブジェクト
+    glUniform1i(texturelocation, 0);
+    glActiveTexture(GL_TEXTURE0);
+    glGenTextures(1, &tex);
+    glBindTexture(GL_TEXTURE_2D, tex);
+    cv::Mat dummy = cv::Mat(1080, 1920, CV_8UC3, cv::Scalar::all(255));
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 1920, 1080, 0, GL_RGB, GL_UNSIGNED_BYTE, (void*)dummy.data);
+    float tex_border_color[] = { 0.8f, 0.8f, 0.8f, 0.8f };
+    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, tex_border_color);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, 0x812F); // GL_CLAMP_TO_EDGE
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, 0x812F); // GL_CLAMP_TO_EDGE
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+    glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+    glBindTexture(GL_TEXTURE_2D, 0);
 
     //VAOのバインド
     glGenVertexArrays(1, &vao);
@@ -277,23 +306,16 @@ void initGL() {
     //頂点バッファオブジェクト
     glGenBuffers(1, &vbo);//vbp作成
     glBindBuffer(GL_ARRAY_BUFFER, vbo);//vboのバインド，これからの処理の対象
-    glBufferData(GL_ARRAY_BUFFER, 407040 * 3 * sizeof(float), nullptr, GL_DYNAMIC_DRAW);//vboのデータ領域の確保
+    glBufferData(GL_ARRAY_BUFFER, vert_cnt * 3 * sizeof(float), nullptr, GL_DYNAMIC_DRAW);//vboのデータ領域の確保
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);//vertex shader内の引数の指定indexに合うように変更する
     glEnableVertexAttribArray(0);//indexの値のattribute変数の有効化
     //glEnableVertexArrayAttrib(vao, 0); //上の関数の代わりにこれでもいい
-
-
-    //テクスチャオブジェクト
-    glUniform1i(glGetUniformLocation(gl2Program, "texture"), 0);
-    glActiveTexture(GL_TEXTURE0);
-    glGenTextures(1, &tex);
-    glBindTexture(GL_TEXTURE_2D, tex);
 
     //テクスチャ座標オブジェクト
     glGenBuffers(1, &tcbo);
     glBindBuffer(GL_ARRAY_BUFFER, tcbo);
     glBufferData(GL_ARRAY_BUFFER, sizeof(float) * vert_cnt * 2 * realsense_cnt, nullptr, GL_DYNAMIC_DRAW);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, 0);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, 0);
     glEnableVertexAttribArray(1);
     //glEnableVertexArrayAttrib(vao, 1);
 
@@ -316,6 +338,7 @@ void initGL() {
 void drawGL_realsense(float* pts0, int* pc0_ringid, float* pc0_texcoords, rs2::frame* colorframes) {
     //点群の位置更新
     memcpy(&realsense_pc[0][0], pts0 + (unsigned long long) * pc0_ringid * 3 * vert_cnt, sizeof(float) * 3 * vert_cnt);
+    memcpy(&realsense_texcoord[0][0], pc0_texcoords + (unsigned long long) * pc0_ringid * 2 * vert_cnt, sizeof(float) * 2 * vert_cnt);
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -362,24 +385,39 @@ void drawGL_realsense(float* pts0, int* pc0_ringid, float* pc0_texcoords, rs2::f
 
     //テクスチャの更新
     glBindTexture(GL_TEXTURE_2D, tex);
-    if (sizeof(colorframes) > 1000)
-    {
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 640, 480, 0, GL_RGB, GL_UNSIGNED_BYTE, colorframes[*pc0_ringid].get_data());
-    }
+    rs2::video_frame img = colorframes[*pc0_ringid];
+    auto width = img.get_width();
+    auto height = img.get_height();
+    auto format = img.get_profile().format();
+    cout << width << height << format << endl;
+    cv::Mat imgcolor = cv::Mat(cv::Size(width, height), CV_8UC3, (void*)colorframes[*pc0_ringid].get_data());
+    cv::imshow("img", imgcolor);
+    cv::waitKey(1);
+    //glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, (void*)colorframes[*pc0_ringid].get_data());
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, (void*)colorframes[*pc0_ringid].get_data());
+    glActiveTexture(GL_TEXTURE0);
+    glUniform1i(texturelocation, 0);
+    float tex_border_color[] = { 0.8f, 0.8f, 0.8f, 0.8f };
+    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, tex_border_color);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, 0x812F); // GL_CLAMP_TO_EDGE
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, 0x812F); // GL_CLAMP_TO_EDGE
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
     glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-    glBindTexture(GL_TEXTURE2, 0);
-
-    //点群の位置と色を更新
+    //glBindTexture(GL_TEXTURE_2D, 0);
+    
+    //点群の位置とテクスチャ座標を更新
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
     glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(realsense_pc), realsense_pc);
     glBindBuffer(GL_ARRAY_BUFFER, tcbo);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(pc0_texcoords), pc0_texcoords);//VBO内のテクスチャ座標を更新
+    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(realsense_texcoord), realsense_texcoord);//VBO内のテクスチャ座標を更新
+    glTexCoordPointer(2, GL_FLOAT, 0, 0);
     glBindVertexArray(vao);//VBOでの点群位置とテクスチャ座標更新をまとめたVAOをバインドして実行
     glDrawArrays(GL_POINTS, 0, vert_cnt);//実際の描画
+
+    glBindTexture(GL_TEXTURE_2D, 0);
     glBindVertexArray(0);//VBOのアンバインド
 
     glfwPollEvents(); //マウスイベントを取り出し記録

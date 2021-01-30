@@ -21,8 +21,8 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{78d358c4-3fb6-469a-bf62-4a73cb344376}</ProjectGuid>
-    <RootNamespace>SuperImpositionGLSL</RootNamespace>
+    <ProjectGuid>{500d7d96-f280-4d92-9885-5053b5b56be6}</ProjectGuid>
+    <RootNamespace>IntroOpenGL</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -59,31 +59,27 @@
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="..\util\intel.realsense.props" />
-    <Import Project="..\util\imgui.props" />
-    <Import Project="..\util\glfw.props" />
     <Import Project="..\util\OpenCV.props" />
+    <Import Project="..\util\glfw.props" />
+    <Import Project="..\util\imgui.props" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="..\util\intel.realsense.props" />
-    <Import Project="..\util\imgui.props" />
-    <Import Project="..\util\glfw.props" />
     <Import Project="..\util\OpenCV.props" />
+    <Import Project="..\util\glfw.props" />
+    <Import Project="..\util\imgui.props" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="..\util\intel.realsense.props" />
-    <Import Project="..\util\imgui.props" />
-    <Import Project="..\util\glfw.props" />
     <Import Project="..\util\OpenCV.props" />
+    <Import Project="..\util\glfw.props" />
+    <Import Project="..\util\imgui.props" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="..\util\intel.realsense.props" />
-    <Import Project="..\util\imgui.props" />
-    <Import Project="..\util\glfw.props" />
     <Import Project="..\util\OpenCV.props" />
+    <Import Project="..\util\glfw.props" />
+    <Import Project="..\util\imgui.props" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -162,8 +158,10 @@
     <ClCompile Include="imgui\imgui_impl_opengl3.cpp" />
     <ClCompile Include="imgui\imgui_widgets.cpp" />
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="realsense.cpp" />
-    <ClCompile Include="realsense_glfw.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="graphics.frag" />
+    <None Include="graphics.vert" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="imgui\imconfig.h" />
@@ -174,12 +172,6 @@
     <ClInclude Include="imgui\imstb_rectpack.h" />
     <ClInclude Include="imgui\imstb_textedit.h" />
     <ClInclude Include="imgui\imstb_truetype.h" />
-    <ClInclude Include="realsense.h" />
-    <ClInclude Include="realsense_glfw.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="graphics.frag" />
-    <None Include="graphics.vert" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
