@@ -19,7 +19,7 @@
 vector<realsense> rs_devices;
 rs2::context context;
 
-const int ring_size_realsense = 5;
+const int ring_size_realsense = 30;
 int getpc_id = 0;
 float* texcoords_src;
 int update_ringid;
@@ -123,10 +123,11 @@ int main() {
 	}
 
 	//“®“Iƒƒ‚ƒŠ‚ÌŠJ•ú
-	free(pcs[0].pc_ringbuffer);
-	free(pcs[1].pc_ringbuffer);
-	//free(pc0.pc_buffer);
-	//free(pc1.pc_buffer);
+	/*for (size_t i = 0; i < pcs.size(); i++)
+	{
+		free(pcs[i].pc_ringbuffer);
+		free(pcs[i].texcoords_ringbuffer);
+	}*/
 
 	return 0;
 }
