@@ -19,6 +19,12 @@
 //Realsense‚ÉŠÖ‚·‚éƒpƒ‰ƒ[ƒ^
 vector<realsense> rs_devices;
 rs2::context context;
+const unsigned int colorwidth = 1920;
+const unsigned int colorheight = 1080;
+const unsigned int colorfps = 30;
+const unsigned int depthwidth = 1280;
+const unsigned int depthheight = 720;
+const unsigned int depthfps = 30;
 
 const int ring_size_realsense = 5;
 int getpc_id = 0;

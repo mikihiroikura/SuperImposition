@@ -15,14 +15,14 @@ private:
 	rs2::pointcloud pc;
 
 	//Color img
-	const unsigned int color_width = 1920;
-	const unsigned int color_height = 1080;
-	const unsigned int color_fps = 30;
+	unsigned int color_width = 1920;
+	unsigned int color_height = 1080;
+	unsigned int color_fps = 30;
 
 	//Depth img
-	const unsigned int depth_width = 1280;
-	const unsigned int depth_height = 720;
-	const unsigned int depth_fps = 30;
+	unsigned int depth_width = 1280;
+	unsigned int depth_height = 720;
+	unsigned int depth_fps = 30;
 
 public:
 	rs2::frame colorframe;
@@ -35,6 +35,8 @@ public:
 	
 	realsense(string serial_num);
 	realsense(string num, rs2_format colorformat, rs2_format depthformat);
+	realsense(string num, rs2_format colorformat, unsigned int color_width, unsigned int color_height, unsigned int color_fps, rs2_format depthformat, unsigned int depth_width, unsigned int depth_height, unsigned int depth_fps);
+
 	void update_frame();
 	void update_color();
 	void transform_color_img();

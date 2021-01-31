@@ -20,6 +20,16 @@ realsense::realsense(string num, rs2_format colorformat, rs2_format depthformat)
 	realsense::pipe.start(config);
 }
 
+realsense::realsense(string num, rs2_format colorformat, unsigned int color_width, unsigned int color_height, unsigned int color_fps, rs2_format depthformat, unsigned int depth_width, unsigned int depth_height, unsigned int depth_fps) {
+	rs2::config config;
+	realsense::serial_num = num;
+	config.enable_device(realsense::serial_num);
+	config.enable_stream(RS2_STREAM_COLOR, color_width, color_height, colorformat, color_fps);
+	config.enable_stream(RS2_STREAM_DEPTH, depth_width, depth_height, depthformat, depth_fps);
+
+	realsense::pipe.start(config);
+}
+
 void realsense::update_frame() {
 	realsense::frames = realsense::pipe.wait_for_frames();
 }

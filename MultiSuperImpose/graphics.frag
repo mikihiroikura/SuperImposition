@@ -3,12 +3,11 @@
 // graphics.frag
 // gl_FragColor‚Íbuilt in•Ï”
 //.vert‚Ìout‚Æ“¯‚¶•Ï”
-in vec2 vertextexCoords;
+in vec2 texCoords;
 
 uniform sampler2D texture;
-
+ 
 void main(void)
 {
-  vec4 color = texture2D(texture, vertextexCoords);
-  gl_FragColor = color;
+  gl_FragColor = texture2D(texture, texCoords);
 }

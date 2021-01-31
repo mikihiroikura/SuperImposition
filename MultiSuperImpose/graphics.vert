@@ -9,11 +9,12 @@ layout (location = 1) in vec2 texcoord;
 //shader program“à‚ÌGlobal•Ï”
 uniform mat4 MVP;
 //out‚Ì•Ï”‚Æ.frag‚Ìin‚ª–¼‘O‚ªˆê’v‚µ‚Ä‚¢‚ê‚Îˆø‚«Œp‚ª‚ê‚é
-out vec2 vertextexCoords;
+out vec2 texCoords;
 
 void main()
 {
     vec4 v = vec4(position, 1.0);
     gl_Position = MVP * v;
-    vertextexCoords = texcoord;
+    vertexColor = vec4(color, 1.0);
+    texCoords = texcoord;
 }
