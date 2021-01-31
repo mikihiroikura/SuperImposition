@@ -29,7 +29,7 @@ const unsigned int points_height = 100;
 static GLuint vertShader, fragShader, gl2Program;
 
 //vbo
-GLuint vbo, cbo, tcbo, vao, tex;
+GLuint vbo, cbo, tcbo, vao, tex, tex2;
 float vertices[2][2][2][3];
 float colors[2][2][3];
 float texcoords[2][2][2][2];
@@ -208,7 +208,7 @@ int main() {
 
     textureimg[1][3][0] = 255;
     textureimg[1][3][1] = 255;
-    textureimg[1][3][2] = 255; 
+    textureimg[1][3][2] = 255;
 
     //VAOのバインド
     glGenVertexArrays(1, &vao);
@@ -247,7 +247,16 @@ int main() {
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 2, 2, 0, GL_RGB, GL_UNSIGNED_BYTE, textureimg);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    //テクスチャの作成
+    glGenTextures(1, &tex2);
+    glBindTexture(GL_TEXTURE_2D, tex2);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 2, 2, 0, GL_RGB, GL_UNSIGNED_BYTE, &textureimg[1][0][0]);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glBindTexture(GL_TEXTURE_2D, 0);
     
 
     glBindBuffer(GL_ARRAY_BUFFER, 0); //EnableVertexAttribArrayの後に行う
@@ -395,6 +404,7 @@ int main() {
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 2, 2, GL_RGB, GL_UNSIGNED_BYTE, textureimg);
         glBindVertexArray(vao);//VBOでの点群位置と色更新をまとめたVAOをバインドして実行
         glDrawArrays(GL_TRIANGLE_FAN, 0, 2 * 2);//実際の描画
+        glBindTexture(GL_TEXTURE_2D, tex2);
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 2, 2, GL_RGB, GL_UNSIGNED_BYTE, &textureimg[1][0][0]);
         glDrawArrays(GL_TRIANGLE_FAN, 4, 2 * 2);//実際の描画
         glBindVertexArray(0);//VBOのアンバインド

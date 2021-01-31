@@ -19,7 +19,7 @@
 vector<realsense> rs_devices;
 rs2::context context;
 
-const int ring_size_realsense = 30;
+const int ring_size_realsense = 5;
 int getpc_id = 0;
 float* texcoords_src;
 int update_ringid;
@@ -31,6 +31,8 @@ rs2::frame* gl_tex_src[realsense_cnt];
 
 //時間に関する変数
 LARGE_INTEGER start, stop, freq;
+LARGE_INTEGER glstart, glstop;
+double timer = 0, gltimer = 0;
 
 #pragma warning(disable:4996)
 
@@ -56,13 +58,14 @@ int main() {
 	//ログ初期化
 	cout << "Set PointCloud buffers....";
 	vector<PointCloud> pcs;
-	PointCloud pc;
-	pc.pc_ringbuffer = (float*)malloc(sizeof(float) * ring_size_realsense * vert_cnt * 3);
-	pc.texcoords_ringbuffer = (float*)malloc(sizeof(float) * ring_size_realsense * vert_cnt * 2);
-	pc.pc_buffer = (rs2::vertex*)malloc(sizeof(float) * vert_cnt * 3);
-	pc.texcoords = (rs2::texture_coordinate*)malloc(sizeof(float) * vert_cnt * 2);
+	
 	for (size_t i = 0; i < realsense_cnt; i++)
 	{
+		PointCloud pc;
+		pc.pc_ringbuffer = (float*)malloc(sizeof(float) * ring_size_realsense * vert_cnt * 3);
+		pc.texcoords_ringbuffer = (float*)malloc(sizeof(float) * ring_size_realsense * vert_cnt * 2);
+		pc.pc_buffer = (rs2::vertex*)malloc(sizeof(float) * vert_cnt * 3);
+		pc.texcoords = (rs2::texture_coordinate*)malloc(sizeof(float) * vert_cnt * 2);
 		pcs.push_back(pc);
 	}
 	cout << "OK!" << endl;
@@ -90,7 +93,7 @@ int main() {
 	//メインループ
 	cout << "Main loop start!" << endl;
 	QueryPerformanceCounter(&start);
-	double timer = 0;
+	
 	while (timer < 1.5)
 	{
 		QueryPerformanceCounter(&stop);
@@ -98,6 +101,7 @@ int main() {
 	}
 	while (flg)
 	{
+		QueryPerformanceCounter(&glstart);
 		if (GetAsyncKeyState(VK_SPACE) & 0x8000) flg = false;
 		
 		//呼び出す点群のポインタ
@@ -110,6 +114,10 @@ int main() {
 			gl_tex_src[i] = pcs[i].colorframe_buffer + getpc_id;
 		}
 		drawGL_realsense(gl_pc_src, gl_texcoord_src, gl_tex_src);
+		QueryPerformanceCounter(&glstop);
+		gltimer = (double)(glstop.QuadPart - glstart.QuadPart) / freq.QuadPart;
+		cout << "OpenGL time[s]: " << gltimer << endl;
+
 	}
 
 	//OpenGLの終了
