@@ -1,3 +1,6 @@
+#include <cmath>
+#define _USE_MATH_DEFINES
+
 #include "graphics.h"
 #include <opencv2/opencv.hpp>
 
@@ -15,9 +18,20 @@ static GLuint vertShader, fragShader, gl2Program;
 GLuint vbo, tcbo, vao;
 GLint matlocation;
 GLint texturelocation;
+GLuint tex;
 
 //imgui
 float init_fov = 60, fov = init_fov;
+float pointsize = 2.5;
+float rotate_x = 0.0, rotate_y = 0.0;
+float translate_x = 0.0, translate_y = 0.0, translate_z = -.0;
+double mouse_x, mouse_y, mouse_x_old, mouse_y_old;
+double horiz_angle = -M_PI, vert_angle = 0.0;
+double mouse_speed = 0.01;
+double dx = 0.0, dy = 0.0;
+float hovered;
+glm::vec3 position(0, 0, -1), up(0, -1, 0), direction(0, 0, 0);
+glm::mat4 mvp, Model, View, Projection;
 
 //出力点群に関するパラメータ
 float realsense_pc[vert_cnt * realsense_cnt][3] = { 0 };
@@ -143,10 +157,6 @@ void initGL() {
     glEnableVertexAttribArray(0);//indexの値のattribute変数の有効化
     //glEnableVertexArrayAttrib(vao, 0); //上の関数の代わりにこれでもいい
 
-
-    //テクスチャオブジェクト
-
-
     //テクスチャ座標オブジェクト
     glGenBuffers(1, &tcbo);
     glBindBuffer(GL_ARRAY_BUFFER, tcbo);
@@ -154,6 +164,20 @@ void initGL() {
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, 0);
     glEnableVertexAttribArray(1);
     //glEnableVertexArrayAttrib(vao, 1);
+
+    //テクスチャオブジェクト
+    glGenTextures(1, &tex);
+    glBindTexture(GL_TEXTURE_2D, tex);
+    cv::Mat dummy = cv::Mat(1080, 1920, CV_8UC3, cv::Scalar::all(255));
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 1920, 1080, 0, GL_RGB, GL_UNSIGNED_BYTE, (void*)dummy.data);
+    float tex_border_color[] = { 0.8f, 0.8f, 0.8f, 0.8f };
+    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, tex_border_color);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, 0x812F); // GL_CLAMP_TO_EDGE
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, 0x812F); // GL_CLAMP_TO_EDGE
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+    glBindTexture(GL_TEXTURE_2D, 0);
 
     //VAOのアンバインド
     glBindBuffer(GL_ARRAY_BUFFER, 0); //EnableVertexAttribArrayの後に行う
@@ -173,19 +197,59 @@ void initGL() {
 
 void drawGL_realsense(float *pts0, int *pc0_ringid, float *pc0_texcoords) {
     //点群の位置更新
-    memcpy(realsense_pc, pts0 + (*pc0_ringid * 3 * vert_cnt), sizeof(float) * 3 * vert_cnt);
+    memcpy(realsense_pc, pts0 + (unsigned long long)*pc0_ringid * 3 * vert_cnt, sizeof(float) * 3 * vert_cnt);
+
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+
+    //カーソル位置から移動変化量を計算
+    glfwGetCursorPos(window, &mouse_x, &mouse_y);
+    dx = mouse_x - mouse_x_old;
+    dy = mouse_y - mouse_y_old;
+
+    //左クリックしていればかつIMGUI上のWindowにいなければ，移動変化量を基に角度更新
+    if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS && !hovered)
+    {
+        horiz_angle += mouse_speed * dx;
+        vert_angle += mouse_speed * dy;
+    }
+    mouse_x_old = mouse_x;
+    mouse_y_old = mouse_y;
+
+    //スペースキーを押していれば，パラメータリセット
+    if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS)
+    {
+        horiz_angle = -M_PI;
+        vert_angle = 0.0;
+        rotate_x = 0.0, rotate_y = 0.0;
+        translate_x = 0.0, translate_y = 0.0, translate_z = -.0;
+        fov = init_fov;
+    }
+
+    //Model view行列の計算
+    position = glm::vec3(cos(vert_angle) * sin(horiz_angle), sin(vert_angle), cos(vert_angle) * cos(horiz_angle));
+    Projection = glm::perspective(glm::radians(fov), (GLfloat)window_width / (GLfloat)window_height, 0.1f, 100.0f);
+    View = glm::lookAt(position, direction, up);
+    Model = glm::translate(glm::mat4(1.0), glm::vec3(translate_x, translate_y, translate_z))
+        * glm::rotate(glm::radians(rotate_x), glm::vec3(1, 0, 0))
+        * glm::rotate(glm::radians(rotate_y), glm::vec3(0, 1, 0));
+    mvp = Projection * View * Model;
 
     //シェーダプログラムの開始
     glUseProgram(gl2Program);
-    //glUniformMatrix4fv(matlocation, 1, GL_FALSE, &mvp[0][0]); //シェーダプログラムの開始の後にシェーダプログラム内のMVP行列を更新
+    glUniformMatrix4fv(matlocation, 1, GL_FALSE, &mvp[0][0]); //シェーダプログラムの開始の後にシェーダプログラム内のMVP行列を更新
 
-    //点群の位置と色を更新
+    //テクスチャの更新
+    glBindTexture(GL_TEXTURE_2D, tex);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 1920, 1080, GL_RGB, GL_UNSIGNED_BYTE, (void*)colorframes[*pc0_ringid].get_data());
+
+    //点群の位置とテクスチャ座標を更新
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
     glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(realsense_pc), realsense_pc);
     glBindBuffer(GL_ARRAY_BUFFER, tcbo);
     glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(pc0_texcoords), pc0_texcoords);//VBO内のテクスチャ座標を更新
     glBindVertexArray(vao);//VBOでの点群位置とテクスチャ座標更新をまとめたVAOをバインドして実行
-    glDrawArrays(GL_POINTS, 0, vert_cnt * 3);//実際の描画
+    glDrawArrays(GL_POINTS, 0, vert_cnt);//実際の描画
     glBindVertexArray(0);//VBOのアンバインド
 
     glfwPollEvents(); //マウスイベントを取り出し記録
@@ -197,18 +261,12 @@ void drawGL_realsense(float *pts0, int *pc0_ringid, float *pc0_texcoords) {
 
     ImGui::SetNextWindowSize(ImVec2(320, 300), ImGuiCond_Once);
     ImGui::Begin("Logs and Parameters");
-    //ImGui::Text("Processing time %.3f ms", gltime * 1000);
-    //ImGui::Text("DDMotor mode  :  %c", mode);
-    //ImGui::Text("Rotation speed:  %d", rpm);
-    //hovered = ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem); //IMGUI上のWindowでのカーソル処理時のフラグを立てる
-    //ImGui::Checkbox("Hide Red", &hide_red);
-    //ImGui::Checkbox("Hide Green", &hide_green);
-    //ImGui::Checkbox("Hide Blue", &hide_blue);
-    //ImGui::DragFloat("rotate x", &rotate_x);
-    //ImGui::DragFloat("rotate y", &rotate_y);
-    //ImGui::DragFloat("trans x", &translate_x);
-    //ImGui::DragFloat("trans y", &translate_y);
-    //ImGui::DragFloat("trans z", &translate_z);
+    hovered = ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem); //IMGUI上のWindowでのカーソル処理時のフラグを立てる
+    ImGui::DragFloat("rotate x", &rotate_x);
+    ImGui::DragFloat("rotate y", &rotate_y);
+    ImGui::DragFloat("trans x", &translate_x);
+    ImGui::DragFloat("trans y", &translate_y);
+    ImGui::DragFloat("trans z", &translate_z);
     ImGui::End();
 
     ImGui::Render();
@@ -224,4 +282,5 @@ void finishGL() {
     glDeleteVertexArrays(1, &vao);
     glDeleteBuffers(1, &vbo);
     glDeleteBuffers(1, &tcbo);
+    glDeleteTextures(1, &tex);
 }

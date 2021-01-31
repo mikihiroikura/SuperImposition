@@ -14,7 +14,15 @@
 #include "imgui/imgui_impl_opengl3.h"
 #include "imgui/imgui_impl_glfw.h"
 
-const int vert_cnt = 407040;
+//realsense
+const unsigned int colorwidth = 1920;
+const unsigned int colorheight = 1080;
+const unsigned int colorfps = 30;
+const unsigned int depthwidth = 1280;
+const unsigned int depthheight = 720;
+const unsigned int depthfps = 30;
+
+const int vert_cnt = depthwidth * depthheight;
 const int realsense_cnt = 1;
 
 extern void initGL();

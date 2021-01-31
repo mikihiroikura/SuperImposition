@@ -19,12 +19,6 @@
 //Realsenseに関するパラメータ
 vector<realsense> rs_devices;
 rs2::context context;
-const unsigned int colorwidth = 1920;
-const unsigned int colorheight = 1080;
-const unsigned int colorfps = 30;
-const unsigned int depthwidth = 1280;
-const unsigned int depthheight = 720;
-const unsigned int depthfps = 30;
 
 const int ring_size_realsense = 5;
 int getpc_id = 0;
@@ -40,6 +34,7 @@ struct PointCloud
 	const rs2::texture_coordinate* texcoords;
 	float* pc_ringbuffer;
 	float* texcoords_ringbuffer;
+	rs2::frame colorframe_buffer[ring_size_realsense];
 	int pc_ringid = 0;
 };
 
@@ -67,7 +62,7 @@ int main() {
 	const rs2::device_list device_list = context.query_devices();
 	for (rs2::device device : device_list)
 	{
-		realsense rs(device.get_info(RS2_CAMERA_INFO_SERIAL_NUMBER), RS2_FORMAT_RGB8, RS2_FORMAT_Z16);
+		realsense rs(device.get_info(RS2_CAMERA_INFO_SERIAL_NUMBER), RS2_FORMAT_RGB8, colorwidth, colorheight, colorfps, RS2_FORMAT_Z16, depthwidth, depthheight, depthfps);
 		rs_devices.push_back(rs);
 	}
 	cout << "OK!" << endl;
@@ -85,7 +80,7 @@ int main() {
 	{
 		if (GetAsyncKeyState(VK_SPACE) & 0x8000) flg = false;
 		getpc_id = pc0.pc_ringid - 1;
-		texcoords_src = pc0.texcoords_ringbuffer + getpc_id * vert_cnt * 2;
+		texcoords_src = pc0.texcoords_ringbuffer + (unsigned long long)getpc_id * vert_cnt * 2;
 		drawGL_realsense(pc0.pc_ringbuffer, &pc0.pc_ringid, texcoords_src);
 	}
 
@@ -118,9 +113,10 @@ void GetPointClouds(realsense* rs, bool* flg, PointCloud* pc) {
 		pc->pc_buffer = rs->points.get_vertices();
 		pc->texcoords = rs->points.get_texture_coordinates();
 		//取得点群をリングバッファに保存
-		memcpy((pc->pc_ringbuffer + pc->pc_ringid * vert_cnt * 3), pc->pc_buffer, sizeof(float) * vert_cnt * 3);
-		memcpy((pc->texcoords_ringbuffer + pc->pc_ringid * vert_cnt * 2), pc->texcoords, sizeof(float) * vert_cnt * 2);
-		
+		memcpy((pc->pc_ringbuffer + (unsigned long long)pc->pc_ringid * vert_cnt * 3), pc->pc_buffer, sizeof(float) * vert_cnt * 3);
+		memcpy((pc->texcoords_ringbuffer + (unsigned long long)pc->pc_ringid * vert_cnt * 2), pc->texcoords, sizeof(float) * vert_cnt * 2);
+		pc->colorframe_buffer[pc->pc_ringid] = rs->colorframe;
+
 		//リングバッファの番号を更新
 		pc->pc_ringid = (pc->pc_ringid + 1) % ring_size_realsense;
 	}

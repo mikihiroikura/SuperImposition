@@ -51,8 +51,8 @@ struct PointCloud
 {
 	const rs2::vertex* pc_buffer;
 	const rs2::texture_coordinate* texcoords;
-	float pc_ringbuffer[ring_size_realsense * vert_cnt][3];
-	float texcoords_ringbuffer[ring_size_realsense * vert_cnt][2];
+	float* pc_ringbuffer;
+	float* texcoords_ringbuffer;
     rs2::frame colorframe_buffer[ring_size_realsense];
 	int pc_ringid = 0;
 };
@@ -88,9 +88,10 @@ float hovered;
 glm::vec3 position(0, 0, -1), up(0, -1, 0), direction(0, 0, 0);
 glm::mat4 mvp, Model, View, Projection;
 
-//出力点群に関するパラメータ
-float realsense_pc[vert_cnt * realsense_cnt][3] = { 0 };
-float realsense_texcoord[vert_cnt * realsense_cnt][2] = { 0 };
+//出力に関するパらめーた
+float* gl_pc_src;
+float* gl_texcoord_src;
+rs2::frame* gl_tex_src;
 
 //プロトタイプ宣言
 void GetPointClouds(realsense* rs, bool* flg, PointCloud* pc);
@@ -98,7 +99,7 @@ static void setfov(GLFWwindow* window, double x, double y);
 static int readShaderSource(GLuint shader, const char* file);
 void initGL();
 void finishGL();
-void drawGL_realsense(float* pts0, int* pc0_ringid, float* pc0_texcoords, rs2::frame* colorframes);
+void drawGL_realsense(float* pts0, float* pc0_texcoords, rs2::frame* colorframes);
 
 
 int main() {
@@ -109,10 +110,10 @@ int main() {
 	//ログ初期化
 	cout << "Set PointCloud buffers....";
 	
-	//pc0.pc_ringbuffer = (float*)malloc(sizeof(float) * ring_size_realsense * vert_cnt * 3);
-	//pc0.texcoords_ringbuffer = (float*)malloc(sizeof(float) * ring_size_realsense * vert_cnt * 2);
-	memset(pc0.pc_ringbuffer, 0, sizeof(float) * ring_size_realsense * vert_cnt * 3);
-	memset(pc0.texcoords_ringbuffer, 0, sizeof(float) * ring_size_realsense * vert_cnt * 2);
+	pc0.pc_ringbuffer = (float*)malloc(sizeof(float) * ring_size_realsense * vert_cnt * 3);
+	pc0.texcoords_ringbuffer = (float*)malloc(sizeof(float) * ring_size_realsense * vert_cnt * 2);
+	//memset(pc0.pc_ringbuffer, 0, sizeof(float) * ring_size_realsense * vert_cnt * 3);
+	//memset(pc0.texcoords_ringbuffer, 0, sizeof(float) * ring_size_realsense * vert_cnt * 2);
 
 	pc0.pc_buffer = (rs2::vertex*)malloc(sizeof(float) * vert_cnt * 3);
 	pc0.texcoords = (rs2::texture_coordinate*)malloc(sizeof(float) * vert_cnt * 2);
@@ -144,10 +145,13 @@ int main() {
 	while (flg)
 	{
 		if (GetAsyncKeyState(VK_SPACE) & 0x8000) flg = false;
-		getpc_id = pc0.pc_ringid;
-        if (getpc_id < 0) getpc_id + ring_size_realsense;
-		texcoords_src = &pc0.texcoords_ringbuffer[0][0];
-		drawGL_realsense(&pc0.pc_ringbuffer[0][0], &getpc_id, texcoords_src, &pc0.colorframe_buffer[0]);
+		getpc_id = pc0.pc_ringid -1;
+        if (getpc_id < 0) getpc_id += ring_size_realsense;
+        //呼び出す点群のポインタ
+        gl_pc_src = pc0.pc_ringbuffer + (unsigned long long)getpc_id * 3 * vert_cnt;
+        gl_texcoord_src = pc0.texcoords_ringbuffer + (unsigned long long)getpc_id * 2 * vert_cnt;
+        gl_tex_src = pc0.colorframe_buffer + getpc_id;
+		drawGL_realsense(gl_pc_src, gl_texcoord_src, gl_tex_src);
 	}
 
 	//OpenGLの終了
@@ -168,7 +172,7 @@ int main() {
 
 
 void GetPointClouds(realsense* rs, bool* flg, PointCloud* pc) {
-	for (size_t i = 0; i < 30; i++) { rs->update_frame(); }
+	//for (size_t i = 0; i < 30; i++) { rs->update_frame(); }
 	while (*flg)
 	{
 		//点群計算
@@ -180,8 +184,8 @@ void GetPointClouds(realsense* rs, bool* flg, PointCloud* pc) {
         //cout << "pointssize " << rs->points.size() << endl;
 		pc->texcoords = rs->points.get_texture_coordinates();
 		//取得点群をリングバッファに保存
-		memcpy((&pc->pc_ringbuffer[0][0] + (unsigned long long)pc->pc_ringid * vert_cnt * 3), pc->pc_buffer, sizeof(float) * vert_cnt * 3);
-		memcpy((&pc->texcoords_ringbuffer[0][0] + (unsigned long long)pc->pc_ringid * vert_cnt * 2), pc->texcoords, sizeof(float) * vert_cnt * 2);
+		memcpy((pc->pc_ringbuffer + (unsigned long long)pc->pc_ringid * vert_cnt * 3), pc->pc_buffer, sizeof(float) * vert_cnt * 3);
+		memcpy((pc->texcoords_ringbuffer + (unsigned long long)pc->pc_ringid * vert_cnt * 2), pc->texcoords, sizeof(float) * vert_cnt * 2);
         pc->colorframe_buffer[pc->pc_ringid] = rs->colorframe;
 
 		//リングバッファの番号を更新
@@ -341,11 +345,7 @@ void initGL() {
     ImGui_ImplOpenGL3_Init();
 }
 
-void drawGL_realsense(float* pts0, int* pc0_ringid, float* pc0_texcoords, rs2::frame* colorframes) {
-    //点群の位置更新
-    memcpy(&realsense_pc[0][0], pts0 + (unsigned long long) * pc0_ringid * 3 * vert_cnt, sizeof(float) * 3 * vert_cnt);
-    memcpy(&realsense_texcoord[0][0], pc0_texcoords + (unsigned long long) * pc0_ringid * 2 * vert_cnt, sizeof(float) * 2 * vert_cnt);
-
+void drawGL_realsense(float* pts0, float* pc0_texcoords, rs2::frame* colorframes) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 
@@ -391,13 +391,13 @@ void drawGL_realsense(float* pts0, int* pc0_ringid, float* pc0_texcoords, rs2::f
 
     //テクスチャの更新
     glBindTexture(GL_TEXTURE_2D, tex);
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 1920, 1080, GL_RGB, GL_UNSIGNED_BYTE, (void*)colorframes[*pc0_ringid].get_data());
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 1920, 1080, GL_RGB, GL_UNSIGNED_BYTE, (void*)colorframes->get_data());
     
     //点群の位置とテクスチャ座標を更新
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(realsense_pc), realsense_pc);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(float) * vert_cnt * 3, pts0);
     glBindBuffer(GL_ARRAY_BUFFER, tcbo);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(realsense_texcoord), realsense_texcoord);//VBO内のテクスチャ座標を更新
+    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(float) * vert_cnt * 2, pc0_texcoords);//VBO内のテクスチャ座標を更新
     glTexCoordPointer(2, GL_FLOAT, 0, 0);
     glBindVertexArray(vao);//VBOでの点群位置とテクスチャ座標更新をまとめたVAOをバインドして実行
     glDrawArrays(GL_POINTS, 0, vert_cnt);//実際の描画
@@ -435,4 +435,5 @@ void finishGL() {
     glDeleteVertexArrays(1, &vao);
     glDeleteBuffers(1, &vbo);
     glDeleteBuffers(1, &tcbo);
+    glDeleteTextures(1, &tex);
 }
