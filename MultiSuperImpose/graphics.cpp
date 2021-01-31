@@ -33,11 +33,6 @@ float hovered;
 glm::vec3 position(0, 0, -1), up(0, -1, 0), direction(0, 0, 0);
 glm::mat4 mvp, Model, View, Projection;
 
-//出力点群に関するパラメータ
-float realsense_pc[vert_cnt * realsense_cnt][3] = { 0 };
-
-
-
 //プロトタイプ宣言
 static void setfov(GLFWwindow* window, double x, double y);
 static int readShaderSource(GLuint shader, const char* file);
@@ -152,24 +147,25 @@ void initGL() {
     //頂点バッファオブジェクト
     glGenBuffers(1, &vbo);//vbp作成
     glBindBuffer(GL_ARRAY_BUFFER, vbo);//vboのバインド，これからの処理の対象
-    glBufferData(GL_ARRAY_BUFFER, sizeof(realsense_pc), nullptr, GL_DYNAMIC_DRAW);//vboのデータ領域の確保
+    glBufferData(GL_ARRAY_BUFFER, vert_cnt * 3 * sizeof(float) * realsense_cnt, nullptr, GL_DYNAMIC_DRAW);//vboのデータ領域の確保
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);//vertex shader内の引数の指定indexに合うように変更する
     glEnableVertexAttribArray(0);//indexの値のattribute変数の有効化
-    //glEnableVertexArrayAttrib(vao, 0); //上の関数の代わりにこれでもいい
+    //glEnableVertexArrayAttrib(vao, 0); //上の関数の
+    
 
     //テクスチャ座標オブジェクト
     glGenBuffers(1, &tcbo);
     glBindBuffer(GL_ARRAY_BUFFER, tcbo);
     glBufferData(GL_ARRAY_BUFFER, sizeof(float) * vert_cnt * 2 * realsense_cnt, nullptr, GL_DYNAMIC_DRAW);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, 0);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, 0);
     glEnableVertexAttribArray(1);
-    //glEnableVertexArrayAttrib(vao, 1);
+    //glEnableVertexArrayAttrib(vao, 1);   
 
     //テクスチャオブジェクト
     glGenTextures(1, &tex);
     glBindTexture(GL_TEXTURE_2D, tex);
-    cv::Mat dummy = cv::Mat(1080, 1920, CV_8UC3, cv::Scalar::all(255));
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 1920, 1080, 0, GL_RGB, GL_UNSIGNED_BYTE, (void*)dummy.data);
+    cv::Mat dummy = cv::Mat(colorheight, colorwidth, CV_8UC3, cv::Scalar::all(255));
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, colorwidth, colorheight, 0, GL_RGB, GL_UNSIGNED_BYTE, (void*)dummy.data);
     float tex_border_color[] = { 0.8f, 0.8f, 0.8f, 0.8f };
     glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, tex_border_color);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, 0x812F); // GL_CLAMP_TO_EDGE
@@ -195,10 +191,7 @@ void initGL() {
     ImGui_ImplOpenGL3_Init();
 }
 
-void drawGL_realsense(float *pts0, int *pc0_ringid, float *pc0_texcoords) {
-    //点群の位置更新
-    memcpy(realsense_pc, pts0 + (unsigned long long)*pc0_ringid * 3 * vert_cnt, sizeof(float) * 3 * vert_cnt);
-
+void drawGL_realsense(float** pts, float** texcoords, rs2::frame** colorframes) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 
@@ -239,17 +232,24 @@ void drawGL_realsense(float *pts0, int *pc0_ringid, float *pc0_texcoords) {
     glUseProgram(gl2Program);
     glUniformMatrix4fv(matlocation, 1, GL_FALSE, &mvp[0][0]); //シェーダプログラムの開始の後にシェーダプログラム内のMVP行列を更新
 
-    //テクスチャの更新
-    glBindTexture(GL_TEXTURE_2D, tex);
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 1920, 1080, GL_RGB, GL_UNSIGNED_BYTE, (void*)colorframes[*pc0_ringid].get_data());
-
     //点群の位置とテクスチャ座標を更新
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(realsense_pc), realsense_pc);
+    for (size_t i = 0; i < realsense_cnt; i++)
+    {
+        glBufferSubData(GL_ARRAY_BUFFER, sizeof(float) * vert_cnt * 3 * i, sizeof(float) * vert_cnt * 3, pts[i]);
+    }
     glBindBuffer(GL_ARRAY_BUFFER, tcbo);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(pc0_texcoords), pc0_texcoords);//VBO内のテクスチャ座標を更新
+    for (size_t i = 0; i < realsense_cnt; i++)
+    {
+        glBufferSubData(GL_ARRAY_BUFFER, sizeof(float) * vert_cnt * 2 * i, sizeof(float) * vert_cnt * 2, texcoords[i]);//VBO内のテクスチャ座標を更新
+    }
     glBindVertexArray(vao);//VBOでの点群位置とテクスチャ座標更新をまとめたVAOをバインドして実行
-    glDrawArrays(GL_POINTS, 0, vert_cnt);//実際の描画
+    glBindTexture(GL_TEXTURE_2D, tex);
+    for (size_t i = 0; i < realsense_cnt; i++)
+    {
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, colorwidth, colorheight, GL_RGB, GL_UNSIGNED_BYTE, (void*)colorframes[i]->get_data());
+        glDrawArrays(GL_POINTS, vert_cnt * i, vert_cnt);//実際の描画
+    }
     glBindVertexArray(0);//VBOのアンバインド
 
     glfwPollEvents(); //マウスイベントを取り出し記録

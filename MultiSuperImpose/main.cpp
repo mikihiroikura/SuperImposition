@@ -10,8 +10,7 @@
 #include <iostream>
 #include <Windows.h>
 
-#include <librealsense2/rs.hpp>
-#include "realsense.h"
+
 #include <thread>
 #include <vector>
 #include "graphics.h"
@@ -24,6 +23,14 @@ const int ring_size_realsense = 5;
 int getpc_id = 0;
 float* texcoords_src;
 int update_ringid;
+
+//出力に関するパらめーた
+float* gl_pc_src[realsense_cnt];
+float* gl_texcoord_src[realsense_cnt];
+rs2::frame* gl_tex_src[realsense_cnt];
+
+//時間に関する変数
+LARGE_INTEGER start, stop, freq;
 
 #pragma warning(disable:4996)
 
@@ -44,17 +51,20 @@ void GetPointClouds(realsense* rs, bool* flg, PointCloud* pc);
 int main() {
 	//パラメータ
 	bool flg = true;
+	if (!QueryPerformanceFrequency(&freq)) { return 0; }// 単位習得
 
 	//ログ初期化
 	cout << "Set PointCloud buffers....";
-	PointCloud pc0, pc1;
-	pc0.pc_ringbuffer = (float*)malloc(sizeof(float) * ring_size_realsense * vert_cnt * 3);
-	pc1.pc_ringbuffer = (float*)malloc(sizeof(float) * ring_size_realsense * vert_cnt * 3);
-	pc0.texcoords_ringbuffer = (float*)malloc(sizeof(float) * ring_size_realsense * vert_cnt * 2);
-
-	//PointCloud取得用バッファ
-	pc0.pc_buffer = (rs2::vertex*)malloc(sizeof(float) * vert_cnt * 3);
-	pc1.pc_buffer = (rs2::vertex*)malloc(sizeof(float) * vert_cnt * 3);
+	vector<PointCloud> pcs;
+	PointCloud pc;
+	pc.pc_ringbuffer = (float*)malloc(sizeof(float) * ring_size_realsense * vert_cnt * 3);
+	pc.texcoords_ringbuffer = (float*)malloc(sizeof(float) * ring_size_realsense * vert_cnt * 2);
+	pc.pc_buffer = (rs2::vertex*)malloc(sizeof(float) * vert_cnt * 3);
+	pc.texcoords = (rs2::texture_coordinate*)malloc(sizeof(float) * vert_cnt * 2);
+	for (size_t i = 0; i < realsense_cnt; i++)
+	{
+		pcs.push_back(pc);
+	}
 	cout << "OK!" << endl;
 
 	//2つのRealsenseの初期化
@@ -71,17 +81,35 @@ int main() {
 	initGL();
 
 	//スレッド作成
-	thread thr1(GetPointClouds, &rs_devices[0], &flg, &pc0);
-	//thread thr2(GetPointClouds, &rs_devices[1], &flg, &pc1);
+	vector<thread> GetPointsThread;
+	for (size_t i = 0; i < realsense_cnt; i++)
+	{
+		GetPointsThread.push_back(thread(GetPointClouds, &rs_devices[i], &flg, &pcs[i]));
+	}
 
 	//メインループ
 	cout << "Main loop start!" << endl;
+	QueryPerformanceCounter(&start);
+	double timer = 0;
+	while (timer < 1.5)
+	{
+		QueryPerformanceCounter(&stop);
+		timer = (double)(stop.QuadPart - start.QuadPart) / freq.QuadPart;
+	}
 	while (flg)
 	{
 		if (GetAsyncKeyState(VK_SPACE) & 0x8000) flg = false;
-		getpc_id = pc0.pc_ringid - 1;
-		texcoords_src = pc0.texcoords_ringbuffer + (unsigned long long)getpc_id * vert_cnt * 2;
-		drawGL_realsense(pc0.pc_ringbuffer, &pc0.pc_ringid, texcoords_src);
+		
+		//呼び出す点群のポインタ
+		for (size_t i = 0; i < realsense_cnt; i++)
+		{
+			getpc_id = pcs[i].pc_ringid - 1;
+			if (getpc_id < 0) getpc_id += ring_size_realsense;
+			gl_pc_src[i] = pcs[i].pc_ringbuffer + (unsigned long long)getpc_id * 3 * vert_cnt;
+			gl_texcoord_src[i] = pcs[i].texcoords_ringbuffer + (unsigned long long)getpc_id * 2 * vert_cnt;
+			gl_tex_src[i] = pcs[i].colorframe_buffer + getpc_id;
+		}
+		drawGL_realsense(gl_pc_src, gl_texcoord_src, gl_tex_src);
 	}
 
 	//OpenGLの終了
@@ -89,12 +117,14 @@ int main() {
 
 
 	//スレッド削除
-	if (thr1.joinable())thr1.join();
-	//if (thr2.joinable())thr2.join();
+	for (size_t i = 0; i < GetPointsThread.size(); i++)
+	{
+		if (GetPointsThread[i].joinable())GetPointsThread[i].join();
+	}
 
 	//動的メモリの開放
-	free(pc0.pc_ringbuffer);
-	free(pc1.pc_ringbuffer);
+	free(pcs[0].pc_ringbuffer);
+	free(pcs[1].pc_ringbuffer);
 	//free(pc0.pc_buffer);
 	//free(pc1.pc_buffer);
 
@@ -102,7 +132,6 @@ int main() {
 }
 
 void GetPointClouds(realsense* rs, bool* flg, PointCloud* pc) {
-	for (size_t i = 0; i < 30; i++) { rs->update_frame(); }
 	while (*flg)
 	{
 		//点群計算

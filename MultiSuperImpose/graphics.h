@@ -14,6 +14,10 @@
 #include "imgui/imgui_impl_opengl3.h"
 #include "imgui/imgui_impl_glfw.h"
 
+//realsense include
+#include <librealsense2/rs.hpp>
+#include "realsense.h"
+
 //realsense
 const unsigned int colorwidth = 1920;
 const unsigned int colorheight = 1080;
@@ -23,10 +27,10 @@ const unsigned int depthheight = 720;
 const unsigned int depthfps = 30;
 
 const int vert_cnt = depthwidth * depthheight;
-const int realsense_cnt = 1;
+const int realsense_cnt = 2;
 
 extern void initGL();
-extern void drawGL_realsense(float* pts0, int* pc0_ringid, float* pc0_texcoords);
+extern void drawGL_realsense(float** pts0, float** pc0_texcoords, rs2::frame** colorframes);
 extern void finishGL();
 
 #endif // !GRAPHICS_H_

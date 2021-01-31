@@ -30,10 +30,10 @@ static GLuint vertShader, fragShader, gl2Program;
 
 //vbo
 GLuint vbo, cbo, tcbo, vao, tex;
-float vertices[2][2][3];
+float vertices[2][2][2][3];
 float colors[2][2][3];
-float texcoords[2][2][2];
-GLubyte textureimg[4][3];
+float texcoords[2][2][2][2];
+GLubyte textureimg[2][4][3];
 
 //imgui
 float rotate_x = 0.0, rotate_y = 0.0;
@@ -123,49 +123,92 @@ int main() {
     texlocation = glGetUniformLocation(gl2Program, "texture");//シェーダプログラム上の"MVP" uniformの位置の検索
 
     //positionの初期化
-    vertices[0][0][0] = -0.7;
-    vertices[0][0][1] = 0.7;
-    vertices[0][0][2] = 0;
+    vertices[0][0][0][0] = -0.7;
+    vertices[0][0][0][1] = 0.7;
+    vertices[0][0][0][2] = 0;
 
-    vertices[0][1][0] = -0.7;
-    vertices[0][1][1] = -0.7;
-    vertices[0][1][2] = 0;
+    vertices[0][0][1][0] = -0.7;
+    vertices[0][0][1][1] = -0.7;
+    vertices[0][0][1][2] = 0;
 
-    vertices[1][0][0] = 0.7;
-    vertices[1][0][1] = -0.7;
-    vertices[1][0][2] = 0;
+    vertices[0][1][0][0] = 0.7;
+    vertices[0][1][0][1] = -0.7;
+    vertices[0][1][0][2] = 0;
 
-    vertices[1][1][0] = +0.7;
-    vertices[1][1][1] = +0.7;
-    vertices[1][1][2] = 0;
+    vertices[0][1][1][0] = +0.7;
+    vertices[0][1][1][1] = +0.7;
+    vertices[0][1][1][2] = 0;
 
     //テクスチャ座標系の初期化
-    texcoords[0][0][0] = 0;
-    texcoords[0][0][1] = 1;
-    texcoords[0][1][0] = 0;
-    texcoords[0][1][1] = 0;
-    texcoords[1][0][0] = 1;
-    texcoords[1][0][1] = 0;
-    texcoords[1][1][0] = 1;
-    texcoords[1][1][1] = 1;
+    texcoords[0][0][0][0] = 0;
+    texcoords[0][0][0][1] = 1;
+    texcoords[0][0][1][0] = 0;
+    texcoords[0][0][1][1] = 0;
+    texcoords[0][1][0][0] = 1;
+    texcoords[0][1][0][1] = 0;
+    texcoords[0][1][1][0] = 1;
+    texcoords[0][1][1][1] = 1;
 
     //テクスチャ画像の初期化
-    textureimg[0][0] = 255;
-    textureimg[0][1] = 0;
-    textureimg[0][2] = 0;
+    textureimg[0][0][0] = 255;
+    textureimg[0][0][1] = 0;
+    textureimg[0][0][2] = 0;
 
-    textureimg[1][0] = 0;
-    textureimg[1][1] = 255;
-    textureimg[1][2] = 0;
+    textureimg[0][1][0] = 0;
+    textureimg[0][1][1] = 255;
+    textureimg[0][1][2] = 0;
 
-    textureimg[2][0] = 0;
-    textureimg[2][1] = 0;
-    textureimg[2][2] = 255;
+    textureimg[0][2][0] = 0;
+    textureimg[0][2][1] = 0;
+    textureimg[0][2][2] = 255;
 
-    textureimg[3][0] = 255;
-    textureimg[3][1] = 255;
-    textureimg[3][2] = 255;
-   
+    textureimg[0][3][0] = 255;
+    textureimg[0][3][1] = 255;
+    textureimg[0][3][2] = 255;
+
+    //positionの初期化
+    vertices[1][0][0][0] = -0.7;
+    vertices[1][0][0][1] = 0;
+    vertices[1][0][0][2] = 0.7;
+
+    vertices[1][0][1][0] = -0.7;
+    vertices[1][0][1][1] = 0;
+    vertices[1][0][1][2] = -0.7;
+
+    vertices[1][1][0][0] = 0.7;
+    vertices[1][1][0][1] = 0;
+    vertices[1][1][0][2] = -0.7;
+
+    vertices[1][1][1][0] = +0.7;
+    vertices[1][1][1][1] = 0;
+    vertices[1][1][1][2] = +0.7;
+
+    //テクスチャ座標系の初期化
+    texcoords[1][0][0][0] = 0;
+    texcoords[1][0][0][1] = 1;
+    texcoords[1][0][1][0] = 0;
+    texcoords[1][0][1][1] = 0;
+    texcoords[1][1][0][0] = 1;
+    texcoords[1][1][0][1] = 0;
+    texcoords[1][1][1][0] = 1;
+    texcoords[1][1][1][1] = 1;
+
+    //テクスチャ画像の初期化
+    textureimg[1][0][0] = 255;
+    textureimg[1][0][1] = 255;
+    textureimg[1][0][2] = 0;
+
+    textureimg[1][1][0] = 0;
+    textureimg[1][1][1] = 255;
+    textureimg[1][1][2] = 255;
+
+    textureimg[1][2][0] = 255;
+    textureimg[1][2][1] = 0;
+    textureimg[1][2][2] = 255;
+
+    textureimg[1][3][0] = 255;
+    textureimg[1][3][1] = 255;
+    textureimg[1][3][2] = 255; 
 
     //VAOのバインド
     glGenVertexArrays(1, &vao);
@@ -178,6 +221,7 @@ int main() {
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);//vertex shader内の引数の指定indexに合うように変更する
     glEnableVertexAttribArray(0);//indexの値のattribute変数の有効化
     //glEnableVertexArrayAttrib(vao, 0); //上の関数の代わりにこれでもいい
+    
 
     //色バッファオブジェクト
     glGenBuffers(1, &cbo);
@@ -193,6 +237,8 @@ int main() {
     glBufferData(GL_ARRAY_BUFFER, sizeof(texcoords), nullptr, GL_DYNAMIC_DRAW);
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 0, 0);
     glEnableVertexAttribArray(2);
+    
+    
 
     //テクスチャの作成
     glGenTextures(1, &tex);
@@ -201,6 +247,8 @@ int main() {
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 2, 2, 0, GL_RGB, GL_UNSIGNED_BYTE, textureimg);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    
+    
 
     glBindBuffer(GL_ARRAY_BUFFER, 0); //EnableVertexAttribArrayの後に行う
     glBindVertexArray(0);//VAOに上のVBOの処理をまとめる，ループで一度これを呼べばvertexattrib,enablevertexattribは実行される
@@ -257,38 +305,38 @@ int main() {
         //        }
         //    }
         //}
-        vertices[0][0][0] = -0.7;
-        vertices[0][0][1] = 0.7;
-        vertices[0][0][2] = sin(Time);
+        vertices[0][0][0][0] = -0.7;
+        vertices[0][0][0][1] = 0.7;
+        vertices[0][0][0][2] = sin(Time);
 
-        vertices[0][1][0] = -0.7;
-        vertices[0][1][1] = -0.7;
-        vertices[0][1][2] = sin(Time);
+        vertices[0][0][1][0] = -0.7;
+        vertices[0][0][1][1] = -0.7;
+        vertices[0][0][1][2] = sin(Time);
 
-        vertices[1][0][0] = 0.7;
-        vertices[1][0][1] = -0.7;
-        vertices[1][0][2] = sin(Time);
+        vertices[0][1][0][0] = 0.7;
+        vertices[0][1][0][1] = -0.7;
+        vertices[0][1][0][2] = sin(Time);
 
-        vertices[1][1][0] = +0.7;
-        vertices[1][1][1] = +0.7;
-        vertices[1][1][2] = sin(Time);
+        vertices[0][1][1][0] = +0.7;
+        vertices[0][1][1][1] = +0.7;
+        vertices[0][1][1][2] = sin(Time);
 
         //テクスチャ画像の初期化
-        textureimg[0][0] = 255 * abs(sin(Time));
-        textureimg[0][1] = 0;
-        textureimg[0][2] = 0;
+        textureimg[0][0][0] = 255 * abs(sin(Time));
+        textureimg[0][0][1] = 0;
+        textureimg[0][0][2] = 0;
 
-        textureimg[1][0] = 0;
-        textureimg[1][1] = 255 * abs(sin(Time));
-        textureimg[1][2] = 0;
+        textureimg[0][1][0] = 0;
+        textureimg[0][1][1] = 255 * abs(sin(Time));
+        textureimg[0][1][2] = 0;
 
-        textureimg[2][0] = 0;
-        textureimg[2][1] = 0;
-        textureimg[2][2] = 255 * abs(sin(Time));
+        textureimg[0][2][0] = 0;
+        textureimg[0][2][1] = 0;
+        textureimg[0][2][2] = 255 * abs(sin(Time));
 
-        textureimg[3][0] = 255 * abs(sin(Time));
-        textureimg[3][1] = 255 * abs(sin(Time));
-        textureimg[3][2] = 255 * abs(sin(Time));
+        textureimg[0][3][0] = 255 * abs(sin(Time));
+        textureimg[0][3][1] = 255 * abs(sin(Time));
+        textureimg[0][3][2] = 255 * abs(sin(Time));
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -347,6 +395,8 @@ int main() {
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 2, 2, GL_RGB, GL_UNSIGNED_BYTE, textureimg);
         glBindVertexArray(vao);//VBOでの点群位置と色更新をまとめたVAOをバインドして実行
         glDrawArrays(GL_TRIANGLE_FAN, 0, 2 * 2);//実際の描画
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 2, 2, GL_RGB, GL_UNSIGNED_BYTE, &textureimg[1][0][0]);
+        glDrawArrays(GL_TRIANGLE_FAN, 4, 2 * 2);//実際の描画
         glBindVertexArray(0);//VBOのアンバインド
 
         
@@ -390,6 +440,8 @@ int main() {
     glDeleteVertexArrays(1, &vao);
     glDeleteBuffers(1, &vbo);
     glDeleteBuffers(1, &cbo);
+    glDeleteBuffers(1, &tcbo);
+    glDeleteTextures(1, &tex);
 
     return 0;
 }

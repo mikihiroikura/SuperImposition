@@ -293,7 +293,6 @@ void initGL() {
     matlocation = glGetUniformLocation(gl2Program, "MVP");//シェーダプログラム上の"MVP" uniformの位置の検索
     texturelocation = glGetUniformLocation(gl2Program, "texture");//シェーダプログラム上の"texture" uniformの位置の検索
 
-    
 
     //VAOのバインド
     glGenVertexArrays(1, &vao);
@@ -302,7 +301,7 @@ void initGL() {
     //頂点バッファオブジェクト
     glGenBuffers(1, &vbo);//vbp作成
     glBindBuffer(GL_ARRAY_BUFFER, vbo);//vboのバインド，これからの処理の対象
-    glBufferData(GL_ARRAY_BUFFER, vert_cnt * 3 * sizeof(float), nullptr, GL_DYNAMIC_DRAW);//vboのデータ領域の確保
+    glBufferData(GL_ARRAY_BUFFER, vert_cnt * 3 * sizeof(float) * realsense_cnt, nullptr, GL_DYNAMIC_DRAW);//vboのデータ領域の確保
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);//vertex shader内の引数の指定indexに合うように変更する
     glEnableVertexAttribArray(0);//indexの値のattribute変数の有効化
     //glEnableVertexArrayAttrib(vao, 0); //上の関数の代わりにこれでもいい
@@ -391,7 +390,7 @@ void drawGL_realsense(float* pts0, float* pc0_texcoords, rs2::frame* colorframes
 
     //テクスチャの更新
     glBindTexture(GL_TEXTURE_2D, tex);
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 1920, 1080, GL_RGB, GL_UNSIGNED_BYTE, (void*)colorframes->get_data());
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, colorwidth, colorheight, GL_RGB, GL_UNSIGNED_BYTE, (void*)colorframes->get_data());
     
     //点群の位置とテクスチャ座標を更新
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
