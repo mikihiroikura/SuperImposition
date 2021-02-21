@@ -58,7 +58,7 @@ int getpc_id = 0;
 float* texcoords_src;
 int update_ringid;
 
-//出力に関するパらめーた
+//出力に関するパラメータ
 float* gl_pc_src[realsense_cnt];
 float* gl_texcoord_src[realsense_cnt];
 rs2::frame* gl_tex_src[realsense_cnt];
@@ -84,8 +84,8 @@ struct PointCloud
 PointCloud* pcs_ptr[realsense_cnt];
 
 void GetPointClouds(realsense* rs, bool* flg, PointCloud* pc);
-void ShowMultiPointClouds(bool* flg, PointCloud** pcs_ptr);
 void TakePicture(kayacoaxpress* cam, bool* flg);
+void ShowAllLogs(bool* flg);
 
 int main() {
 	//パラメータ
@@ -134,7 +134,6 @@ int main() {
 		pc.pc_buffer = (rs2::vertex*)malloc(sizeof(float) * vert_cnt * 3);
 		pc.texcoords = (rs2::texture_coordinate*)malloc(sizeof(float) * vert_cnt * 2);
 		pcs.push_back(pc);
-		pcs_ptr[i] = &pcs[i];
 	}
 	cout << "OK!" << endl;
 
@@ -151,29 +150,47 @@ int main() {
 	//OpenGLの初期化
 	initGL();
 
+	//カメラ起動
+	cout << "Camera Start!" << endl;
+	cam.start();
+
 	//スレッド作成
 	vector<thread> GetPointsThread;
 	for (size_t i = 0; i < realsense_cnt; i++)
 	{
 		GetPointsThread.push_back(thread(GetPointClouds, &rs_devices[i], &flg, &pcs[i]));
 	}
-	thread ShowPointCloudsThread(ShowMultiPointClouds, &flg, pcs_ptr);
 	thread TakePictureThread(TakePicture, &cam, &flg);
-
-	//カメラ起動
-	cout << "Camera Start!" << endl;
-	cam.start();
+	thread ShowLogsThread(ShowAllLogs, &flg);
 
 	//メインループ
 	cout << "Main loop start!" << endl;
 	QueryPerformanceCounter(&start);
 
+	while (timer < 1.5)
+	{
+		QueryPerformanceCounter(&stop);
+		timer = (double)(stop.QuadPart - start.QuadPart) / freq.QuadPart;
+	}
 	while (flg)
 	{
-		//OpenCVで画像表示
-		cv::imshow("img", in_imgs[(in_imgs_saveid - 2 + ringbuffersize) % ringbuffersize]);
-		int key = cv::waitKey(1);
-		if (key == 'q') flg = false;
+		QueryPerformanceCounter(&glstart);
+		if (GetAsyncKeyState(VK_SPACE) & 0x8000) flg = false;
+
+		//呼び出す点群のポインタ
+		for (size_t i = 0; i < realsense_cnt; i++)
+		{
+			getpc_id = pcs[i].pc_ringid - 1;
+			if (getpc_id < 0) getpc_id += ring_size_realsense;
+			gl_pc_src[i] = pcs[i].pc_ringbuffer + (unsigned long long)getpc_id * 3 * vert_cnt;
+			gl_texcoord_src[i] = pcs[i].texcoords_ringbuffer + (unsigned long long)getpc_id * 2 * vert_cnt;
+			gl_tex_src[i] = pcs[i].colorframe_buffer + getpc_id;
+		}
+		drawGL_realsense(gl_pc_src, gl_texcoord_src, gl_tex_src);
+		QueryPerformanceCounter(&glstop);
+		gltimer = (double)(glstop.QuadPart - glstart.QuadPart) / freq.QuadPart;
+		cout << "OpenGL time[s]: " << gltimer << endl;
+
 	}
 
 	//OpenGLの終了
@@ -185,8 +202,8 @@ int main() {
 	{
 		if (GetPointsThread[i].joinable())GetPointsThread[i].join();
 	}
-	if (ShowPointCloudsThread.joinable())ShowPointCloudsThread.join();
 	if (TakePictureThread.joinable())TakePictureThread.join();
+	if (ShowLogsThread.joinable())ShowLogsThread.join();
 
 	//動的メモリの開放
 	/*for (size_t i = 0; i < pcs.size(); i++)
@@ -223,6 +240,36 @@ void TakePicture(kayacoaxpress* cam, bool* flg) {
 	}
 }
 
+//画像の点群全てを表示
+void ShowAllLogs(bool* flg) {
+	while (*flg)
+	{
+		QueryPerformanceCounter(&showstart);
+
+		//OpenCVで画像表示
+		cv::imshow("img", in_imgs[(in_imgs_saveid - 2 + ringbuffersize) % ringbuffersize]);
+		int key = cv::waitKey(1);
+		if (key == 'q') *flg = false;
+
+#ifdef SAVE_IMGS_
+		memcpy((imglog + log_img_cnt)->data, in_imgs[(in_imgs_saveid - 2 + cyclebuffersize) % cyclebuffersize].data, height * width * 3);
+		log_img_cnt++;
+		if (log_img_cnt > log_img_finish_cnt) *flg = false;
+#endif // SAVE_IMGS_
+
+		QueryPerformanceCounter(&showend);
+		showtime = (double)(showend.QuadPart - showstart.QuadPart) / freq.QuadPart;
+		while (showtime < 0.033)
+		{
+			QueryPerformanceCounter(&showend);
+			showtime = (double)(showend.QuadPart - showstart.QuadPart) / freq.QuadPart;
+		}
+#ifdef SHOW_PROCESSING_TIME_
+		std::cout << "ShowAllLogs() time: " << showtime << endl;
+#endif // SHOW_PROCESSING_TIME_
+	}
+}
+
 
 void GetPointClouds(realsense* rs, bool* flg, PointCloud* pc) {
 	while (*flg)
@@ -241,34 +288,5 @@ void GetPointClouds(realsense* rs, bool* flg, PointCloud* pc) {
 
 		//リングバッファの番号を更新
 		pc->pc_ringid = (pc->pc_ringid + 1) % ring_size_realsense;
-	}
-}
-
-void ShowMultiPointClouds(bool* flg, PointCloud** pcs_ptr) {
-	QueryPerformanceCounter(&glstart);
-	while (gltimer< 1.5)
-	{
-		QueryPerformanceCounter(&glstop);
-		gltimer = (double)(glstop.QuadPart - glstart.QuadPart) / freq.QuadPart;
-	}
-	while (*flg)
-	{
-		QueryPerformanceCounter(&glstart);
-		if (GetAsyncKeyState(VK_SPACE) & 0x8000) *flg = false;
-
-		//呼び出す点群のポインタ
-		for (size_t i = 0; i < realsense_cnt; i++)
-		{
-			getpc_id = pcs_ptr[i]->pc_ringid - 1;
-			if (getpc_id < 0) getpc_id += ring_size_realsense;
-			gl_pc_src[i] = pcs_ptr[i]->pc_ringbuffer + (unsigned long long)getpc_id * 3 * vert_cnt;
-			gl_texcoord_src[i] = pcs_ptr[i]->texcoords_ringbuffer + (unsigned long long)getpc_id * 2 * vert_cnt;
-			gl_tex_src[i] = pcs_ptr[i]->colorframe_buffer + getpc_id;
-		}
-		drawGL_realsense(gl_pc_src, gl_texcoord_src, gl_tex_src);
-		QueryPerformanceCounter(&glstop);
-		gltimer = (double)(glstop.QuadPart - glstart.QuadPart) / freq.QuadPart;
-		cout << "OpenGL time[s]: " << gltimer << endl;
-
 	}
 }
