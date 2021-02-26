@@ -9,7 +9,6 @@
 #include <Windows.h>
 #include <thread>
 #include <vector>
-#include "RS232c.h"
 #include <cmath>
 
 #ifdef _DEBUG
@@ -29,11 +28,11 @@ const int width = 896;
 const int height = 896;
 const float fps = 1000.0;
 const float exposuretime = 912.0;
-const int offsetx = 512;
+const int offsetx = 480;
 const int offsety = 92;
 double map_coeff[4], stretch_mat[4], det, distort[4];
 /// 画像に関するパラメータ
-const int cyclebuffersize = 10;
+const int ringbuffersize = 10;
 vector<cv::Mat> in_imgs_on, in_imgs_off, in_imgs;
 vector<bool> processflgs;
 cv::Mat zero, full, zeromulti;
@@ -50,11 +49,11 @@ vector<cv::Mat> detectimg;
 cv::Mat diffimg ,diffimg_hsv, detectimg_on_hsv;
 uint8_t* diffimg_src, *detectimg0_src, *detectimg1_src, *detectimg_on_src, *detectimghsv_on_src;
 cv::Mat detectgreen, detectblue, detectV;
-const cv::Scalar greenLED_min(0, 220, 0);
+const cv::Scalar greenLED_min(0, 150, 0);
 const cv::Scalar greenLED_max(256, 256, 256);
-const cv::Scalar blueLED_min(220, 0, 0);
+const cv::Scalar blueLED_min(150, 0, 0);
 const cv::Scalar blueLED_max(256, 256, 256);
-const cv::Scalar HSVLED_min(0, 0, 150);
+const cv::Scalar HSVLED_min(0, 0, 100);
 const cv::Scalar HSVLED_max(256, 256, 256);
 vector<cv::Point> Vpts;
 double ledimpos[4][2] = { 0 }, ledidimpos[4][2] = { 0 }, ledimpos_rand[4][2] = { 0 };;
@@ -70,7 +69,7 @@ cv::Mat b = cv::Mat::zeros(12, 1, CV_64F);
 double* Asrc = A.ptr<double>(0);
 double* xsrc = x.ptr<double>(0);
 double* bsrc = b.ptr<double>(0);
-const double markeredge = 10;
+const double markeredge = 235/2;
 const double markerpos[4][2] = { {markeredge, markeredge}, {-markeredge, markeredge}, {-markeredge, -markeredge}, {markeredge, -markeredge} };
 double cross, dot, theta[3], absmax;
 bool leddetected = false;
@@ -109,7 +108,7 @@ int main() {
 	QueryPerformanceFrequency(&freq);
 
 	kayacoaxpress cam;
-	cam.connect(1);
+	cam.connect(0);
 
 	//パラメータの設定
 	cout << "Set Camera Params..." << endl;
@@ -126,7 +125,7 @@ int main() {
 
 	//レーザCalibrationの結果の呼び出し
 	FILE* fcam;
-	fcam = fopen("202012300316_fisheyeparam.csv", "r");
+	fcam = fopen("202101070034_fisheyeparam_cam0.csv", "r");
 	for (size_t i = 0; i < 4; i++) { fscanf(fcam, "%lf,", &map_coeff[i]); }
 	for (size_t i = 0; i < 4; i++) { fscanf(fcam, "%lf,", &stretch_mat[i]); }
 	swap(stretch_mat[1], stretch_mat[2]);
@@ -145,9 +144,9 @@ int main() {
 		rois_rand.push_back(cv::Rect(0, 0, width, height));
 	}
 
-	//Cycle Bufferの生成
-	cout << "Set Mat Cycle Buffer..." << endl;
-	for (size_t i = 0; i < cyclebuffersize; i++)
+	//ring Bufferの生成
+	cout << "Set Mat ring Buffer..." << endl;
+	for (size_t i = 0; i < ringbuffersize; i++)
 	{
 		in_imgs_on.push_back(zero.clone());
 		in_imgs_off.push_back(zero.clone());
@@ -198,12 +197,12 @@ void TakePicture(kayacoaxpress* cam, bool* flg) {
 	while (*flg)
 	{
 		QueryPerformanceCounter(&takestart);
-		takepicid = in_imgs_saveid % cyclebuffersize;
+		takepicid = in_imgs_saveid % ringbuffersize;
 		in_img_multi_src = in_imgs[takepicid].ptr<uint8_t>(0);
 
 		cam->captureFrame(in_img_multi_src, multicnt);
 
-		in_imgs_saveid = (in_imgs_saveid + 1) % cyclebuffersize;
+		in_imgs_saveid = (in_imgs_saveid + 1) % ringbuffersize;
 		processflgs[takepicid] = true;
 		QueryPerformanceCounter(&takeend);
 		taketime = (double)(takeend.QuadPart - takestart.QuadPart) / freq.QuadPart;
@@ -225,12 +224,12 @@ void ShowAllLogs(bool* flg) {
 		QueryPerformanceCounter(&showstart);
 
 		//OpenCVで画像表示
-		cv::imshow("img", in_imgs[(in_imgs_saveid - 2 + cyclebuffersize) % cyclebuffersize]);
+		cv::imshow("img", in_imgs[(in_imgs_saveid - 2 + ringbuffersize) % ringbuffersize]);
 		int key = cv::waitKey(1);
 		if (key == 'q') *flg = false;
 
 #ifdef SAVE_IMGS_
-		memcpy((imglog + log_img_cnt)->data, in_imgs[(in_imgs_saveid - 2 + cyclebuffersize) % cyclebuffersize].data, height * width * 3);
+		memcpy((imglog + log_img_cnt)->data, in_imgs[(in_imgs_saveid - 2 + ringbuffersize) % ringbuffersize].data, height * width * 3);
 		log_img_cnt++;
 		if (log_img_cnt > log_img_finish_cnt) *flg = false;
 #endif // SAVE_IMGS_
@@ -250,7 +249,7 @@ void ShowAllLogs(bool* flg) {
 
 int DetectLEDMarker() {
 	//画像の格納
-	detectid = (in_imgs_saveid - 1 + cyclebuffersize) % cyclebuffersize;
+	detectid = (in_imgs_saveid - 1 + ringbuffersize) % ringbuffersize;
 	detectimg_multi_src = in_imgs[detectid].ptr<uint8_t>(0);
 	if (processflgs[detectid])
 	{
@@ -358,6 +357,7 @@ int DetectLEDMarker() {
 			detectimg_on_src = detectimg[on_img_id].ptr<uint8_t>(0);
 
 			//分類ごとに青緑の個数のカウント
+			blueno = -1;
 			cv::cvtColor(detectimg[on_img_id], detectimg_on_hsv, CV_BGR2HSV);
 			detectimghsv_on_src = detectimg_on_hsv.ptr<uint8_t>(0);
 			labelptr = labels.ptr<int32_t>(0);
@@ -393,6 +393,7 @@ int DetectLEDMarker() {
 				//cout << greenbluecnt[i][0] << ", " << greenbluecnt[i][1] << endl;
 				if (greenbluecnt[i][0] < greenbluecnt[i][1]) blueno = (int)i;
 			}
+			if (blueno == -1) return 5;
 
 			//クラスタごとに輝度重心の計算
 			for (size_t i = 0; i < Vpts.size(); i++)
@@ -528,7 +529,7 @@ int DetectLEDMarker() {
 				{
 					for (size_t j = rois[i].y; j < static_cast<unsigned long long>(rois[i].y) + rois[i].height; j++)
 					{
-						if ((int32_t)detectimg0_src[j * width * 3 + k * 3] > (int32_t)detectimg1_src[j * width * 3 + k * 3])
+						if ((int32_t)detectimg0_src[j * width * 3 + k * 3] > 3 * (int32_t)detectimg1_src[j * width * 3 + k * 3])
 						{//2枚の画像で輝度値を比較
 							on_img_cnt++;
 						}
@@ -537,7 +538,7 @@ int DetectLEDMarker() {
 				}
 				
 			}
-			if (on_img_cnt > total_cnt / 2) on_img_id = 0;
+			if (on_img_cnt > 10) on_img_id = 0;
 			else on_img_id = 1;
 			detectimg_on_src = detectimg[on_img_id].ptr<uint8_t>(0);
 
