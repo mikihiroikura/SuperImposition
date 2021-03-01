@@ -42,7 +42,9 @@ uint8_t* in_img_multi_src, *detectimg_multi_src;
 /// 時間計測に関するパラメータ
 LARGE_INTEGER takestart, takeend, freq;
 LARGE_INTEGER showstart, showend;
+LARGE_INTEGER detectstart, detectend;
 double taketime = 0, showtime = 0;
+double detecttimea = 0, detecttimeb = 0, detecttimec = 0, detecttimed = 0, detecttimee = 0;
 /// マーカ検出のためのパラメータ
 int detectid = 0;
 vector<cv::Mat> detectimg;
@@ -78,7 +80,7 @@ float* center_src;
 int32_t* labelptr;
 int greenbluecnt[4][2] = { 0 };
 int on_img_id;
-int on_img_cnt, total_cnt;
+int on_img_cnt;
 int32_t h_on;
 int blueno = -1, labelno;
 const int roi_led_minx_ini[4] = { width, width, width, width },
@@ -95,6 +97,7 @@ int detectled_result;
 #define SHOW_PROCESSING_TIME_
 #define SHOW_IMGS_OPENGL_
 #define DEBUG_
+#define ROI_MODE_
 
 ///プロトタイプ宣言
 void TakePicture(kayacoaxpress* cam, bool* flg);
@@ -248,6 +251,7 @@ void ShowAllLogs(bool* flg) {
 }
 
 int DetectLEDMarker() {
+	QueryPerformanceCounter(&detectstart);
 	//画像の格納
 	detectid = (in_imgs_saveid - 1 + ringbuffersize) % ringbuffersize;
 	detectimg_multi_src = in_imgs[detectid].ptr<uint8_t>(0);
@@ -278,7 +282,14 @@ int DetectLEDMarker() {
 			//HSV画像でVが閾値以上の座標を検出
 			cv::inRange(diffimg_hsv, HSVLED_min, HSVLED_max, detectV);//差分画像なので閾値が小さい
 			cv::findNonZero(detectV, Vpts);
+#ifdef SHOW_PROCESSING_TIME_
+			QueryPerformanceCounter(&detectend);
+			detecttimea = (double)(detectend.QuadPart - detectstart.QuadPart) / freq.QuadPart;
+#endif // SHOW_PROCESSING_TIME_
 
+#ifdef SHOW_PROCESSING_TIME_
+			QueryPerformanceCounter(&detectstart);
+#endif // SHOW_PROCESSING_TIME_
 			//輝度の高い点群を4か所にクラスタリング
 			pts = cv::Mat::zeros(Vpts.size(), 1, CV_32FC2);
 			float* ptsptr = pts.ptr<float>(0);
@@ -304,6 +315,11 @@ int DetectLEDMarker() {
 					}
 				}
 			}
+#ifdef SHOW_PROCESSING_TIME_
+			QueryPerformanceCounter(&detectend);
+			detecttimeb = (double)(detectend.QuadPart - detectstart.QuadPart) / freq.QuadPart;
+#endif // SHOW_PROCESSING_TIME_
+
 
 
 #ifdef DEBUG_
@@ -341,6 +357,9 @@ int DetectLEDMarker() {
 			}
 #endif // DEBUG
 
+#ifdef SHOW_PROCESSING_TIME_
+			QueryPerformanceCounter(&detectstart);
+#endif // SHOW_PROCESSING_TIME_
 			//ON画像がどちらか判定する
 			detectimg0_src = detectimg[0].ptr<uint8_t>(0);
 			detectimg1_src = detectimg[1].ptr<uint8_t>(0);
@@ -451,7 +470,15 @@ int DetectLEDMarker() {
 #endif // DEBUG_
 
 			}
+#ifdef SHOW_PROCESSING_TIME_
+			QueryPerformanceCounter(&detectend);
+			detecttimec = (double)(detectend.QuadPart - detectstart.QuadPart) / freq.QuadPart;
+#endif // SHOW_PROCESSING_TIME_
 
+
+#ifdef SHOW_PROCESSING_TIME_
+			QueryPerformanceCounter(&detectstart);
+#endif // SHOW_PROCESSING_TIME_
 			//順番バラバラでもLEDの輝度重心計算
 			for (size_t i = 0; i < 4; i++)
 			{
@@ -511,18 +538,35 @@ int DetectLEDMarker() {
 					rois[2] = rois_rand[i];
 				}
 			}
-
+#ifdef ROI_MODE_
 			leddetected = true;
+#endif // ROI_MODE_
+
+#ifdef SHOW_PROCESSING_TIME_
+			QueryPerformanceCounter(&detectend);
+			detecttimed = (double)(detectend.QuadPart - detectstart.QuadPart) / freq.QuadPart;
+#endif // SHOW_PROCESSING_TIME_
+
+#ifdef SHOW_PROCESSING_TIME_
+			cout << "DetectLEDMarker() ROI OFF" << endl;
+			cout << "DetectLEDMarker() detectV		:" << detecttimea << endl;
+			cout << "DetectLEDMarker() clustering	:" << detecttimeb << endl;
+			cout << "DetectLEDMarker() calcCoG		:" << detecttimec << endl;
+			cout << "DetectLEDMarker() setLED		:" << detecttimed << endl;
+#endif // SHOW_PROCESSING_TIME_
+
 		}
 
 		//青と緑両方検出しているとき
 		else
 		{
+#ifdef SHOW_PROCESSING_TIME_
+			QueryPerformanceCounter(&detectstart);
+#endif // SHOW_PROCESSING_TIME_
 			//ON画像がどちらか判定する
 			detectimg0_src = detectimg[0].ptr<uint8_t>(0);
 			detectimg1_src = detectimg[1].ptr<uint8_t>(0);
 			on_img_cnt = 0;
-			total_cnt = 0;
 			for (size_t i = 0; i < 4; i++)
 			{
 				for (size_t k = rois[i].x; k < static_cast<unsigned long long>(rois[i].x) + rois[i].width; k++)
@@ -533,7 +577,6 @@ int DetectLEDMarker() {
 						{//2枚の画像で輝度値を比較
 							on_img_cnt++;
 						}
-						total_cnt++;
 					}
 				}
 				
@@ -601,10 +644,22 @@ int DetectLEDMarker() {
 				rois[i].y = roi_led_miny[i];
 				rois[i].height = roi_led_maxy[i] - roi_led_miny[i];
 			}
+#ifdef SHOW_PROCESSING_TIME_
+			QueryPerformanceCounter(&detectend);
+			detecttimea = (double)(detectend.QuadPart - detectstart.QuadPart) / freq.QuadPart;
+#endif // SHOW_PROCESSING_TIME_
+
+#ifdef SHOW_PROCESSING_TIME_
+			cout << "DetectLEDMarker() ROI ON" << endl;
+			cout << "DetectLEDMarker() ROI ON Time	:" << detecttimea << endl;
+#endif // SHOW_PROCESSING_TIME_
 		}
 
 		//4つのLEDから位置姿勢計算
 		///理想ピクセル座標系に変換
+#ifdef SHOW_PROCESSING_TIME_
+		QueryPerformanceCounter(&detectstart);
+#endif // SHOW_PROCESSING_TIME_
 		for (size_t i = 0; i < 4; i++)
 		{
 			ledidimpos[i][0] = det * ((ledimpos[i][0] - distort[0]) - stretch_mat[1] * (ledimpos[i][1] - distort[1]));
@@ -678,7 +733,11 @@ int DetectLEDMarker() {
 		Tm2c[1] = xsrc[5];
 		Tm2c[2] = xsrc[6];
 		//計算された位置に連続性が確認されないときはエラーとする
-
+#ifdef SHOW_PROCESSING_TIME_
+		QueryPerformanceCounter(&detectend);
+		detecttimee = (double)(detectend.QuadPart - detectstart.QuadPart) / freq.QuadPart;
+		cout << "DetectLEDMarker() CalcPose		:" << detecttimee << endl;
+#endif // SHOW_PROCESSING_TIME_
 
 		processflgs[detectid] = false;
 		return 0;
