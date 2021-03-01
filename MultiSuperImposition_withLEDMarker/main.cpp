@@ -175,7 +175,7 @@ int main() {
 	while (flg)
 	{
 		QueryPerformanceCounter(&glstart);
-		if (GetAsyncKeyState(VK_SPACE) & 0x8000) flg = false;
+		if (GetAsyncKeyState(VK_ESCAPE) & 0x8000) flg = false;
 
 		//呼び出す点群のポインタ
 		for (size_t i = 0; i < realsense_cnt; i++)

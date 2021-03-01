@@ -23,15 +23,15 @@ GLuint tex;
 //imgui
 float init_fov = 60, fov = init_fov;
 float pointsize = 2.5;
-float rotate_x = 0.0, rotate_y = 0.0, rotate_z = 0.0;
-float translate_x = 0.0, translate_y = 0.0, translate_z = -.0;
+float rotate_x[realsense_cnt] = { 0.0 }, rotate_y[realsense_cnt] = { 0.0 }, rotate_z[realsense_cnt] = { 0.0 };
+float translate_x[realsense_cnt] = { 0.0 }, translate_y[realsense_cnt] = { 0.0 }, translate_z[realsense_cnt] = { -.0 };
 double mouse_x, mouse_y, mouse_x_old, mouse_y_old;
 double horiz_angle = -M_PI, vert_angle = 0.0;
 double mouse_speed = 0.01;
 double dx = 0.0, dy = 0.0;
 float hovered;
 glm::vec3 position(0, 0, -1), up(0, -1, 0), direction(0, 0, 0);
-glm::mat4 mvp, Model, View, Projection;
+glm::mat4 mvp, vp, Model[2], View, Projection;
 
 //プロトタイプ宣言
 static void setfov(GLFWwindow* window, double x, double y);
@@ -216,8 +216,11 @@ void drawGL_realsense(float** pts, float** texcoords, rs2::frame** colorframes) 
     {
         horiz_angle = -M_PI;
         vert_angle = 0.0;
-        rotate_x = 0.0, rotate_y = 0.0;
-        translate_x = 0.0, translate_y = 0.0, translate_z = -.0;
+        for (size_t i = 0; i < realsense_cnt; i++)
+        {
+            rotate_x[i] = 0.0, rotate_y[i] = 0.0, rotate_z[i] = 0.0;
+            translate_x[i] = 0.0, translate_y[i] = 0.0, translate_z[i] = -.0;
+        }
         fov = init_fov;
     }
 
@@ -225,15 +228,17 @@ void drawGL_realsense(float** pts, float** texcoords, rs2::frame** colorframes) 
     position = glm::vec3(cos(vert_angle) * sin(horiz_angle), sin(vert_angle), cos(vert_angle) * cos(horiz_angle));
     Projection = glm::perspective(glm::radians(fov), (GLfloat)window_width / (GLfloat)window_height, 0.1f, 100.0f);
     View = glm::lookAt(position, direction, up);
-    Model = glm::translate(glm::mat4(1.0), glm::vec3(translate_x, translate_y, translate_z))
-        * glm::rotate(glm::radians(rotate_x), glm::vec3(1, 0, 0))
-        * glm::rotate(glm::radians(rotate_y), glm::vec3(0, 1, 0))
-        * glm::rotate(glm::radians(rotate_z), glm::vec3(0, 0, 1));
-    mvp = Projection * View * Model;
+    for (size_t i = 0; i < realsense_cnt; i++)
+    {
+        Model[i] = glm::translate(glm::mat4(1.0), glm::vec3(translate_x[i], translate_y[i], translate_z[i]))
+            * glm::rotate(glm::radians(rotate_x[i]), glm::vec3(1, 0, 0))
+            * glm::rotate(glm::radians(rotate_y[i]), glm::vec3(0, 1, 0))
+            * glm::rotate(glm::radians(rotate_z[i]), glm::vec3(0, 0, 1));
+    }
+    vp = Projection * View;
 
     //シェーダプログラムの開始
     glUseProgram(gl2Program);
-    glUniformMatrix4fv(matlocation, 1, GL_FALSE, &mvp[0][0]); //シェーダプログラムの開始の後にシェーダプログラム内のMVP行列を更新
 
     //点群の位置とテクスチャ座標を更新
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
@@ -250,6 +255,8 @@ void drawGL_realsense(float** pts, float** texcoords, rs2::frame** colorframes) 
     glBindTexture(GL_TEXTURE_2D, tex);
     for (size_t i = 0; i < realsense_cnt; i++)
     {
+        mvp = vp * Model[i];
+        glUniformMatrix4fv(matlocation, 1, GL_FALSE, &mvp[0][0]); //シェーダプログラムの開始の後にシェーダプログラム内のMVP行列を更新
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, colorwidth, colorheight, GL_RGB, GL_UNSIGNED_BYTE, (void*)colorframes[i]->get_data());
         glDrawArrays(GL_POINTS, vert_cnt * i, vert_cnt);//実際の描画
     }
@@ -265,12 +272,16 @@ void drawGL_realsense(float** pts, float** texcoords, rs2::frame** colorframes) 
     ImGui::SetNextWindowSize(ImVec2(320, 300), ImGuiCond_Once);
     ImGui::Begin("Logs and Parameters");
     hovered = ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem); //IMGUI上のWindowでのカーソル処理時のフラグを立てる
-    ImGui::DragFloat("rotate x", &rotate_x);
-    ImGui::DragFloat("rotate y", &rotate_y);
-    ImGui::DragFloat("rotate z", &rotate_z);
-    ImGui::DragFloat("trans x", &translate_x);
-    ImGui::DragFloat("trans y", &translate_y);
-    ImGui::DragFloat("trans z", &translate_z);
+    for (size_t i = 0; i < realsense_cnt; i++)
+    {
+        ImGui::Text("RealSense %d", i);
+        ImGui::DragFloat("rotate x", &rotate_x[i]);
+        ImGui::DragFloat("rotate y", &rotate_y[i]);
+        ImGui::DragFloat("rotate z", &rotate_z[i]);
+        ImGui::DragFloat("trans x", &translate_x[i]);
+        ImGui::DragFloat("trans y", &translate_y[i]);
+        ImGui::DragFloat("trans z", &translate_z[i]);
+    }
     ImGui::End();
 
     ImGui::Render();
