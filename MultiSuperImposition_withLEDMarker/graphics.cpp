@@ -23,7 +23,7 @@ GLuint tex;
 //imgui
 float init_fov = 60, fov = init_fov;
 float pointsize = 2.5;
-float rotate_x = 0.0, rotate_y = 0.0;
+float rotate_x = 0.0, rotate_y = 0.0, rotate_z = 0.0;
 float translate_x = 0.0, translate_y = 0.0, translate_z = -.0;
 double mouse_x, mouse_y, mouse_x_old, mouse_y_old;
 double horiz_angle = -M_PI, vert_angle = 0.0;
@@ -227,7 +227,8 @@ void drawGL_realsense(float** pts, float** texcoords, rs2::frame** colorframes) 
     View = glm::lookAt(position, direction, up);
     Model = glm::translate(glm::mat4(1.0), glm::vec3(translate_x, translate_y, translate_z))
         * glm::rotate(glm::radians(rotate_x), glm::vec3(1, 0, 0))
-        * glm::rotate(glm::radians(rotate_y), glm::vec3(0, 1, 0));
+        * glm::rotate(glm::radians(rotate_y), glm::vec3(0, 1, 0))
+        * glm::rotate(glm::radians(rotate_z), glm::vec3(0, 0, 1));
     mvp = Projection * View * Model;
 
     //シェーダプログラムの開始
@@ -266,6 +267,7 @@ void drawGL_realsense(float** pts, float** texcoords, rs2::frame** colorframes) 
     hovered = ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem); //IMGUI上のWindowでのカーソル処理時のフラグを立てる
     ImGui::DragFloat("rotate x", &rotate_x);
     ImGui::DragFloat("rotate y", &rotate_y);
+    ImGui::DragFloat("rotate z", &rotate_z);
     ImGui::DragFloat("trans x", &translate_x);
     ImGui::DragFloat("trans y", &translate_y);
     ImGui::DragFloat("trans z", &translate_z);
