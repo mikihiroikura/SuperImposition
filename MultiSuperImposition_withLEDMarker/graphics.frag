@@ -9,5 +9,5 @@ uniform sampler2D texture;
 
 void main(void)
 {
-  gl_FragColor = texture2D(texture, texCoords);
+  gl_FragColor = texture2D(texture, texCoords) * vec4(1.0,1.0,1.0,0.5);
 }

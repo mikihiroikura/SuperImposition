@@ -113,6 +113,8 @@ void initGL() {
     // default initialization
     glClearColor(0.0, 0.0, 0.0, 1.0);   //背景色の指定
     glDisable(GL_DEPTH_TEST);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     //shaderオブジェクトの作成
     vertShader = glCreateShader(GL_VERTEX_SHADER);

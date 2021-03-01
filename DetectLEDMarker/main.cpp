@@ -49,7 +49,7 @@ double detecttimea = 0, detecttimeb = 0, detecttimec = 0, detecttimed = 0, detec
 int detectid = 0;
 vector<cv::Mat> detectimg;
 cv::Mat diffimg ,diffimg_hsv, detectimg_on_hsv;
-uint8_t* diffimg_src, *detectimg0_src, *detectimg1_src, *detectimg_on_src, *detectimghsv_on_src;
+uint8_t* diffimg_src, *detectimg0_src, *detectimg1_src, *detectimg_on_src, *detectimghsv_on_src, *afterlabel_src;;
 cv::Mat detectgreen, detectblue, detectV;
 const cv::Scalar greenLED_min(0, 150, 0);
 const cv::Scalar greenLED_max(256, 256, 256);
@@ -75,7 +75,7 @@ const double markeredge = 235/2;
 const double markerpos[4][2] = { {markeredge, markeredge}, {-markeredge, markeredge}, {-markeredge, -markeredge}, {markeredge, -markeredge} };
 double cross, dot, theta[3], absmax;
 bool leddetected = false;
-cv::Mat pts, labels, centers;
+cv::Mat pts, labels, centers, afterlabel;
 float* center_src;
 int32_t* labelptr;
 int greenbluecnt[4][2] = { 0 };
@@ -92,6 +92,8 @@ const int roi_led_margin = 10;
 double thetamax, thetamin, thetamaxid, thetaminid;
 double dist, dist_cluster_thr = 20, dist_centers_thr = 10;
 int detectled_result;
+float *ptsptr;
+int32_t *labelptr_debug;
 
 
 #define SHOW_PROCESSING_TIME_
@@ -282,6 +284,18 @@ int DetectLEDMarker() {
 			//HSV画像でVが閾値以上の座標を検出
 			cv::inRange(diffimg_hsv, HSVLED_min, HSVLED_max, detectV);//差分画像なので閾値が小さい
 			cv::findNonZero(detectV, Vpts);
+			/*diffimg_src = diffimg.ptr<uint8_t>(0);
+			Vpts.clear();
+			for (size_t i = 0; i < width; i++)
+			{
+				for (size_t j = 0; j < height; j++)
+				{
+					if ((uint8_t)diffimg_src[j * width * 3 + i * 3] > HSVLED_min(2) || (uint8_t)diffimg_src[j * width * 3 + i * 3 + 1] > HSVLED_min(2) || (uint8_t)diffimg_src[j * width * 3 + i * 3 + 2] > HSVLED_min(2))
+					{
+						Vpts.push_back(cv::Point(i, j));
+					}
+				}
+			}*/
 #ifdef SHOW_PROCESSING_TIME_
 			QueryPerformanceCounter(&detectend);
 			detecttimea = (double)(detectend.QuadPart - detectstart.QuadPart) / freq.QuadPart;
@@ -292,7 +306,7 @@ int DetectLEDMarker() {
 #endif // SHOW_PROCESSING_TIME_
 			//輝度の高い点群を4か所にクラスタリング
 			pts = cv::Mat::zeros(Vpts.size(), 1, CV_32FC2);
-			float* ptsptr = pts.ptr<float>(0);
+			ptsptr = pts.ptr<float>(0);
 			for (size_t i = 0; i < Vpts.size(); i++)
 			{
 				ptsptr[i * 2 + 0] = (float)Vpts[i].x;
@@ -324,9 +338,9 @@ int DetectLEDMarker() {
 
 #ifdef DEBUG_
 			//デバッグ:分類結果の確認
-			cv::Mat afterlabel = cv::Mat(896, 896, CV_8UC3, cv::Scalar::all(0));
-			uint8_t* afterlabel_src = afterlabel.ptr<uint8_t>(0);
-			int32_t* labelptr_debug = labels.ptr<int32_t>(0);
+			afterlabel = cv::Mat(896, 896, CV_8UC3, cv::Scalar::all(0));
+			afterlabel_src = afterlabel.ptr<uint8_t>(0);
+			labelptr_debug = labels.ptr<int32_t>(0);
 			for (size_t i = 0; i < Vpts.size(); i++)
 			{
 				//cout << (int32_t)labelptr[i] << endl;
