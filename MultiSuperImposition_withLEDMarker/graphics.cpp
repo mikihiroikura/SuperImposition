@@ -27,6 +27,7 @@ float rotate_x[realsense_cnt] = { 0.0 }, rotate_y[realsense_cnt] = { 0.0 }, rota
 float translate_x[realsense_cnt] = { 0.0 }, translate_y[realsense_cnt] = { 0.0 }, translate_z[realsense_cnt] = { -.0 };
 double mouse_x, mouse_y, mouse_x_old, mouse_y_old;
 double horiz_angle = -M_PI, vert_angle = 0.0;
+int trans_max = 10;
 double mouse_speed = 0.01;
 double dx = 0.0, dy = 0.0;
 float hovered;
@@ -272,16 +273,14 @@ void drawGL_realsense(float** pts, float** texcoords, rs2::frame** colorframes) 
     ImGui::SetNextWindowSize(ImVec2(320, 300), ImGuiCond_Once);
     ImGui::Begin("Logs and Parameters");
     hovered = ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem); //IMGUI上のWindowでのカーソル処理時のフラグを立てる
-    for (size_t i = 0; i < realsense_cnt; i++)
-    {
-        ImGui::Text("RealSense %d", i);
-        ImGui::DragFloat("rotate x", &rotate_x[i]);
-        ImGui::DragFloat("rotate y", &rotate_y[i]);
-        ImGui::DragFloat("rotate z", &rotate_z[i]);
-        ImGui::DragFloat("trans x", &translate_x[i]);
-        ImGui::DragFloat("trans y", &translate_y[i]);
-        ImGui::DragFloat("trans z", &translate_z[i]);
-    }
+    ImGui::Text("RealSense 0     RealSense 1");
+    ImGui::SliderFloat2("rotate_x", (float*)&rotate_x, -180.0f, 180.0f, "%.0f");
+    ImGui::SliderFloat2("rotate_y", (float*)&rotate_y, -180.0f, 180.0f, "%.0f");
+    ImGui::SliderFloat2("rotate_z", (float*)&rotate_z, -180.0f, 180.0f, "%.0f");
+    ImGui::InputInt("translate_max", &trans_max);
+    ImGui::SliderFloat2("translate_x", (float*)&translate_x, -trans_max, trans_max, "%.0f");
+    ImGui::SliderFloat2("translate_y", (float*)&translate_y, -trans_max, trans_max, "%.0f");
+    ImGui::SliderFloat2("translate_z", (float*)&translate_z, -trans_max, trans_max, "%.0f");
     ImGui::End();
 
     ImGui::Render();
