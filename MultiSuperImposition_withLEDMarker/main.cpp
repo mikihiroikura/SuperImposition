@@ -94,7 +94,7 @@ int main() {
 
 	//カメラの初期化
 	kayacoaxpress cam;
-	cam.connect(1);
+	cam.connect(0);
 
 	//カメラパラメータの設定
 	cout << "Set Camera Params..." << endl;
