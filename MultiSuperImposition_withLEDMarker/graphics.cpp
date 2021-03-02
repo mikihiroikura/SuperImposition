@@ -222,6 +222,7 @@ void drawGL_realsense(float** pts, float** texcoords, rs2::frame** colorframes) 
         {
             rotate_x[i] = 0.0, rotate_y[i] = 0.0, rotate_z[i] = 0.0;
             translate_x[i] = 0.0, translate_y[i] = 0.0, translate_z[i] = -.0;
+            rs[i] = true;
         }
         fov = init_fov;
     }
