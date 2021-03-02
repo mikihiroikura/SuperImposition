@@ -31,6 +31,7 @@ int trans_max = 10;
 double mouse_speed = 0.01;
 double dx = 0.0, dy = 0.0;
 float hovered;
+bool rs[2] = { true, true };
 glm::vec3 position(0, 0, -1), up(0, -1, 0), direction(0, 0, 0);
 glm::mat4 mvp, vp, Model[2], View, Projection;
 
@@ -256,10 +257,13 @@ void drawGL_realsense(float** pts, float** texcoords, rs2::frame** colorframes) 
     glBindTexture(GL_TEXTURE_2D, tex);
     for (size_t i = 0; i < realsense_cnt; i++)
     {
-        mvp = vp * Model[i];
-        glUniformMatrix4fv(matlocation, 1, GL_FALSE, &mvp[0][0]); //シェーダプログラムの開始の後にシェーダプログラム内のMVP行列を更新
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, colorwidth, colorheight, GL_RGB, GL_UNSIGNED_BYTE, (void*)colorframes[i]->get_data());
-        glDrawArrays(GL_POINTS, vert_cnt * i, vert_cnt);//実際の描画
+        if (rs[i])
+        {
+            mvp = vp * Model[i];
+            glUniformMatrix4fv(matlocation, 1, GL_FALSE, &mvp[0][0]); //シェーダプログラムの開始の後にシェーダプログラム内のMVP行列を更新
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, colorwidth, colorheight, GL_RGB, GL_UNSIGNED_BYTE, (void*)colorframes[i]->get_data());
+            glDrawArrays(GL_POINTS, vert_cnt * i, vert_cnt);//実際の描画
+        }
     }
     glBindVertexArray(0);//VBOのアンバインド
 
@@ -274,6 +278,9 @@ void drawGL_realsense(float** pts, float** texcoords, rs2::frame** colorframes) 
     ImGui::Begin("Logs and Parameters");
     hovered = ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem); //IMGUI上のWindowでのカーソル処理時のフラグを立てる
     ImGui::Text("RealSense 0     RealSense 1");
+    ImGui::Checkbox("RealSense 0", &rs[0]);
+    ImGui::SameLine();
+    ImGui::Checkbox("RealSense 1", &rs[1]);
     ImGui::SliderFloat2("rotate_x", (float*)&rotate_x, -180.0f, 180.0f, "%.0f");
     ImGui::SliderFloat2("rotate_y", (float*)&rotate_y, -180.0f, 180.0f, "%.0f");
     ImGui::SliderFloat2("rotate_z", (float*)&rotate_z, -180.0f, 180.0f, "%.0f");
