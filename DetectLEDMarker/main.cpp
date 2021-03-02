@@ -42,9 +42,9 @@ uint8_t* in_img_multi_src, *detectimg_multi_src;
 /// 時間計測に関するパラメータ
 LARGE_INTEGER takestart, takeend, freq;
 LARGE_INTEGER showstart, showend;
-LARGE_INTEGER detectstart, detectend;
+LARGE_INTEGER detectstart, detectstartdebug, detectend;
 double taketime = 0, showtime = 0;
-double detecttimea = 0, detecttimeb = 0, detecttimec = 0, detecttimed = 0, detecttimee = 0;
+double detecttimea = 0, detecttimeb = 0, detecttimec = 0, detecttimed = 0, detecttimee = 0, detecttime = 0;
 /// マーカ検出のためのパラメータ
 int detectid = 0;
 vector<cv::Mat> detectimg;
@@ -100,7 +100,7 @@ int ptscnt;
 #define SHOW_PROCESSING_TIME_
 #define SHOW_IMGS_OPENGL_
 #define DEBUG_
-//#define ROI_MODE_
+#define ROI_MODE_
 
 ///プロトタイプ宣言
 void TakePicture(kayacoaxpress* cam, bool* flg);
@@ -259,6 +259,10 @@ void ShowAllLogs(bool* flg) {
 
 int DetectLEDMarker() {
 	QueryPerformanceCounter(&detectstart);
+#ifdef DEBUG_
+	QueryPerformanceCounter(&detectstartdebug);
+#endif // 
+
 	//画像の格納
 	detectid = (in_imgs_saveid - 1 + ringbuffersize) % ringbuffersize;
 	detectimg_multi_src = in_imgs[detectid].ptr<uint8_t>(0);
@@ -283,12 +287,9 @@ int DetectLEDMarker() {
 		//4つ全てのLEDを検出していない時
 		if (!(leddetected))
 		{
-			//差分画像の生成&HSV画像への変換
+			//差分画像の生成
 			cv::absdiff(detectimg[0], detectimg[1], diffimg);
-			//cv::cvtColor(diffimg, diffimg_hsv, CV_BGR2HSV);
-			////HSV画像でVが閾値以上の座標を検出
-			//cv::inRange(diffimg_hsv, HSVLED_min, HSVLED_max, detectV);//差分画像なので閾値が小さい
-			//cv::findNonZero(detectV, Vpts);
+			//HSVのVの閾値処理
 			diffimg_src = diffimg.ptr<uint8_t>(0);
 			ptscnt = 0;
 			for (size_t i = 0; i < width; i++)
@@ -303,22 +304,15 @@ int DetectLEDMarker() {
 					}
 				}
 			}
-#ifdef SHOW_PROCESSING_TIME_
+#ifdef DEBUG_
 			QueryPerformanceCounter(&detectend);
-			detecttimea = (double)(detectend.QuadPart - detectstart.QuadPart) / freq.QuadPart;
+			detecttimea = (double)(detectend.QuadPart - detectstartdebug.QuadPart) / freq.QuadPart;
 #endif // SHOW_PROCESSING_TIME_
 
-#ifdef SHOW_PROCESSING_TIME_
-			QueryPerformanceCounter(&detectstart);
+#ifdef DEBUG_
+			QueryPerformanceCounter(&detectstartdebug);
 #endif // SHOW_PROCESSING_TIME_
 			//輝度の高い点群を4か所にクラスタリング
-			/*pts = cv::Mat::zeros(Vpts.size(), 1, CV_32FC2);
-			ptsptr = pts.ptr<float>(0);
-			for (size_t i = 0; i < Vpts.size(); i++)
-			{
-				ptsptr[i * 2 + 0] = (float)Vpts[i].x;
-				ptsptr[i * 2 + 1] = (float)Vpts[i].y;
-			}*/
 			pts = ptscand(cv::Rect(0, 0, 1, ptscnt));
 			cv::kmeans(pts, 4, labels, cvTermCriteria(CV_TERMCRIT_EPS | CV_TERMCRIT_ITER, 10, 1.0), 1, cv::KMEANS_PP_CENTERS, centers);
 			center_src = centers.ptr<float>(0);
@@ -337,9 +331,9 @@ int DetectLEDMarker() {
 					}
 				}
 			}
-#ifdef SHOW_PROCESSING_TIME_
+#ifdef DEBUG_
 			QueryPerformanceCounter(&detectend);
-			detecttimeb = (double)(detectend.QuadPart - detectstart.QuadPart) / freq.QuadPart;
+			detecttimeb = (double)(detectend.QuadPart - detectstartdebug.QuadPart) / freq.QuadPart;
 #endif // SHOW_PROCESSING_TIME_
 
 
@@ -379,8 +373,8 @@ int DetectLEDMarker() {
 			}
 #endif // DEBUG
 
-#ifdef SHOW_PROCESSING_TIME_
-			QueryPerformanceCounter(&detectstart);
+#ifdef DEBUG_
+			QueryPerformanceCounter(&detectstartdebug);
 #endif // SHOW_PROCESSING_TIME_
 			//ON画像がどちらか判定する
 			detectimg0_src = detectimg[0].ptr<uint8_t>(0);
@@ -434,7 +428,9 @@ int DetectLEDMarker() {
 				//cout << greenbluecnt[i][0] << ", " << greenbluecnt[i][1] << endl;
 				if (greenbluecnt[i][0] < greenbluecnt[i][1]) blueno = (int)i;
 			}
-			if (blueno == -1) return 5;
+			if (blueno == -1) {
+				return 5;
+			}
 
 			//クラスタごとに輝度重心の計算
 			for (size_t i = 0; i < ptscnt; i++)
@@ -492,14 +488,14 @@ int DetectLEDMarker() {
 #endif // DEBUG_
 
 			}
-#ifdef SHOW_PROCESSING_TIME_
+#ifdef DEBUG_
 			QueryPerformanceCounter(&detectend);
-			detecttimec = (double)(detectend.QuadPart - detectstart.QuadPart) / freq.QuadPart;
+			detecttimec = (double)(detectend.QuadPart - detectstartdebug.QuadPart) / freq.QuadPart;
 #endif // SHOW_PROCESSING_TIME_
 
 
-#ifdef SHOW_PROCESSING_TIME_
-			QueryPerformanceCounter(&detectstart);
+#ifdef DEBUG_
+			QueryPerformanceCounter(&detectstartdebug);
 #endif // SHOW_PROCESSING_TIME_
 			//順番バラバラでもLEDの輝度重心計算
 			for (size_t i = 0; i < 4; i++)
@@ -564,12 +560,12 @@ int DetectLEDMarker() {
 			leddetected = true;
 #endif // ROI_MODE_
 
-#ifdef SHOW_PROCESSING_TIME_
+#ifdef DEBUG_
 			QueryPerformanceCounter(&detectend);
-			detecttimed = (double)(detectend.QuadPart - detectstart.QuadPart) / freq.QuadPart;
+			detecttimed = (double)(detectend.QuadPart - detectstartdebug.QuadPart) / freq.QuadPart;
 #endif // SHOW_PROCESSING_TIME_
 
-#ifdef SHOW_PROCESSING_TIME_
+#ifdef DEBUG_
 			cout << "DetectLEDMarker() ROI OFF" << endl;
 			cout << "DetectLEDMarker() detectV		:" << detecttimea << endl;
 			cout << "DetectLEDMarker() clustering	:" << detecttimeb << endl;
@@ -582,9 +578,6 @@ int DetectLEDMarker() {
 		//青と緑両方検出しているとき
 		else
 		{
-#ifdef SHOW_PROCESSING_TIME_
-			QueryPerformanceCounter(&detectstart);
-#endif // SHOW_PROCESSING_TIME_
 			//ON画像がどちらか判定する
 			detectimg0_src = detectimg[0].ptr<uint8_t>(0);
 			detectimg1_src = detectimg[1].ptr<uint8_t>(0);
@@ -666,12 +659,12 @@ int DetectLEDMarker() {
 				rois[i].y = roi_led_miny[i];
 				rois[i].height = roi_led_maxy[i] - roi_led_miny[i];
 			}
-#ifdef SHOW_PROCESSING_TIME_
+#ifdef DEBUG_
 			QueryPerformanceCounter(&detectend);
-			detecttimea = (double)(detectend.QuadPart - detectstart.QuadPart) / freq.QuadPart;
+			detecttimea = (double)(detectend.QuadPart - detectstartdebug.QuadPart) / freq.QuadPart;
 #endif // SHOW_PROCESSING_TIME_
 
-#ifdef SHOW_PROCESSING_TIME_
+#ifdef DEBUG_
 			cout << "DetectLEDMarker() ROI ON" << endl;
 			cout << "DetectLEDMarker() ROI ON Time	:" << detecttimea << endl;
 #endif // SHOW_PROCESSING_TIME_
@@ -679,8 +672,8 @@ int DetectLEDMarker() {
 
 		//4つのLEDから位置姿勢計算
 		///理想ピクセル座標系に変換
-#ifdef SHOW_PROCESSING_TIME_
-		QueryPerformanceCounter(&detectstart);
+#ifdef DEBUG_
+		QueryPerformanceCounter(&detectstartdebug);
 #endif // SHOW_PROCESSING_TIME_
 		for (size_t i = 0; i < 4; i++)
 		{
@@ -755,13 +748,23 @@ int DetectLEDMarker() {
 		Tm2c[1] = xsrc[5];
 		Tm2c[2] = xsrc[6];
 		//計算された位置に連続性が確認されないときはエラーとする
-#ifdef SHOW_PROCESSING_TIME_
-		QueryPerformanceCounter(&detectend);
-		detecttimee = (double)(detectend.QuadPart - detectstart.QuadPart) / freq.QuadPart;
-		cout << "DetectLEDMarker() CalcPose		:" << detecttimee << endl;
-#endif // SHOW_PROCESSING_TIME_
 
 		processflgs[detectid] = false;
+#ifdef DEBUG_
+		QueryPerformanceCounter(&detectend);
+		detecttimee = (double)(detectend.QuadPart - detectstartdebug.QuadPart) / freq.QuadPart;
+		cout << "DetectLEDMarker() CalcPose		:" << detecttimee << endl;
+#endif // SHOW_PROCESSING_TIME_
+		QueryPerformanceCounter(&detectend);
+		detecttime = (double)(detectend.QuadPart - detectstart.QuadPart) / freq.QuadPart;
+		while (detecttime < 0.001)
+		{
+			QueryPerformanceCounter(&detectend);
+			detecttime = (double)(detectend.QuadPart - detectstart.QuadPart) / freq.QuadPart;
+		}
+#ifdef SHOW_PROCESSING_TIME_
+		std::cout << "DetectLEDMarker() time: " << detecttime << endl;
+#endif // SHOW_PROCESSING_TIME_
 		return 0;
 		//位置姿勢も計算できて正常終了
 	}
