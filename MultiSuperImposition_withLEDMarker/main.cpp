@@ -37,7 +37,7 @@ const int width = 896;
 const int height = 896;
 const float fps = 1000.0;
 const float exposuretime = 912.0;
-const int offsetx = 512;
+const int offsetx = 480;
 const int offsety = 92;
 double map_coeff[4], stretch_mat[4], det, distort[4];
 
@@ -347,6 +347,16 @@ void GetPointClouds(realsense* rs, bool* flg, PointCloud* pc) {
 }
 
 void GetRelPosefromLEDMarker(bool *flg) {
+	//レーザCalibrationの結果の呼び出し
+	FILE* fcam;
+	fcam = fopen("202101070034_fisheyeparam_cam0.csv", "r");
+	for (size_t i = 0; i < 4; i++) { fscanf(fcam, "%lf,", &map_coeff[i]); }
+	for (size_t i = 0; i < 4; i++) { fscanf(fcam, "%lf,", &stretch_mat[i]); }
+	swap(stretch_mat[1], stretch_mat[2]);
+	for (size_t i = 0; i < 2; i++) { fscanf(fcam, "%lf,", &distort[i]); }
+	fclose(fcam);
+	det = 1 / (stretch_mat[0] - stretch_mat[1] * stretch_mat[2]);
+
 	//輝点保存用行列の作成
 	ptscand = cv::Mat::zeros(width * height, 1, CV_32FC2);
 	ptscand_ptr = ptscand.ptr<float>(0);
