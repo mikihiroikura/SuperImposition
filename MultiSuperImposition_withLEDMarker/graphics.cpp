@@ -278,7 +278,6 @@ void drawGL_realsense(float** pts, float** texcoords, rs2::frame** colorframes) 
     ImGui::SetNextWindowSize(ImVec2(320, 300), ImGuiCond_Once);
     ImGui::Begin("Logs and Parameters");
     hovered = ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem); //IMGUI上のWindowでのカーソル処理時のフラグを立てる
-    ImGui::Text("RealSense 0     RealSense 1");
     ImGui::Checkbox("RealSense 0", &rs[0]);
     ImGui::SameLine();
     ImGui::Checkbox("RealSense 1", &rs[1]);

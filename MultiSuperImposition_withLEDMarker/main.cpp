@@ -71,7 +71,7 @@ LARGE_INTEGER showstart, showend;
 LARGE_INTEGER detectstart, detectstartdebug, detectend;
 double taketime = 0, showtime = 0;
 double timer = 0, gltimer = 0;
-double detecttimea = 0, detecttimeb = 0, detecttimec = 0, detecttimed = 0, detecttimee = 0, detecttime = 0;
+double detecttimea = 0, detecttimeb = 0, detecttimec = 0, detecttimed = 0, detecttimee = 0, detecttimef = 0, detecttime = 0;
 
 //マーカ検出に関するパラメータ
 int detectid = 0;
@@ -129,18 +129,18 @@ struct PointCloud
 	rs2::frame colorframe_buffer[ring_size_realsense];
 	int pc_ringid = 0;
 };
-PointCloud* pcs_ptr[realsense_cnt];
 
 void GetPointClouds(realsense* rs, bool* flg, PointCloud* pc);
 void TakePicture(kayacoaxpress* cam, bool* flg);
-void ShowAllLogs(bool* flg);
+void ShowAllLogs(bool* flg, PointCloud** pc_src);
 int DetectLEDMarker();
-void GetRelPosefromLEDMarker(bool* flg);
 
+#define GETPOINTSREALSENSE_THREAD_
 #define GETRELPOSE_THREAD_
 #define SHOW_PROCESSING_TIME_
-#define SHOW_IMGS_OPENGL_
-#define DEBUG_
+#define SHOW_IMGS_THREAD_
+#define SHOW_OPENGL_THREAD_
+//#define DEBUG_
 #define ROI_MODE_
 
 int main() {
@@ -178,9 +178,39 @@ int main() {
 		processflgs.push_back(false);
 	}
 
+	//レーザCalibrationの結果の呼び出し
+	FILE* fcam;
+	fcam = fopen("202101070034_fisheyeparam_cam0.csv", "r");
+	for (size_t i = 0; i < 4; i++) { fscanf(fcam, "%lf,", &map_coeff[i]); }
+	for (size_t i = 0; i < 4; i++) { fscanf(fcam, "%lf,", &stretch_mat[i]); }
+	swap(stretch_mat[1], stretch_mat[2]);
+	for (size_t i = 0; i < 2; i++) { fscanf(fcam, "%lf,", &distort[i]); }
+	fclose(fcam);
+	det = 1 / (stretch_mat[0] - stretch_mat[1] * stretch_mat[2]);
+
+	//輝点保存用行列の作成
+	ptscand = cv::Mat::zeros(width * height, 1, CV_32FC2);
+	ptscand_ptr = ptscand.ptr<float>(0);
+
+	//ROIの設定
+	for (size_t i = 0; i < 4; i++)
+	{
+		rois.push_back(cv::Rect(0, 0, width, height));
+		rois_rand.push_back(cv::Rect(0, 0, width, height));
+	}
+
+	//LED位置検出のためのMat vector作成
+	for (size_t i = 0; i < 2; i++)
+	{
+		detectimg.push_back(zero.clone());
+	}
+	diffimg = zero.clone();
+	diffimg_src = diffimg.ptr<uint8_t>(0);
+
 	//ログ初期化
 	cout << "Set PointCloud buffers....";
 	vector<PointCloud> pcs;
+	PointCloud* pcs_src[realsense_cnt];
 
 	for (size_t i = 0; i < realsense_cnt; i++)
 	{
@@ -191,6 +221,8 @@ int main() {
 		pc.texcoords = (rs2::texture_coordinate*)malloc(sizeof(float) * vert_cnt * 2);
 		pcs.push_back(pc);
 	}
+	pcs_src[0] = &pcs[0];
+	pcs_src[1] = &pcs[1];
 	cout << "OK!" << endl;
 
 	//2つのRealsenseの初期化
@@ -203,24 +235,23 @@ int main() {
 	}
 	cout << "OK!" << endl;
 
-	//OpenGLの初期化
-	initGL();
-
 	//カメラ起動
 	cout << "Camera Start!" << endl;
 	cam.start();
 
 	//スレッド作成
+#ifdef GETPOINTSREALSENSE_THREAD_
 	vector<thread> GetPointsThread;
 	for (size_t i = 0; i < realsense_cnt; i++)
 	{
 		GetPointsThread.push_back(thread(GetPointClouds, &rs_devices[i], &flg, &pcs[i]));
 	}
+#endif // GETPOINTREALSENSE_THREAD_
 	thread TakePictureThread(TakePicture, &cam, &flg);
-	thread ShowLogsThread(ShowAllLogs, &flg);
-#ifdef GETRELPOSE_THREAD_
-	thread GetRelPoseThread(GetRelPosefromLEDMarker, &flg);
-#endif // GETRELPOSE_THREAD_
+#ifdef SHOW_IMGS_THREAD_
+	thread ShowLogsThread(ShowAllLogs, &flg, pcs_src);
+#endif // SHOW_	
+
 
 	//メインループ
 	cout << "Main loop start!" << endl;
@@ -233,39 +264,40 @@ int main() {
 	}
 	while (flg)
 	{
-		QueryPerformanceCounter(&glstart);
-		if (GetAsyncKeyState(VK_ESCAPE) & 0x8000) flg = false;
+		QueryPerformanceCounter(&detectstart);
+#ifdef GETRELPOSE_THREAD_
+		detectresult = DetectLEDMarker();
+#endif // GETRELPOSE_THREAD_
 
-		//呼び出す点群のポインタ
-		for (size_t i = 0; i < realsense_cnt; i++)
-		{
-			getpc_id = pcs[i].pc_ringid - 1;
-			if (getpc_id < 0) getpc_id += ring_size_realsense;
-			gl_pc_src[i] = pcs[i].pc_ringbuffer + (unsigned long long)getpc_id * 3 * vert_cnt;
-			gl_texcoord_src[i] = pcs[i].texcoords_ringbuffer + (unsigned long long)getpc_id * 2 * vert_cnt;
-			gl_tex_src[i] = pcs[i].colorframe_buffer + getpc_id;
+		if (detectresult == 0)
+		{//ここに位置姿勢推定結果を反映させる計算を実装
+
 		}
-		drawGL_realsense(gl_pc_src, gl_texcoord_src, gl_tex_src);
-		QueryPerformanceCounter(&glstop);
-		gltimer = (double)(glstop.QuadPart - glstart.QuadPart) / freq.QuadPart;
-		cout << "OpenGL time[s]: " << gltimer << endl;
-
+		QueryPerformanceCounter(&detectend);
+		detecttime = (double)(detectend.QuadPart - detectstart.QuadPart) / freq.QuadPart;
+		while (detecttime < 0.002)
+		{
+			QueryPerformanceCounter(&detectend);
+			detecttime = (double)(detectend.QuadPart - detectstart.QuadPart) / freq.QuadPart;
+		}
+#ifdef SHOW_PROCESSING_TIME_
+		cout << "DetectLEDMarker() result: " << detectresult << endl;
+		std::cout << "DetectLEDMarker() time: " << detecttime << endl;
+#endif // SHOW_PROCESSING_TIME_
 	}
 
-	//OpenGLの終了
-	finishGL();
-
-
 	//スレッド削除
+#ifdef GETPOINTSREALSENSE_THREAD_
 	for (size_t i = 0; i < GetPointsThread.size(); i++)
 	{
 		if (GetPointsThread[i].joinable())GetPointsThread[i].join();
 	}
+#endif // GETPOINTSREALSENSE_THREAD_
 	if (TakePictureThread.joinable())TakePictureThread.join();
+#ifdef SHOW_IMGS_THREAD_
 	if (ShowLogsThread.joinable())ShowLogsThread.join();
-#ifdef GETRELPOSE_THREAD_
-	if (GetRelPoseThread.joinable())GetRelPoseThread.join();
-#endif // GETRELPOSE_THREAD_
+#endif // SHOW_IMGS_THREAD_
+
 
 	return 0;
 }
@@ -284,7 +316,7 @@ void TakePicture(kayacoaxpress* cam, bool* flg) {
 		processflgs[takepicid] = true;
 		QueryPerformanceCounter(&takeend);
 		taketime = (double)(takeend.QuadPart - takestart.QuadPart) / freq.QuadPart;
-		while (taketime < 0.001)
+		while (taketime < 0.002)
 		{
 			QueryPerformanceCounter(&takeend);
 			taketime = (double)(takeend.QuadPart - takestart.QuadPart) / freq.QuadPart;
@@ -296,7 +328,16 @@ void TakePicture(kayacoaxpress* cam, bool* flg) {
 }
 
 //画像の点群全てを表示
-void ShowAllLogs(bool* flg) {
+void ShowAllLogs(bool* flg, PointCloud **pc_src) {
+	//OpenGLの初期化
+	initGL();
+
+	QueryPerformanceCounter(&showstart);
+	while (showtime < 1.5)
+	{
+		QueryPerformanceCounter(&showend);
+		showtime = (double)(showend.QuadPart - showstart.QuadPart) / freq.QuadPart;
+	}
 	while (*flg)
 	{
 		QueryPerformanceCounter(&showstart);
@@ -312,6 +353,19 @@ void ShowAllLogs(bool* flg) {
 		if (log_img_cnt > log_img_finish_cnt) *flg = false;
 #endif // SAVE_IMGS_
 
+#ifdef SHOW_OPENGL_THREAD_
+		//OpenGLで2台のRealsenseの点群出力
+		for (size_t i = 0; i < realsense_cnt; i++)
+		{
+			getpc_id = pc_src[i]->pc_ringid - 1;
+			if (getpc_id < 0) getpc_id += ring_size_realsense;
+			gl_pc_src[i] = pc_src[i]->pc_ringbuffer + (unsigned long long)getpc_id * 3 * vert_cnt;
+			gl_texcoord_src[i] = pc_src[i]->texcoords_ringbuffer + (unsigned long long)getpc_id * 2 * vert_cnt;
+			gl_tex_src[i] = pc_src[i]->colorframe_buffer + getpc_id;
+		}
+		drawGL_realsense(gl_pc_src, gl_texcoord_src, gl_tex_src);
+#endif // SHOW_OPENGL_
+
 		QueryPerformanceCounter(&showend);
 		showtime = (double)(showend.QuadPart - showstart.QuadPart) / freq.QuadPart;
 		while (showtime < 0.033)
@@ -323,9 +377,12 @@ void ShowAllLogs(bool* flg) {
 		std::cout << "ShowAllLogs() time: " << showtime << endl;
 #endif // SHOW_PROCESSING_TIME_
 	}
+
+	//OpenGLの終了
+	finishGL();
 }
 
-
+//RealSenseから点群や画像の取得
 void GetPointClouds(realsense* rs, bool* flg, PointCloud* pc) {
 	while (*flg)
 	{
@@ -346,51 +403,6 @@ void GetPointClouds(realsense* rs, bool* flg, PointCloud* pc) {
 	}
 }
 
-void GetRelPosefromLEDMarker(bool *flg) {
-	//レーザCalibrationの結果の呼び出し
-	FILE* fcam;
-	fcam = fopen("202101070034_fisheyeparam_cam0.csv", "r");
-	for (size_t i = 0; i < 4; i++) { fscanf(fcam, "%lf,", &map_coeff[i]); }
-	for (size_t i = 0; i < 4; i++) { fscanf(fcam, "%lf,", &stretch_mat[i]); }
-	swap(stretch_mat[1], stretch_mat[2]);
-	for (size_t i = 0; i < 2; i++) { fscanf(fcam, "%lf,", &distort[i]); }
-	fclose(fcam);
-	det = 1 / (stretch_mat[0] - stretch_mat[1] * stretch_mat[2]);
-
-	//輝点保存用行列の作成
-	ptscand = cv::Mat::zeros(width * height, 1, CV_32FC2);
-	ptscand_ptr = ptscand.ptr<float>(0);
-
-	//LED位置検出のためのMat vector作成
-	for (size_t i = 0; i < 2; i++)
-	{
-		detectimg.push_back(zero.clone());
-	}
-	diffimg = zero.clone();
-	diffimg_src = diffimg.ptr<uint8_t>(0);
-
-	while (*flg)
-	{
-		QueryPerformanceCounter(&detectstart);
-		detectresult = DetectLEDMarker();
-		if (detectresult == 0)
-		{//ここに位置姿勢推定結果を反映させる計算を実装
-
-		}
-		QueryPerformanceCounter(&detectend);
-		detecttime = (double)(detectend.QuadPart - detectstart.QuadPart) / freq.QuadPart;
-		while (detecttime < 0.001)
-		{
-			QueryPerformanceCounter(&detectend);
-			detecttime = (double)(detectend.QuadPart - detectstart.QuadPart) / freq.QuadPart;
-		}
-#ifdef SHOW_PROCESSING_TIME_
-		cout << "Detect LED marker result: " << detectresult << endl;
-		std::cout << "DetectLEDMarker() time: " << detecttime << endl;
-#endif // SHOW_PROCESSING_TIME_
-	}
-}
-
 int DetectLEDMarker() {
 #ifdef DEBUG_
 	QueryPerformanceCounter(&detectstartdebug);
@@ -404,6 +416,13 @@ int DetectLEDMarker() {
 		memcpy(detectimg[0].data, detectimg_multi_src, height * width * 3);
 		memcpy(detectimg[1].data, detectimg_multi_src + height * width * 3, height * width * 3);
 	}
+#ifdef DEBUG_
+	QueryPerformanceCounter(&detectend);
+	detecttimef = (double)(detectend.QuadPart - detectstartdebug.QuadPart) / freq.QuadPart;
+#endif // SHOW_PROCESSING_TIME_
+#ifdef DEBUG_
+	QueryPerformanceCounter(&detectstartdebug);
+#endif // SHOW_PROCESSING_TIME_
 	//LEDが未検出の時は，画像全体を探索する
 	if (detectimg[0].data != NULL && detectimg[1].data != NULL && (int)detectimg[0].data[0] != 255 && (int)detectimg[1].data[0] != 255 && (int)detectimg[0].data[0] != 0 && (int)detectimg[1].data[0] != 0)
 	{
@@ -562,6 +581,7 @@ int DetectLEDMarker() {
 				if (greenbluecnt[i][0] < greenbluecnt[i][1]) blueno = (int)i;
 			}
 			if (blueno == -1) {
+				processflgs[detectid] = false;
 				return 5;
 			}
 
@@ -700,6 +720,7 @@ int DetectLEDMarker() {
 
 #ifdef DEBUG_
 			cout << "DetectLEDMarker() ROI OFF" << endl;
+			cout << "DetectLEDMarker() getimgs		:" << detecttimef << endl;
 			cout << "DetectLEDMarker() detectV		:" << detecttimea << endl;
 			cout << "DetectLEDMarker() clustering	:" << detecttimeb << endl;
 			cout << "DetectLEDMarker() calcCoG		:" << detecttimec << endl;
@@ -799,7 +820,8 @@ int DetectLEDMarker() {
 
 #ifdef DEBUG_
 			cout << "DetectLEDMarker() ROI ON" << endl;
-			cout << "DetectLEDMarker() ROI ON Time	:" << detecttimea << endl;
+			cout << "DetectLEDMarker() getimgs		:" << detecttimef << endl;
+			cout << "DetectLEDMarker() calcCoG		:" << detecttimea << endl;
 #endif // SHOW_PROCESSING_TIME_
 		}
 
@@ -881,16 +903,16 @@ int DetectLEDMarker() {
 		Tm2c[1] = xsrc[5];
 		Tm2c[2] = xsrc[6];
 		//計算された位置に連続性が確認されないときはエラーとする
-
-		processflgs[detectid] = false;
+	
 #ifdef DEBUG_
 		QueryPerformanceCounter(&detectend);
 		detecttimee = (double)(detectend.QuadPart - detectstartdebug.QuadPart) / freq.QuadPart;
 		cout << "DetectLEDMarker() CalcPose		:" << detecttimee << endl;
 #endif // 
+		processflgs[detectid] = false;
 		return 0;
 		//位置姿勢も計算できて正常終了
-		}
+	}
 	else
 	{
 		//入力画像が異常であるときに，強制終了

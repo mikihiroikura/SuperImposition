@@ -99,7 +99,7 @@ int ptscnt;
 
 #define SHOW_PROCESSING_TIME_
 #define SHOW_IMGS_OPENGL_
-#define DEBUG_
+//#define DEBUG_
 #define ROI_MODE_
 
 ///プロトタイプ宣言

@@ -19,12 +19,12 @@
 #include "realsense.h"
 
 //realsense
-const unsigned int colorwidth = 1920;
-const unsigned int colorheight = 1080;
-const unsigned int colorfps = 30;
-const unsigned int depthwidth = 1280;
-const unsigned int depthheight = 720;
-const unsigned int depthfps = 30;
+const unsigned int colorwidth = 848;
+const unsigned int colorheight = 480;
+const unsigned int colorfps = 60;
+const unsigned int depthwidth = 848;
+const unsigned int depthheight = 480;
+const unsigned int depthfps = 60;
 
 const int vert_cnt = depthwidth * depthheight;
 const int realsense_cnt = 2;
