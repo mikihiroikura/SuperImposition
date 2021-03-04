@@ -32,6 +32,7 @@ double mouse_speed = 0.01;
 double dx = 0.0, dy = 0.0;
 float hovered;
 bool rs[2] = { true, true };
+bool userelpose = true;
 glm::vec3 position(0, 0, -1), up(0, -1, 0), direction(0, 0, 0);
 glm::mat4 mvp, vp, Model[2], View, Projection;
 
@@ -195,7 +196,7 @@ void initGL() {
     ImGui_ImplOpenGL3_Init();
 }
 
-void drawGL_realsense(float** pts, float** texcoords, rs2::frame** colorframes) {
+void drawGL_realsense(float** pts, float** texcoords, rs2::frame** colorframes, glm::mat4* rtm2c) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 
@@ -237,6 +238,7 @@ void drawGL_realsense(float** pts, float** texcoords, rs2::frame** colorframes) 
             * glm::rotate(glm::radians(rotate_x[i]), glm::vec3(1, 0, 0))
             * glm::rotate(glm::radians(rotate_y[i]), glm::vec3(0, 1, 0))
             * glm::rotate(glm::radians(rotate_z[i]), glm::vec3(0, 0, 1));
+        if (i == 1 && userelpose) Model[i] *= *rtm2c;
     }
     vp = Projection * View;
 
@@ -278,6 +280,7 @@ void drawGL_realsense(float** pts, float** texcoords, rs2::frame** colorframes) 
     ImGui::SetNextWindowSize(ImVec2(320, 300), ImGuiCond_Once);
     ImGui::Begin("Logs and Parameters");
     hovered = ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem); //IMGUI上のWindowでのカーソル処理時のフラグを立てる
+    ImGui::Checkbox("Use RelPose", &userelpose);
     ImGui::Checkbox("RealSense 0", &rs[0]);
     ImGui::SameLine();
     ImGui::Checkbox("RealSense 1", &rs[1]);
