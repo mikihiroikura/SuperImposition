@@ -296,9 +296,9 @@ void drawGL_realsense(float** pts, float** texcoords, rs2::frame** colorframes, 
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
-
-    glfwSwapBuffers(window);//ダブルバッファの入れ替え，これを行うことで画面が一部更新したもので一部更新されていないなどのがたつきをなくせる
-
+    //ダブルバッファの入れ替え，これを行うことで画面が一部更新したもので一部更新されていないなどのがたつきをなくせる
+    glfwSwapBuffers(window);
+    
 }
 
 void finishGL() {
