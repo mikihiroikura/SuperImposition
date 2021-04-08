@@ -305,8 +305,8 @@ void TakePicture(kayacoaxpress* cam, bool* flg) {
 	while (*flg)
 	{
 		cam->captureFrame(in_img_hsc_multi_src, multicnt);
-		memcpy(detectimg[0].data, in_img_hsc_multi_src, height * width * 3);
-		memcpy(detectimg[1].data, in_img_hsc_multi_src + height * width * 3, height * width * 3);
+		memcpy(detectimg[0].data, in_img_hsc_multi_src, (long long)height * width * 3);
+		memcpy(detectimg[1].data, in_img_hsc_multi_src + (long long)height * width * 3, (long long)height * width * 3);
 	}
 }
 
