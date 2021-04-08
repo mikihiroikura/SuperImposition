@@ -46,6 +46,7 @@ const unsigned int depthheight = 480;
 const unsigned int depthfps = 60;
 
 //マーカ検出に関するパラメータ
+vector<glm::mat4> save_RTm2c;
 int detectid = 0;
 vector<cv::Mat> detectimg;
 cv::Mat diffimg, diffimg_hsv, detectimg_on_hsv;
@@ -79,6 +80,7 @@ double phi, w, lambda;
 double ledcamdir[4][3] = { 0 };
 double lednormdir[4][3] = { 0 };
 glm::mat4 RTm2c = glm::mat4(1.0);
+glm::mat4 RTm2c_default = glm::mat4(1.0);
 glm::mat4* RTm2c_buffer, * RTm2c_toGPU;
 int RTm2c_bufferid = 0, RTm2c_outid = 0;
 cv::Mat A = cv::Mat::zeros(12, 7, CV_64F);
@@ -188,6 +190,10 @@ int main() {
 		return 1;
 	}
 #endif // GET_RS
+	//位置姿勢保存用CSV作成
+	FILE* fr;
+	sprintf(buff, "D:\\Github_output\\SuperImposition\\GetCalibImgs_RS2HSC\\%04d%02d%02d%02d%02d_video_rs.csv", 1900 + pnow->tm_year, 1 + pnow->tm_mon, pnow->tm_mday, pnow->tm_hour, pnow->tm_min);
+	fr = fopen(buff, "w");
 #endif // VIDEO_MODE_
 
 
@@ -229,7 +235,10 @@ int main() {
 #ifdef GET_RS
 		if (videocapflg) video_rs.write(in_img_rs.clone());
 #endif // GET_RS
-
+		if (videocapflg) {
+			if (detectresult == 0) save_RTm2c.push_back(RTm2c);
+			else save_RTm2c.push_back(RTm2c_default);
+		}
 
 #endif // VIDEO_MODE_
 #ifdef IMG_MODE_
@@ -275,8 +284,19 @@ int main() {
 #endif // IMG_MODE_
 #endif // GET_RS
 
-
-
+	//CSVファイルに相対位置姿勢の保存
+	for (size_t i = 0; i < save_RTm2c.size(); i++)
+	{
+		for (size_t j = 0; j < 4; j++)
+		{
+			for (size_t k = 0; k < 4; k++)
+			{
+				fprintf(fr, "%lf,", save_RTm2c[i][k][j]);
+			}
+		}
+		fprintf(fr, "\n");
+	}
+	fclose(fr);
 
 	return 0;
 }
