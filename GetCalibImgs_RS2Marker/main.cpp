@@ -335,6 +335,9 @@ int DetectLEDMarker() {
 				}
 			}
 
+			//ここで差分画像から輝点が見つからないときの例外処理を書く
+			if (ptscnt <= 0) return 6;
+
 			//輝度の高い点群を4か所にクラスタリング
 			pts = ptscand(cv::Rect(0, 0, 1, ptscnt));
 			cv::kmeans(pts, 4, labels, cvTermCriteria(CV_TERMCRIT_EPS | CV_TERMCRIT_ITER, 10, 1.0), 1, cv::KMEANS_PP_CENTERS, centers);

@@ -469,6 +469,8 @@ int DetectLEDMarker() {
 					}
 				}
 			}
+			//‚±‚±‚Å·•ª‰æ‘œ‚©‚ç‹P“_‚ªŒ©‚Â‚©‚ç‚È‚¢‚Æ‚«‚Ì—áŠOˆ—‚ğ‘‚­
+			if (ptscnt <= 0) return 6;
 #ifdef DEBUG_
 			QueryPerformanceCounter(&detectend);
 			detecttimea = (double)(detectend.QuadPart - detectstartdebug.QuadPart) / freq.QuadPart;
