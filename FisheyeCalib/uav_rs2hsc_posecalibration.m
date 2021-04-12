@@ -3,7 +3,7 @@ function uav_rs2hsc_posecalibration()
 
     %RSの動画
     %動画からFrameを保存する
-    load setut.mat video_dir_uav_rs video_dir_uav_hsc img_step squareSize
+    load setup.mat video_dir_uav_rs video_dir_uav_hsc img_step squareSize
     vidObj_rs = VideoReader(video_dir_uav_rs);
     allFrame_rs = read(vidObj_rs);
     rs_img = allFrame_rs(:,:,:,1:img_step:end);
@@ -31,7 +31,7 @@ function uav_rs2hsc_posecalibration()
     [imagePoints_hsc,boardSize,imagesUsed_hsc] = detectCheckerboardPoints(hsc_img);
     worldPoints_hsc = generateCheckerboardPoints(boardSize, squareSize);
     
-    %チェッカーボード(World)toRSの外部パラメータの計算
+    %チェッカーボード(World)toHSCの外部パラメータの計算
     RotMatrix_hsc = zeros(3,3,size(imagePoints_hsc,3));
     TransVec_hsc = zeros(size(imagePoints_hsc,3), 3);
     for i=1:size(imagePoints_hsc,3)
