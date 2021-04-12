@@ -285,13 +285,13 @@ int main() {
 #endif // GET_RS
 
 	//CSVファイルに相対位置姿勢の保存
-	for (size_t i = 0; i < save_RTm2c.size(); i++)
+	for (size_t rtm2c_id = 0; rtm2c_id < save_RTm2c.size(); rtm2c_id++)
 	{
-		for (size_t j = 0; j < 4; j++)
+		for (size_t col = 0; col < 4; col++)
 		{
-			for (size_t k = 0; k < 4; k++)
+			for (size_t row = 0; row < 3; row++)
 			{
-				fprintf(fr, "%lf,", save_RTm2c[i][k][j]);
+				fprintf(fr, "%lf,", save_RTm2c[rtm2c_id][row][col]);
 			}
 		}
 		fprintf(fr, "\n");

@@ -1,0 +1,36 @@
+function make_setup()
+%make_setup() 最初にCalibrationする際の必要パラメータの設定
+%   
+    %魚眼カメラのCalibration用変数
+    %fisheye_calibration()
+    video_folder = './videos/fisheye/';
+    video_name = '202012292235_video.mp4';
+    video_dir = strcat(video_folder, video_name);
+    fish_step = 10;
+    squareSize = 32;
+    form = 'yyyymmddHHMM';
+    fishparamfile = strcat('./calib_result/fisheye/',strcat(datestr(now,form),'_fisheyeparam.csv'));
+    
+    %共通パラメータ
+    img_step = 4;
+    
+    %UAV側のRS-HSC間の位置姿勢Calibration
+    video_folder_uav = './videos/UAV/';
+    video_name_uav_rs = 'RS/202104071640_video_rs.mp4';
+    video_dir_uav_rs = strcat(video_folder_uav, video_name_uav_rs);
+    video_name_uav_hsc = 'HSC/202104071640_video_hsc.mp4';
+    video_dir_uav_hsc = strcat(video_folder_uav, video_name_uav_hsc);
+    
+    %UGV側のRS-Marker間の位置姿勢Calibration
+    video_folder_ugv = './videos/UGV/';
+    video_name_ugv_rs = 'RS/202104071640_video_rs.mp4';
+    video_dir_ugv_rs = strcat(video_folder_ugv, video_name_ugv_rs);
+    video_name_ugv_hsc = 'HSC/202104071640_video_hsc.mp4';
+    video_dir_ugv_hsc = strcat(video_folder_ugv, video_name_ugv_hsc);
+    csv_name_ugv = 'CSV/202104071640_markerpose.csv';
+    csv_dir_ugv_marker = strcat(video_folder_ugv, csv_name_ugv);
+    
+    save setup.mat video_dir fish_step squareSize fishparamfile video_dir_uav_rs video_dir_uav_hsc img_step ...
+        video_dir_ugv_rs video_dir_ugv_hsc csv_dir_ugv_marker
+end
+

@@ -1,8 +1,8 @@
-function fisheye_calibration_rgb()
+function fisheye_calibration()
 %fusheye_calibration 魚眼レンズのCalibration
 %   
     %動画からFrameを保存する
-    load setup_rgb.mat video_dir fish_step squareSize fishparamfile
+    load setup.mat video_dir fish_step squareSize fishparamfile
     vidObj = VideoReader(video_dir);
     allFrame = read(vidObj); %すべてのFrameを読み取る
     
