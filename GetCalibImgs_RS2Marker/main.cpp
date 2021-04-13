@@ -192,7 +192,7 @@ int main() {
 #endif // GET_RS
 	//ˆÊ’uŽp¨•Û‘¶—pCSVì¬
 	FILE* fr;
-	sprintf(buff, "D:\\Github_output\\SuperImposition\\GetCalibImgs_RS2HSC\\%04d%02d%02d%02d%02d_video_rs.csv", 1900 + pnow->tm_year, 1 + pnow->tm_mon, pnow->tm_mday, pnow->tm_hour, pnow->tm_min);
+	sprintf(buff, "D:\\Github_output\\SuperImposition\\GetCalibImgs_RS2HSC\\%04d%02d%02d%02d%02d_markerpose.csv", 1900 + pnow->tm_year, 1 + pnow->tm_mon, pnow->tm_mday, pnow->tm_hour, pnow->tm_min);
 	fr = fopen(buff, "w");
 #endif // VIDEO_MODE_
 

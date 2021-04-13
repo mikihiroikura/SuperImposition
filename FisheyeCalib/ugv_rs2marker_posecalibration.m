@@ -41,6 +41,13 @@ function ugv_rs2marker_posecalibration()
     end
     
     %CSVからMarkerの位置姿勢を読み取る
+    load setup.mat csv_dir_ugv_marker
+    M =csvread(csv_dir_ugv_marker);
+    TransVec_marker = M(:,10:12);
+    RotMatrix_marker = zeros(3,3,size(M,1));
+    for i = 1:size(M,1)
+        RotMatrix_marker(:,:,i) = reshape(M(i,:),[3 3]).';
+    end
     
     
     
