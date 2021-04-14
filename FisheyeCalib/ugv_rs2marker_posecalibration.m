@@ -1,5 +1,6 @@
 function ugv_rs2marker_posecalibration()
     load fishparams.mat fisheyeParams
+    load poseparams.mat TransVec_rs2hsc_mean RotMat_rs2hsc_mean
     
     %RSの動画
     %動画からFrameを保存する
@@ -43,22 +44,38 @@ function ugv_rs2marker_posecalibration()
     %CSVからMarkerの位置姿勢を読み取る
     load setup.mat csv_dir_ugv_marker
     M =csvread(csv_dir_ugv_marker);
-    TransVec_marker = M(:,10:12);
-    RotMatrix_marker = zeros(3,3,size(M,1));
+    TransVec_hsc2marker = M(:,10:12);
+    RotMatrix_hsc2marker = zeros(3,3,size(M,1));
     for i = 1:size(M,1)
-        RotMatrix_marker(:,:,i) = reshape(M(i,:),[3 3]).';
+        RotMatrix_hsc2marker(:,:,i) = reshape(M(i,:),[3 3]).';
     end
     
     
+    %RS-HSCの位置姿勢を計算
+    RotMatrix_rs2hsc = pagemtimes(pagetranspose(RotMatrix_rs),RotMatrix_hsc);
+    TransVec_rs2hsc = -TransVec_rs + TransVec_hsc;
+    
     
     %RS-Marker間位置姿勢の計算
+    TransVec_hsc2marker_nonzero = TransVec_hsc2marker(any(TransVec_hsc2marker,2),:);
+    TransVec_rs2hsc_nonzero = TransVec_rs2hsc(any(TransVec_hsc2marker,2),:);
+    RotMatrix_hsc2marker_nonzero = RotMatrix_hsc2marker(:,:,any(TransVec_hsc2marker,2));
+    RotMatrix_rs2hsc_nonzero = RotMatrix_rs2hsc(:,:,any(TransVec_hsc2marker,2));
+    TransVec_rs2marker = TransVec_hsc2marker_nonzero + TransVec_rs2hsc_nonzero;
+    RotMatrix_rs2marker = pagemtimes(RotMatrix_rs2hsc_nonzero, RotMatrix_hsc2marker_nonzero);
     
-    
-    %RS-Marker間位置以西の平均
+    %RS-Marker間位置姿勢の平均
+    TransVec_rs2marker_mean = mean(TransVec_rs2marker,1);
+    RotVec_rs2marker = zeros(size(RotMatrix_rs2marker,3), 3);
+    for i = 1:size(RotMatrix_rs2marker,3)
+        RotVec_rs2marker(:,i) = rotationMatrixToVector(RotMatrix_rs2marker(:,:,i));
+    end
+    RotVec_rs2marker_mean = mean(RotVec_rs2marker,1);
+    RotMat_rs2marker_mean = rotationVectorToMatrix(RotVec_rs2marker_mean);
     
     
     %結果の保存
-    
+    save poseparams.mat TransVec_rs2hsc_mean RotMat_rs2hsc_mean TransVec_rs2marker_mean RotMat_rs2marker_mean
 
 
 end
