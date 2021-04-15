@@ -37,7 +37,7 @@ const int width = 896;
 const int height = 896;
 const float fps = 1000.0;
 const float exposuretime = 912.0;
-const int offsetx = 480;
+const int offsetx = 512;
 const int offsety = 92;
 double map_coeff[4], stretch_mat[4], det, distort[4];
 
@@ -152,7 +152,7 @@ int main() {
 
 	//カメラの初期化
 	kayacoaxpress cam;
-	cam.connect(0);
+	cam.connect(1);
 
 	//カメラパラメータの設定
 	cout << "Set Camera Params..." << endl;

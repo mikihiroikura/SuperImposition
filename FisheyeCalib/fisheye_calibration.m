@@ -18,6 +18,10 @@ function fisheye_calibration()
     %Camera parameterの保存(MATLABプログラム用)
     save fishparams.mat fisheyeParams
     
+    %C++用のCalibration
+    imagePoints = imagePoints - 1;
+    fisheyeParams = estimateFisheyeParameters(imagePoints, worldPoints, imageSize);
+    
     %Camera parameterのCSVへの保存(C++のプログラム用)
     fid = fopen(fishparamfile,'w');
     fprintf(fid,'%.15f,',fisheyeParams.Intrinsics.MappingCoefficients);

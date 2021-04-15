@@ -1,5 +1,6 @@
 function uav_rs2hsc_posecalibration()
     load fishparams.mat fisheyeParams
+    load rs0params.mat rs0params
 
     %RSの動画
     %動画からFrameを保存する
@@ -16,7 +17,7 @@ function uav_rs2hsc_posecalibration()
     RotMatrix_rs = zeros(3,3,size(imagePoints_rs,3));
     TransVec_rs = zeros(size(imagePoints_rs,3), 3);
     for i=1:size(imagePoints_rs,3)
-        [R,t] = extrinsics(imagePoints_rs(:,:,i),worldPoints_rs,fisheyeParams.Intrinsics);
+        [R,t] = extrinsics(imagePoints_rs(:,:,i),worldPoints_rs,rs0params);
         RotMatrix_rs(:,:,i) = R;
         TransVec_rs(i,:) = t;
     end

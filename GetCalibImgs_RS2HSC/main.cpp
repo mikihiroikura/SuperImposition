@@ -21,6 +21,7 @@ int offsety = 92;
 
 //RealSense‚ÉŠÖ‚·‚éƒpƒ‰ƒ[ƒ^
 rs2::context context;
+int rsid = 1;
 const unsigned int colorwidth = 848;
 const unsigned int colorheight = 480;
 const unsigned int colorfps = 60;
@@ -30,7 +31,7 @@ const unsigned int depthfps = 60;
 
 #define VIDEO_MODE_
 //#define IMG_MODE_
-#define GET_HSC
+//#define GET_HSC
 #define GET_RS
 
 #pragma comment(lib,"KAYACoaXpressLib" LIB_EXT)
@@ -66,7 +67,7 @@ int main() {
 	//RealSense‚Ì‰Šú‰»
 	cout << "Set RealsenseD435..........";
 	const rs2::device_list device_list = context.query_devices();
-	rs2::device device = device_list[0];
+	rs2::device device = device_list[rsid];
 	realsense rs_device(device.get_info(RS2_CAMERA_INFO_SERIAL_NUMBER), RS2_FORMAT_BGR8,
 		colorwidth, colorheight, colorfps, RS2_FORMAT_Z16, depthwidth, depthheight, depthfps);
 	cout << "OK!" << endl;
@@ -88,7 +89,7 @@ int main() {
 	}
 #endif // GET_HSC
 #ifdef GET_RS
-	sprintf(buff, "%04d%02d%02d%02d%02d_video_rs.mp4", 1900 + pnow->tm_year, 1 + pnow->tm_mon, pnow->tm_mday, pnow->tm_hour, pnow->tm_min);
+	sprintf(buff, "%04d%02d%02d%02d%02d_video_rs%01d.mp4", 1900 + pnow->tm_year, 1 + pnow->tm_mon, pnow->tm_mday, pnow->tm_hour, pnow->tm_min,rsid);
 	cv::VideoWriter video_rs(save_dir + buff, cv::VideoWriter::fourcc('M', 'P', '4', 'V'), 30, cv::Size(colorwidth, colorheight), true);
 	if (!video_rs.isOpened()) {
 		cout << "Video cannot be opened..." << endl;

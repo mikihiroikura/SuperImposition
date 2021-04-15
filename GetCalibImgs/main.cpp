@@ -9,8 +9,8 @@
 #define LIB_EXT ".lib"
 #endif
 
-//#define VIDEO_MODE_
-#define IMG_MODE_
+#define VIDEO_MODE_
+//#define IMG_MODE_
 
 #pragma comment(lib,"KAYACoaXpressLib" LIB_EXT)
 #pragma warning(disable:4996)
