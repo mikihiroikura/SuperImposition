@@ -38,6 +38,7 @@ uint8_t* in_img_hsc_multi_src;
 cv::Mat in_img_rs;
 vector<cv::Mat> save_img_rs;
 rs2::context context;
+int rsid = 0;
 const unsigned int colorwidth = 848;
 const unsigned int colorheight = 480;
 const unsigned int colorfps = 60;
@@ -147,7 +148,7 @@ int main() {
 	//RealSense‚Ì‰Šú‰»
 	cout << "Set RealsenseD435..........";
 	const rs2::device_list device_list = context.query_devices();
-	rs2::device device = device_list[0];
+	rs2::device device = device_list[rsid];
 	realsense rs_device(device.get_info(RS2_CAMERA_INFO_SERIAL_NUMBER), RS2_FORMAT_BGR8,
 		colorwidth, colorheight, colorfps, RS2_FORMAT_Z16, depthwidth, depthheight, depthfps);
 	cout << "OK!" << endl;

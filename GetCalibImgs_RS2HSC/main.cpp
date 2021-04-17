@@ -31,8 +31,8 @@ const unsigned int depthfps = 60;
 
 #define VIDEO_MODE_
 //#define IMG_MODE_
-//#define GET_HSC
-#define GET_RS
+#define GET_HSC
+//#define GET_RS
 
 #pragma comment(lib,"KAYACoaXpressLib" LIB_EXT)
 #pragma warning(disable:4996)
