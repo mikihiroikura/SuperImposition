@@ -63,7 +63,10 @@ function uav_rs2hsc_posecalibration()
     
     %RS-HSC間位置姿勢の計算
     RotMatrix_rs2hsc = pagemtimes(pagetranspose(RotMatrix_rs),RotMatrix_hsc);
-    TransVec_rs2hsc = -TransVec_rs + TransVec_hsc;
+    TransVec_rs2hsc = zeros(size(TransVec_hsc));
+    for i = 1:size(TransVec_rs2hsc,1)
+        TransVec_rs2hsc(i,:) = -TransVec_rs(i,:) * RotMatrix_rs2hsc(:,:,i) + TransVec_hsc(i,:);
+    end
     
     %RS-HSC間位置姿勢の平均
     TransVec_rs2hsc_mean = mean(TransVec_rs2hsc,1);

@@ -34,11 +34,11 @@ function make_setup()
     
     %UGV側のRS-Marker間の位置姿勢Calibration
     video_folder_ugv = './videos/UGV/';
-    video_name_ugv_rs = 'RS/202104191630_video_rs.mp4';
+    video_name_ugv_rs = 'RS/202104191900_video_rs0.mp4';
     video_dir_ugv_rs = strcat(video_folder_ugv, video_name_ugv_rs);
-    video_name_ugv_hsc = 'HSC/202104191630_video_hsc.mp4';
+    video_name_ugv_hsc = 'HSC/202104191900_video_hsc.mp4';
     video_dir_ugv_hsc = strcat(video_folder_ugv, video_name_ugv_hsc);
-    csv_name_ugv = 'CSV/202104191630_markerpose.csv';
+    csv_name_ugv = 'CSV/202104191900_markerpose.csv';
     csv_dir_ugv_marker = strcat(video_folder_ugv, csv_name_ugv);
     
     save setup.mat video_dir fish_step squareSize fishparamfile video_dir_uav_rs video_dir_uav_hsc img_step ...
