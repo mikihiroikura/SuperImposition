@@ -109,5 +109,17 @@ function ugv_rs2marker_posecalibration()
     %結果の保存
     save poseparams.mat TransVec_rs2hsc_mean RotMat_rs2hsc_mean TransVec_rs2marker_mean RotMat_rs2marker_mean
 
+    %CSVへの出力
+    load setup.mat poseparamfile
+    fid = fopen(poseparamfile,'w');
+    fprintf(fid,'%.6f,',RotMat_rs2hsc_mean);
+    fprintf(fid,'\n');
+    fprintf(fid,'%.6f,',TransVec_rs2hsc_mean);
+    fprintf(fid,'\n');
+    fprintf(fid,'%.6f,',RotMat_rs2marker_mean);
+    fprintf(fid,'\n');
+    fprintf(fid,'%.6f,',TransVec_rs2marker_mean);
+    fprintf(fid,'\n');
+    fclose(fid);
 
 end

@@ -10,6 +10,7 @@ function make_setup()
     squareSize = 32;
     form = 'yyyymmddHHMM';
     fishparamfile = strcat('./calib_result/fisheye/',strcat(datestr(now,form),'_fisheyeparam.csv'));
+    poseparamfile = strcat('./calib_result/pose/',strcat(datestr(now,form),'_poseparam.csv'));
     
     %RSのカメラのCalibration用変数
     %RS_calibration()
@@ -42,6 +43,6 @@ function make_setup()
     csv_dir_ugv_marker = strcat(video_folder_ugv, csv_name_ugv);
     
     save setup.mat video_dir fish_step squareSize fishparamfile video_dir_uav_rs video_dir_uav_hsc img_step ...
-        video_dir_ugv_rs video_dir_ugv_hsc csv_dir_ugv_marker rs0_video_dir rs1_video_dir
+        video_dir_ugv_rs video_dir_ugv_hsc csv_dir_ugv_marker rs0_video_dir rs1_video_dir poseparamfile
 end
 
