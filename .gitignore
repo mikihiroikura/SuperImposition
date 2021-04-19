@@ -11,6 +11,7 @@
 *.jpg
 *.fig
 util/lib
+FisheyeCalib/videos
 
 # User-specific files
 *.suo

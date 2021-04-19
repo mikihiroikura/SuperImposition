@@ -31,7 +31,14 @@ double map_coeff[4], stretch_mat[4], det, distort[4];
 cv::Mat in_img_hsc, in_img_hsc_multi;
 vector<cv::Mat> in_imgs_hsc_onoff;
 vector<cv::Mat> save_img_hsc;
-uint8_t* in_img_hsc_multi_src;
+uint8_t* in_img_hsc_multi_src, *detectimg_multi_src;;
+
+//画像に関するパラメータ
+const int ringbuffersize = 10;
+vector<cv::Mat> in_imgs_on, in_imgs_off, in_imgs;
+vector<bool> processflgs;
+cv::Mat zero, full, zeromulti;
+int takepicid, in_imgs_saveid;
 
 
 //RealSenseに関するパラメータ
@@ -70,6 +77,7 @@ uint8_t* diffimg_src, * detectimg0_src, * detectimg1_src, * detectimg_on_src, * 
 int on_img_id, on_img_cnt, blueno = -1, labelno;
 int32_t* labelptr, * labelptr_debug;
 int greenbluecnt[4][2] = { 0 };
+float maxbluegreenratio = 0;
 int32_t h_on;
 vector<cv::Rect> rois, rois_rand;
 const int roi_led_margin = 10;
@@ -81,7 +89,7 @@ double phi, w, lambda;
 double ledcamdir[4][3] = { 0 };
 double lednormdir[4][3] = { 0 };
 glm::mat4 RTm2c = glm::mat4(1.0);
-glm::mat4 RTm2c_default = glm::mat4(1.0);
+glm::mat4 RTm2c_default = glm::mat4(0.0);
 glm::mat4* RTm2c_buffer, * RTm2c_toGPU;
 int RTm2c_bufferid = 0, RTm2c_outid = 0;
 cv::Mat A = cv::Mat::zeros(12, 7, CV_64F);
@@ -124,7 +132,7 @@ int main() {
 	cam.setParam(paramTypeCamera::paramFloat::FPS, fps);
 	cam.setParam(paramTypeKAYACoaXpress::paramFloat::ExposureTime, exposuretime);
 	cam.setParam(paramTypeKAYACoaXpress::CaptureType::BayerGRGrab);
-	cam.setParam(paramTypeKAYACoaXpress::Gain::x2);
+	cam.setParam(paramTypeKAYACoaXpress::Gain::x1);
 	cam.parameter_all_print();
 	in_img_hsc = cv::Mat(cam.getParam(paramTypeCamera::paramInt::HEIGHT), cam.getParam(paramTypeCamera::paramInt::WIDTH), CV_8UC3, cv::Scalar::all(255));
 	in_img_hsc_multi = cv::Mat(cam.getParam(paramTypeCamera::paramInt::HEIGHT) * multicnt, cam.getParam(paramTypeCamera::paramInt::WIDTH), CV_8UC3, cv::Scalar::all(255));
@@ -132,6 +140,18 @@ int main() {
 	for (size_t i = 0; i < multicnt; i++)
 	{
 		detectimg.push_back(in_img_hsc.clone());
+	}
+	//画像取得用のリングバッファの作成
+	full = cv::Mat(cam.getParam(paramTypeCamera::paramInt::HEIGHT), cam.getParam(paramTypeCamera::paramInt::WIDTH), CV_8UC3, cv::Scalar::all(255));
+	zero = cv::Mat(cam.getParam(paramTypeCamera::paramInt::HEIGHT), cam.getParam(paramTypeCamera::paramInt::WIDTH), CV_8UC3, cv::Scalar::all(0));
+	zeromulti = cv::Mat(cam.getParam(paramTypeCamera::paramInt::HEIGHT) * multicnt, cam.getParam(paramTypeCamera::paramInt::WIDTH), CV_8UC3, cv::Scalar::all(0));
+	cout << "Set Mat Cycle Buffer..." << endl;
+	for (size_t i = 0; i < ringbuffersize; i++)
+	{
+		in_imgs_on.push_back(zero.clone());
+		in_imgs_off.push_back(zero.clone());
+		in_imgs.push_back(zeromulti.clone());
+		processflgs.push_back(false);
 	}
 	//カメラ内部パラメータCalibration結果の呼び出し
 	FILE* fcam;
@@ -184,7 +204,7 @@ int main() {
 	}
 #endif // GET_HSC
 #ifdef GET_RS
-	sprintf(buff, "%04d%02d%02d%02d%02d_video_rs.mp4", 1900 + pnow->tm_year, 1 + pnow->tm_mon, pnow->tm_mday, pnow->tm_hour, pnow->tm_min);
+	sprintf(buff, "%04d%02d%02d%02d%02d_video_rs%01d.mp4", 1900 + pnow->tm_year, 1 + pnow->tm_mon, pnow->tm_mday, pnow->tm_hour, pnow->tm_min, rsid);
 	cv::VideoWriter video_rs(save_dir + buff, cv::VideoWriter::fourcc('M', 'P', '4', 'V'), 30, cv::Size(colorwidth, colorheight), true);
 	if (!video_rs.isOpened()) {
 		cout << "Video cannot be opened..." << endl;
@@ -305,9 +325,13 @@ int main() {
 void TakePicture(kayacoaxpress* cam, bool* flg) {
 	while (*flg)
 	{
+		takepicid = in_imgs_saveid % ringbuffersize;
+		in_img_hsc_multi_src = in_imgs[takepicid].ptr<uint8_t>(0);
 		cam->captureFrame(in_img_hsc_multi_src, multicnt);
-		memcpy(detectimg[0].data, in_img_hsc_multi_src, (long long)height * width * 3);
-		memcpy(detectimg[1].data, in_img_hsc_multi_src + (long long)height * width * 3, (long long)height * width * 3);
+
+		in_imgs_saveid = (in_imgs_saveid + 1) % ringbuffersize;
+		processflgs[takepicid] = true;
+		
 	}
 }
 
@@ -322,6 +346,16 @@ void GetImgsRS(realsense* rs, bool* flg) {
 }
 
 int DetectLEDMarker() {
+	//画像の格納
+	detectid = (in_imgs_saveid - 1 + ringbuffersize) % ringbuffersize;
+	detectimg_multi_src = in_imgs[detectid].ptr<uint8_t>(0);
+	if (processflgs[detectid])
+	{
+		memcpy(detectimg[0].data, detectimg_multi_src, height * width * 3);
+		memcpy(detectimg[1].data, detectimg_multi_src + height * width * 3, height * width * 3);
+	}
+
+
 	//LEDが未検出の時は，画像全体を探索する
 	if (detectimg[0].data != NULL && detectimg[1].data != NULL && (int)detectimg[0].data[0] != 255 && (int)detectimg[1].data[0] != 255 && (int)detectimg[0].data[0] != 0 && (int)detectimg[1].data[0] != 0)
 	{
@@ -357,7 +391,10 @@ int DetectLEDMarker() {
 			}
 
 			//ここで差分画像から輝点が見つからないときの例外処理を書く
-			if (ptscnt <= 0) return 6;
+			if (ptscnt <= 0) {
+				processflgs[detectid] = false;
+				return 6;
+			}
 
 			//輝度の高い点群を4か所にクラスタリング
 			pts = ptscand(cv::Rect(0, 0, 1, ptscnt));
@@ -372,6 +409,7 @@ int DetectLEDMarker() {
 					{
 						dist = hypot(center_src[i * 2 + 0] - center_src[j * 2 + 0], center_src[i * 2 + 1] - center_src[j * 2 + 1]);
 						if (dist < dist_centers_thr) {
+							processflgs[detectid] = false;
 							return 1;
 						}
 					}
@@ -399,6 +437,7 @@ int DetectLEDMarker() {
 			detectimghsv_on_src = detectimg_on_hsv.ptr<uint8_t>(0);
 			labelptr = labels.ptr<int32_t>(0);
 			memset(greenbluecnt, 0, sizeof(int) * 4 * 2);
+			maxbluegreenratio = 0;
 			for (size_t i = 0; i < ptscnt; i++)
 			{
 				h_on = (int32_t)detectimghsv_on_src[(int)ptscand_ptr[i * 2 + 1] * width * 3 + (int)ptscand_ptr[i * 2 + 0] * 3];
@@ -428,9 +467,13 @@ int DetectLEDMarker() {
 			for (size_t i = 0; i < 4; i++)
 			{
 				//cout << greenbluecnt[i][0] << ", " << greenbluecnt[i][1] << endl;
-				if (greenbluecnt[i][0] < greenbluecnt[i][1]) blueno = (int)i;
+				if (maxbluegreenratio < (float)greenbluecnt[i][1] / greenbluecnt[i][0]) {
+					blueno = (int)i;
+					maxbluegreenratio = (float)greenbluecnt[i][1] / greenbluecnt[i][0];
+				}
 			}
 			if (blueno == -1) {
+				processflgs[detectid] = false;
 				return 5;
 			}
 
@@ -492,6 +535,7 @@ int DetectLEDMarker() {
 			{
 				//クラスタ内部に閾値以上の輝点が存在しないときは未検出で終了
 				if (ledmass[i] <= 0) {
+					processflgs[detectid] = false;
 					return 2;
 				}
 				ledimpos_rand[i][0] = ledmomx[i] / ledmass[i];
@@ -545,6 +589,8 @@ int DetectLEDMarker() {
 					rois[2] = rois_rand[i];
 				}
 			}
+			//ROIModeをOKにする場合はここをコメントアウト
+			/*leddetected = true;*/
 		}
 
 		//青と緑両方検出しているとき
@@ -612,6 +658,7 @@ int DetectLEDMarker() {
 				{
 					//ROI内部に閾値以上の輝点が存在しないときに終了
 					leddetected = false;
+					processflgs[detectid] = false;
 					return 3;
 				}
 				ledimpos[i][0] = ledmomx[i] / ledmass[i];
@@ -631,6 +678,8 @@ int DetectLEDMarker() {
 				rois[i].height = roi_led_maxy[i] - roi_led_miny[i];
 			}
 		}
+
+		cout << "LED blue: " << ledimpos[0][0] << ", " << ledimpos[0][1] << endl;
 
 		//4つのLEDから位置姿勢計算
 		///理想ピクセル座標系に変換
@@ -707,7 +756,7 @@ int DetectLEDMarker() {
 		RTm2c[1][3] = xsrc[5];
 		RTm2c[2][3] = xsrc[6];
 		//計算された位置に連続性が確認されないときはエラーとする
-
+		processflgs[detectid] = false;
 		return 0;
 		//位置姿勢も計算できて正常終了
 	}

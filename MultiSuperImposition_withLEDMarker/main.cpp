@@ -96,6 +96,7 @@ uint8_t* diffimg_src, * detectimg0_src, * detectimg1_src, * detectimg_on_src, * 
 int on_img_id, on_img_cnt, blueno = -1, labelno;
 int32_t* labelptr, * labelptr_debug;
 int greenbluecnt[4][2] = { 0 };
+float maxbluegreenratio = 0;
 int32_t h_on;
 vector<cv::Rect> rois, rois_rand;
 const int roi_led_margin = 10;
@@ -593,7 +594,10 @@ int DetectLEDMarker() {
 			for (size_t i = 0; i < 4; i++)
 			{
 				//cout << greenbluecnt[i][0] << ", " << greenbluecnt[i][1] << endl;
-				if (greenbluecnt[i][0] < greenbluecnt[i][1]) blueno = (int)i;
+				if (maxbluegreenratio < (float)greenbluecnt[i][1] / greenbluecnt[i][0]) {
+					blueno = (int)i;
+					maxbluegreenratio = (float)greenbluecnt[i][1] / greenbluecnt[i][0];
+				}
 			}
 			if (blueno == -1) {
 				processflgs[detectid] = false;
