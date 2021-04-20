@@ -108,6 +108,8 @@ double phi, w, lambda;
 double ledcamdir[4][3] = { 0 };
 double lednormdir[4][3] = { 0 };
 glm::mat4 RTm2c = glm::mat4(1.0);
+glm::mat4 RTuavrs2hsc = glm::mat4(1.0), RTugvrs2mk = glm::mat4(1.0);
+float rei[9];
 glm::mat4 *RTm2c_buffer, *RTm2c_toGPU;
 int RTm2c_bufferid = 0, RTm2c_outid = 0;
 cv::Mat A = cv::Mat::zeros(12, 7, CV_64F);
@@ -190,6 +192,36 @@ int main() {
 	for (size_t i = 0; i < 2; i++) { fscanf(fcam, "%lf,", &distort[i]); }
 	fclose(fcam);
 	det = 1 / (stretch_mat[0] - stretch_mat[1] * stretch_mat[2]);
+
+	//PoseCalibration結果の呼び出し
+	FILE* fpose;
+	fpose = fopen("202104200153_poseparam.csv", "r");
+	for (size_t i = 0; i < 3; i++)
+	{
+		for (size_t j = 0; j < 3; j++)
+		{
+			fscanf(fpose, "%f,", &RTuavrs2hsc[i][j]);
+		}
+	}
+	for (size_t i = 0; i < 3; i++)
+	{
+		fscanf(fpose, "%f,", &RTuavrs2hsc[i][3]);
+		RTuavrs2hsc[i][3] /= 1000;//単位はm
+	}
+	for (size_t i = 0; i < 3; i++)
+	{
+		for (size_t j = 0; j < 3; j++)
+		{
+			fscanf(fpose, "%f,", &RTugvrs2mk[i][j]);
+		}
+	}
+	for (size_t i = 0; i < 3; i++)
+	{
+		fscanf(fpose, "%f,", &RTugvrs2mk[i][3]);
+		RTugvrs2mk[i][3] /= 1000;//単位はm
+	}
+
+
 
 	//輝点保存用行列の作成
 	ptscand = cv::Mat::zeros(width * height, 1, CV_32FC2);
