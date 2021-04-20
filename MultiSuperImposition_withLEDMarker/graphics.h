@@ -30,7 +30,7 @@ const int vert_cnt = depthwidth * depthheight;
 const int realsense_cnt = 2;
 
 extern void initGL();
-extern void drawGL_realsense(float** pts, float** texcoords, rs2::frame** colorframes, glm::mat4* rtm2c);
+extern void drawGL_realsense(float** pts, float** texcoords, rs2::frame** colorframes, glm::mat4* rtuavrs2ugvrs);
 extern void finishGL();
 
 #endif // !GRAPHICS_H_

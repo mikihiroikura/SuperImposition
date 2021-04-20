@@ -105,9 +105,13 @@ function ugv_rs2marker_posecalibration()
     RotVec_rs2marker_mean = mean(RotVec_rs2marker,1);
     RotMat_rs2marker_mean = rotationVectorToMatrix(RotVec_rs2marker_mean);
     
+    %Marker-RS間位置姿勢の計算
+    TransVec_marker2rs_mean = - TransVec_rs2marker_mean * RotMat_rs2marker_mean.';
+    RotMat_marker2rs_mean = RotMat_rs2marker_mean.';
+    
     
     %結果の保存
-    save poseparams.mat TransVec_rs2hsc_mean RotMat_rs2hsc_mean TransVec_rs2marker_mean RotMat_rs2marker_mean
+    save poseparams.mat TransVec_rs2hsc_mean RotMat_rs2hsc_mean TransVec_marker2rs_mean RotMat_marker2rs_mean
 
     %CSVへの出力
     load setup.mat poseparamfile

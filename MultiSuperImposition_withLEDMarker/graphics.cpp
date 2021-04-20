@@ -196,7 +196,7 @@ void initGL() {
     ImGui_ImplOpenGL3_Init();
 }
 
-void drawGL_realsense(float** pts, float** texcoords, rs2::frame** colorframes, glm::mat4* rtm2c) {
+void drawGL_realsense(float** pts, float** texcoords, rs2::frame** colorframes, glm::mat4* rtuavrs2ugvrs) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 
@@ -238,7 +238,7 @@ void drawGL_realsense(float** pts, float** texcoords, rs2::frame** colorframes, 
             * glm::rotate(glm::radians(rotate_x[i]), glm::vec3(1, 0, 0))
             * glm::rotate(glm::radians(rotate_y[i]), glm::vec3(0, 1, 0))
             * glm::rotate(glm::radians(rotate_z[i]), glm::vec3(0, 0, 1));
-        if (i == 1 && userelpose) Model[i] *= *rtm2c;
+        if (i == 1 && userelpose) Model[i] *= *rtuavrs2ugvrs;
     }
     vp = Projection * View;
 

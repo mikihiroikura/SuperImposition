@@ -107,11 +107,10 @@ double cross, dot, theta[3];
 double phi, w, lambda;
 double ledcamdir[4][3] = { 0 };
 double lednormdir[4][3] = { 0 };
-glm::mat4 RTm2c = glm::mat4(1.0);
-glm::mat4 RTuavrs2hsc = glm::mat4(1.0), RTugvrs2mk = glm::mat4(1.0);
-float rei[9];
-glm::mat4 *RTm2c_buffer, *RTm2c_toGPU;
-int RTm2c_bufferid = 0, RTm2c_outid = 0;
+glm::mat4 RTm2c = glm::mat4(1.0), RTc2m = glm::mat4(1.0), RTuavrs2ugvrs = glm::mat4(1.0);
+glm::mat4 RTuavrs2hsc = glm::mat4(1.0), RTugvmk2rs = glm::mat4(1.0);
+glm::mat4 *RTuavrs2ugvrs_buffer, *RTuavrs2ugvrs_toGPU;
+int RTuavrs2ugvrs_bufferid = 0, RTuavrs2ugvrs_outid = 0;
 cv::Mat A = cv::Mat::zeros(12, 7, CV_64F);
 cv::Mat x = cv::Mat::zeros(7, 1, CV_64F);
 cv::Mat b = cv::Mat::zeros(12, 1, CV_64F);
@@ -212,13 +211,13 @@ int main() {
 	{
 		for (size_t j = 0; j < 3; j++)
 		{
-			fscanf(fpose, "%f,", &RTugvrs2mk[i][j]);
+			fscanf(fpose, "%f,", &RTugvmk2rs[i][j]);
 		}
 	}
 	for (size_t i = 0; i < 3; i++)
 	{
-		fscanf(fpose, "%f,", &RTugvrs2mk[i][3]);
-		RTugvrs2mk[i][3] /= 1000;//単位はm
+		fscanf(fpose, "%f,", &RTugvmk2rs[i][3]);
+		RTugvmk2rs[i][3] /= 1000;//単位はm
 	}
 
 
@@ -243,10 +242,10 @@ int main() {
 	diffimg_src = diffimg.ptr<uint8_t>(0);
 
 	//計算した位置姿勢の保存用リングバッファの作成
-	RTm2c_buffer = (glm::mat4*)malloc(sizeof(glm::mat4) * ringbuffersize);
+	RTuavrs2ugvrs_buffer = (glm::mat4*)malloc(sizeof(glm::mat4) * ringbuffersize);
 	for (size_t i = 0; i < ringbuffersize; i++)
 	{
-		memcpy((RTm2c_buffer + i), &RTm2c, sizeof(glm::mat4));
+		memcpy((RTuavrs2ugvrs_buffer + i), &RTuavrs2ugvrs, sizeof(glm::mat4));
 	}
 
 	//ログ初期化
@@ -313,8 +312,8 @@ int main() {
 
 		if (detectresult == 0)
 		{//ここに位置姿勢推定結果を反映させる計算を実装
-			memcpy((RTm2c_buffer + RTm2c_bufferid), &RTm2c, sizeof(glm::mat4));
-			RTm2c_bufferid = (RTm2c_bufferid + 1) % ringbuffersize;
+			memcpy((RTuavrs2ugvrs_buffer + RTuavrs2ugvrs_bufferid), &RTuavrs2ugvrs, sizeof(glm::mat4));
+			RTuavrs2ugvrs_bufferid = (RTuavrs2ugvrs_bufferid + 1) % ringbuffersize;
 		}
 		QueryPerformanceCounter(&detectend);
 		detecttime = (double)(detectend.QuadPart - detectstart.QuadPart) / freq.QuadPart;
@@ -406,10 +405,10 @@ void ShowAllLogs(bool* flg, PointCloud **pc_src) {
 			gl_texcoord_src[i] = pc_src[i]->texcoords_ringbuffer + (unsigned long long)getpc_id * 2 * vert_cnt;
 			gl_tex_src[i] = pc_src[i]->colorframe_buffer + getpc_id;
 		}
-		RTm2c_outid = RTm2c_bufferid - 1;
-		if (RTm2c_outid < 0) RTm2c_outid += ringbuffersize;
-		RTm2c_toGPU = RTm2c_buffer + RTm2c_outid;
-		drawGL_realsense(gl_pc_src, gl_texcoord_src, gl_tex_src, RTm2c_toGPU);
+		RTuavrs2ugvrs_outid = RTuavrs2ugvrs_bufferid - 1;
+		if (RTuavrs2ugvrs_outid < 0) RTuavrs2ugvrs_outid += ringbuffersize;
+		RTuavrs2ugvrs_toGPU = RTuavrs2ugvrs_buffer + RTuavrs2ugvrs_outid;
+		drawGL_realsense(gl_pc_src, gl_texcoord_src, gl_tex_src, RTuavrs2ugvrs_toGPU);
 #endif // SHOW_OPENGL_
 
 		QueryPerformanceCounter(&showend);
@@ -954,6 +953,13 @@ int DetectLEDMarker() {
 		RTm2c[1][3] = xsrc[5];
 		RTm2c[2][3] = xsrc[6];
 		//計算された位置に連続性が確認されないときはエラーとする
+
+		//UAVRS2UGVRSの位置姿勢の計算
+		RTc2m[0][0] = RTm2c[0][0]; RTc2m[0][1] = RTm2c[1][0]; RTc2m[0][2] = RTm2c[2][0]; RTc2m[0][3] = -(RTm2c[0][0] * RTm2c[0][3] + RTm2c[1][0] * RTm2c[1][3] + RTm2c[2][0] * RTm2c[2][3]);
+		RTc2m[1][0] = RTm2c[0][1]; RTc2m[1][1] = RTm2c[1][1]; RTc2m[1][2] = RTm2c[2][1]; RTc2m[1][3] = -(RTm2c[0][1] * RTm2c[0][3] + RTm2c[1][1] * RTm2c[1][3] + RTm2c[2][1] * RTm2c[2][3]);
+		RTc2m[2][0] = RTm2c[0][2]; RTc2m[2][1] = RTm2c[1][2]; RTc2m[2][2] = RTm2c[2][2]; RTc2m[2][3] = -(RTm2c[0][2] * RTm2c[0][3] + RTm2c[1][2] * RTm2c[1][3] + RTm2c[2][2] * RTm2c[2][3]);
+
+		RTuavrs2ugvrs = RTugvmk2rs * RTc2m * RTuavrs2hsc;
 	
 #ifdef DEBUG_
 		QueryPerformanceCounter(&detectend);
