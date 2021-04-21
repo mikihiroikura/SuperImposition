@@ -221,17 +221,6 @@ int main() {
 		RTugvmk2rs[3][i] /= 1000;//単位はm
 	}
 
-	//計算例
-	glm::mat4 rei = glm::mat4(1.0), rei2 = glm::mat4(1.0);
-	rei[1][2] = 3;
-	rei[2][0] = 2;
-	rei2[2][1] = 9;
-	rei2[0][2] = 4;
-	glm::mat4 rei3 = glm::rotate((float)glm::radians(90.0), glm::vec3(0, 0, 1));;
-	rei3 = glm::rotate((float)glm::radians(90.0), glm::vec3(0, 0, 1));
-	glm::mat4 rei4 = rei2 * rei3;
-
-
 	//輝点保存用行列の作成
 	ptscand = cv::Mat::zeros(width * height, 1, CV_32FC2);
 	ptscand_ptr = ptscand.ptr<float>(0);
@@ -919,32 +908,32 @@ int DetectLEDMarker() {
 		//法線ベクトルから，LEDマーカの辺の方向ベクトルを2つ求める
 		for (size_t i = 0; i < 2; i++)
 		{
-			RTm2c[0][i] = -(lednormdir[i][1] * lednormdir[(i + 2)][2] - lednormdir[i][2] * lednormdir[(i + 2)][1]);
-			RTm2c[1][i] = -(lednormdir[i][2] * lednormdir[(i + 2)][0] - lednormdir[i][0] * lednormdir[(i + 2)][2]);
-			RTm2c[2][i] = -(lednormdir[i][0] * lednormdir[(i + 2)][1] - lednormdir[i][1] * lednormdir[(i + 2)][0]);
-			lambda = 1 / pow(pow(RTm2c[0][i], 2) + pow(RTm2c[1][i], 2) + pow(RTm2c[2][i], 2), 0.5);
-			RTm2c[0][i] *= lambda;
-			RTm2c[1][i] *= lambda;
-			RTm2c[2][i] *= lambda;
+			RTm2c[i][0] = -(lednormdir[i][1] * lednormdir[(i + 2)][2] - lednormdir[i][2] * lednormdir[(i + 2)][1]);
+			RTm2c[i][1] = -(lednormdir[i][2] * lednormdir[(i + 2)][0] - lednormdir[i][0] * lednormdir[(i + 2)][2]);
+			RTm2c[i][2] = -(lednormdir[i][0] * lednormdir[(i + 2)][1] - lednormdir[i][1] * lednormdir[(i + 2)][0]);
+			lambda = 1 / pow(pow(RTm2c[i][0], 2) + pow(RTm2c[i][1], 2) + pow(RTm2c[i][2], 2), 0.5);
+			RTm2c[i][0] *= lambda;
+			RTm2c[i][1] *= lambda;
+			RTm2c[i][2] *= lambda;
 		}
 
 		//カメラ-マーカ間の相対姿勢の計算(残りの方向ベクトルを外積で求める)
-		RTm2c[0][2] = RTm2c[1][0] * RTm2c[2][1] - RTm2c[2][0] * RTm2c[1][1];
-		RTm2c[1][2] = RTm2c[2][0] * RTm2c[0][1] - RTm2c[0][0] * RTm2c[2][1];
-		RTm2c[2][2] = RTm2c[0][0] * RTm2c[1][1] - RTm2c[1][0] * RTm2c[0][1];
-		lambda = 1 / pow(pow(RTm2c[0][2], 2) + pow(RTm2c[1][2], 2) + pow(RTm2c[2][2], 2), 0.5);
-		RTm2c[0][2] *= lambda;
-		RTm2c[1][2] *= lambda;
+		RTm2c[2][0] = RTm2c[0][1] * RTm2c[1][2] - RTm2c[0][2] * RTm2c[1][1];
+		RTm2c[2][1] = RTm2c[0][2] * RTm2c[1][0] - RTm2c[0][0] * RTm2c[1][2];
+		RTm2c[2][2] = RTm2c[0][0] * RTm2c[1][1] - RTm2c[0][1] * RTm2c[1][0];
+		lambda = 1 / pow(pow(RTm2c[2][0], 2) + pow(RTm2c[2][1], 2) + pow(RTm2c[2][2], 2), 0.5);
+		RTm2c[2][0] *= lambda;
+		RTm2c[2][1] *= lambda;
 		RTm2c[2][2] *= lambda;
 
 		//ここで，方向ベクトルが画像処理の誤差を乗せて直交しないときに強引に直交する方向ベクトルを計算する
-		RTm2c[0][1] = RTm2c[1][2] * RTm2c[2][0] - RTm2c[2][2] * RTm2c[1][0];
-		RTm2c[1][1] = RTm2c[2][2] * RTm2c[0][0] - RTm2c[0][2] * RTm2c[2][0];
-		RTm2c[2][1] = RTm2c[0][2] * RTm2c[1][0] - RTm2c[1][2] * RTm2c[0][0];
-		lambda = 1 / pow(pow(RTm2c[0][1], 2) + pow(RTm2c[1][1], 2) + pow(RTm2c[2][1], 2), 0.5);
-		RTm2c[0][1] *= lambda;
+		RTm2c[1][0] = RTm2c[2][1] * RTm2c[0][2] - RTm2c[2][2] * RTm2c[0][1];
+		RTm2c[1][1] = RTm2c[2][2] * RTm2c[0][0] - RTm2c[2][0] * RTm2c[0][2];
+		RTm2c[1][2] = RTm2c[2][0] * RTm2c[0][1] - RTm2c[2][1] * RTm2c[0][0];
+		lambda = 1 / pow(pow(RTm2c[1][0], 2) + pow(RTm2c[1][1], 2) + pow(RTm2c[1][2], 2), 0.5);
+		RTm2c[1][0] *= lambda;
 		RTm2c[1][1] *= lambda;
-		RTm2c[2][1] *= lambda;
+		RTm2c[1][2] *= lambda;
 
 		//魚眼モデルと相対姿勢を用いてカメラ-マーカ間の相対位置を計算
 		for (size_t i = 0; i < 4; i++)
@@ -955,14 +944,14 @@ int DetectLEDMarker() {
 			Asrc[i * 7 * 3 + 4] = -1;
 			Asrc[i * 7 * 3 + 12] = -1;
 			Asrc[i * 7 * 3 + 20] = -1;
-			bsrc[i * 3 + 0] = RTm2c[0][0] * markerpos[i][0] + RTm2c[0][1] * markerpos[i][1];
-			bsrc[i * 3 + 1] = RTm2c[1][0] * markerpos[i][0] + RTm2c[1][1] * markerpos[i][1];
-			bsrc[i * 3 + 2] = RTm2c[2][0] * markerpos[i][0] + RTm2c[2][1] * markerpos[i][1];
+			bsrc[i * 3 + 0] = RTm2c[0][0] * markerpos[i][0] + RTm2c[1][0] * markerpos[i][1];
+			bsrc[i * 3 + 1] = RTm2c[0][1] * markerpos[i][0] + RTm2c[1][1] * markerpos[i][1];
+			bsrc[i * 3 + 2] = RTm2c[0][2] * markerpos[i][0] + RTm2c[1][2] * markerpos[i][1];
 		}
 		x = A.inv(cv::DECOMP_SVD) * b;
-		RTm2c[0][3] = xsrc[4];
-		RTm2c[1][3] = xsrc[5];
-		RTm2c[2][3] = xsrc[6];
+		RTm2c[3][0] = xsrc[4];
+		RTm2c[3][1] = xsrc[5];
+		RTm2c[3][2] = xsrc[6];
 		//計算された位置に連続性が確認されないときはエラーとする
 
 		//UAVRS2UGVRSの位置姿勢の計算
@@ -970,7 +959,6 @@ int DetectLEDMarker() {
 		RTc2m[1][0] = RTm2c[0][1]; RTc2m[1][1] = RTm2c[1][1]; RTc2m[1][2] = RTm2c[2][1]; RTc2m[1][3] = -(RTm2c[0][1] * RTm2c[0][3] + RTm2c[1][1] * RTm2c[1][3] + RTm2c[2][1] * RTm2c[2][3]);
 		RTc2m[2][0] = RTm2c[0][2]; RTc2m[2][1] = RTm2c[1][2]; RTc2m[2][2] = RTm2c[2][2]; RTc2m[2][3] = -(RTm2c[0][2] * RTm2c[0][3] + RTm2c[1][2] * RTm2c[1][3] + RTm2c[2][2] * RTm2c[2][3]);*/
 		RTc2m = glm::inverse(RTm2c);
-		RTc2m = glm::transpose(RTc2m);
 		
 		RTuavrs2ugvrs = RTugvmk2rs * RTc2m * RTuavrs2hsc;
 	
