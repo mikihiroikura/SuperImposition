@@ -1,18 +1,18 @@
 function ugv_rs2marker_posecalibration()
     load fishparams.mat fisheyeParams
-    load poseparams.mat TransVec_rs2hsc_mean RotMat_rs2hsc_mean
+    load poseparams.mat TransVec_uavrs2hsc_mean RotMat_uavrs2hsc_mean
     load rs0params.mat rs0params
     
     %RSの動画
     %動画からFrameを保存する
     load setup.mat video_dir_ugv_rs video_dir_ugv_hsc img_step squareSize
-    vidObj_rs = VideoReader(video_dir_ugv_rs);
-    allFrame_rs = read(vidObj_rs);
-    rs_img = allFrame_rs(:,:,:,1:img_step:end);
+    vidObj_ugvrs = VideoReader(video_dir_ugv_rs);
+    allFrame_ugvrs = read(vidObj_ugvrs);
+    ugvrs_img = allFrame_ugvrs(:,:,:,1:img_step:end);
     
     %チェッカーボードを検出する
-    [imagePoints_rs,boardSize,imagesUsed_rs] = detectCheckerboardPoints(rs_img);
-    worldPoints_rs = generateCheckerboardPoints(boardSize, squareSize);
+    [imagePoints_ugvrs,boardSize,imagesUsed_ugvrs] = detectCheckerboardPoints(ugvrs_img);
+    worldPoints_ugvrs = generateCheckerboardPoints(boardSize, squareSize);
     
     %HSCの動画
     %動画からFrameを保存する
@@ -35,40 +35,40 @@ function ugv_rs2marker_posecalibration()
     end
     
     %RSとHSC両方で検出したフレームの洗い出し
-    imageUsed_rs_hsc_marker = logical(imagesUsed_hsc .* imagesUsed_rs);
+    imageUsed_ugvrs_hsc_marker = logical(imagesUsed_hsc .* imagesUsed_ugvrs);
     for i = 1:size(imagePoints_hsc,3)
         if size(find(isnan(imagePoints_hsc(:,:,i))),1) > 0
-           imageUsed_rs_hsc_marker(i) = 0; 
+           imageUsed_ugvrs_hsc_marker(i) = 0; 
         end
     end
-    for i = 1:size(imagePoints_rs,3)
-        if size(find(isnan(imagePoints_rs(:,:,i))),1) > 0
-           imageUsed_rs_hsc_marker(i) = 0; 
+    for i = 1:size(imagePoints_ugvrs,3)
+        if size(find(isnan(imagePoints_ugvrs(:,:,i))),1) > 0
+           imageUsed_ugvrs_hsc_marker(i) = 0; 
         end
     end
-    imageUsed_rs_hsc_marker(TransVec_marker2hsc(:,1)==0) = 0;
+    imageUsed_ugvrs_hsc_marker(TransVec_marker2hsc(:,1)==0) = 0;
     
     %再度チェッカーボード検出
-    [imagePoints_rs,boardSize,imagesUsed_rs] = detectCheckerboardPoints(rs_img(:,:,:,imageUsed_rs_hsc_marker));
-    worldPoints_rs = generateCheckerboardPoints(boardSize, squareSize);
-    [imagePoints_hsc,boardSize,imagesUsed_hsc] = detectCheckerboardPoints(hsc_img(:,:,:,imageUsed_rs_hsc_marker));
+    [imagePoints_ugvrs,boardSize,imagesUsed_ugvrs] = detectCheckerboardPoints(ugvrs_img(:,:,:,imageUsed_ugvrs_hsc_marker));
+    worldPoints_ugvrs = generateCheckerboardPoints(boardSize, squareSize);
+    [imagePoints_hsc,boardSize,imagesUsed_hsc] = detectCheckerboardPoints(hsc_img(:,:,:,imageUsed_ugvrs_hsc_marker));
     worldPoints_hsc = generateCheckerboardPoints(boardSize, squareSize);
     
     %再度CSVからMarkerの位置姿勢を読み取る
-    TransVec_marker2hsc = M_marker(imageUsed_rs_hsc_marker,10:12) * 1000;%単位はmm
-    RotMatrix_marker2hsc = zeros(3,3,size(M_marker(imageUsed_rs_hsc_marker,:),1));
-    M_used = M_marker(imageUsed_rs_hsc_marker,:);
+    TransVec_marker2hsc = M_marker(imageUsed_ugvrs_hsc_marker,10:12) * 1000;%単位はmm
+    RotMatrix_marker2hsc = zeros(3,3,size(M_marker(imageUsed_ugvrs_hsc_marker,:),1));
+    M_used = M_marker(imageUsed_ugvrs_hsc_marker,:);
     for i = 1:size(M_used,1)
         RotMatrix_marker2hsc(:,:,i) = reshape(M_used(i,1:9),[3 3]).';
     end
     
     %チェッカーボード(World)toRSの外部パラメータの計算
-    RotMatrix_rs = zeros(3,3,size(imagePoints_rs,3));
-    TransVec_rs = zeros(size(imagePoints_rs,3), 3);
-    for i=1:size(imagePoints_rs,3)
-        [R,t] = extrinsics(imagePoints_rs(:,:,i),worldPoints_rs,rs0params);
-        RotMatrix_rs(:,:,i) = R;
-        TransVec_rs(i,:) = t;
+    RotMatrix_ugvrs = zeros(3,3,size(imagePoints_ugvrs,3));
+    TransVec_ugvrs = zeros(size(imagePoints_ugvrs,3), 3);
+    for i=1:size(imagePoints_ugvrs,3)
+        [R,t] = extrinsics(imagePoints_ugvrs(:,:,i),worldPoints_ugvrs,rs0params);
+        RotMatrix_ugvrs(:,:,i) = R;
+        TransVec_ugvrs(i,:) = t;
     end
  
     %チェッカーボード(World)toHSCの外部パラメータの計算
@@ -81,48 +81,48 @@ function ugv_rs2marker_posecalibration()
     end
     
     %RS-HSCの位置姿勢を計算
-    RotMatrix_rs2hsc = pagemtimes(pagetranspose(RotMatrix_rs),RotMatrix_hsc);
-    TransVec_rs2hsc = zeros(size(TransVec_hsc));
-    for i = 1:size(TransVec_rs2hsc,1)
-        TransVec_rs2hsc(i,:) = -TransVec_rs(i,:) * RotMatrix_rs2hsc(:,:,i) + TransVec_hsc(i,:);
+    RotMatrix_ugvrs2hsc = pagemtimes(pagetranspose(RotMatrix_ugvrs),RotMatrix_hsc);
+    TransVec_ugvrs2hsc = zeros(size(TransVec_hsc));
+    for i = 1:size(TransVec_ugvrs2hsc,1)
+        TransVec_ugvrs2hsc(i,:) = -TransVec_ugvrs(i,:) * RotMatrix_ugvrs2hsc(:,:,i) + TransVec_hsc(i,:);
     end
     
     
     %RS-Marker間位置姿勢の計算
-    RotMatrix_rs2marker = pagemtimes(RotMatrix_rs2hsc, pagetranspose(RotMatrix_marker2hsc));
-    TransVec_rs2marker = zeros(size(TransVec_hsc));
+    RotMatrix_ugvrs2marker = pagemtimes(RotMatrix_ugvrs2hsc, pagetranspose(RotMatrix_marker2hsc));
+    TransVec_ugvrs2marker = zeros(size(TransVec_hsc));
     RotMatrix_hsc2marker = pagetranspose(RotMatrix_marker2hsc);
-    for i = 1:size(TransVec_rs2marker,1)
-        TransVec_rs2marker(i,:) =(-TransVec_marker2hsc(i,:) + TransVec_rs2hsc(i,:)) * RotMatrix_hsc2marker(:,:,i);
+    for i = 1:size(TransVec_ugvrs2marker,1)
+        TransVec_ugvrs2marker(i,:) =(-TransVec_marker2hsc(i,:) + TransVec_ugvrs2hsc(i,:)) * RotMatrix_hsc2marker(:,:,i);
     end
     
     %RS-Marker間位置姿勢の平均
-    TransVec_rs2marker_mean = mean(TransVec_rs2marker,1);
-    RotVec_rs2marker = zeros(size(RotMatrix_rs2marker,3), 3);
-    for i = 1:size(RotMatrix_rs2marker,3)
-        RotVec_rs2marker(i,:) = rotationMatrixToVector(RotMatrix_rs2marker(:,:,i));
+    TransVec_ugvrs2marker_mean = mean(TransVec_ugvrs2marker,1);
+    RotVec_ugvrs2marker = zeros(size(RotMatrix_ugvrs2marker,3), 3);
+    for i = 1:size(RotMatrix_ugvrs2marker,3)
+        RotVec_ugvrs2marker(i,:) = rotationMatrixToVector(RotMatrix_ugvrs2marker(:,:,i));
     end
-    RotVec_rs2marker_mean = mean(RotVec_rs2marker,1);
-    RotMat_rs2marker_mean = rotationVectorToMatrix(RotVec_rs2marker_mean);
+    RotVec_ugvrs2marker_mean = mean(RotVec_ugvrs2marker,1);
+    RotMat_ugvrs2marker_mean = rotationVectorToMatrix(RotVec_ugvrs2marker_mean);
     
     %Marker-RS間位置姿勢の計算
-    TransVec_marker2rs_mean = - TransVec_rs2marker_mean * RotMat_rs2marker_mean.';
-    RotMat_marker2rs_mean = RotMat_rs2marker_mean.';
+    TransVec_marker2ugvrs_mean = - TransVec_ugvrs2marker_mean * RotMat_ugvrs2marker_mean.';
+    RotMat_marker2ugvrs_mean = RotMat_ugvrs2marker_mean.';
     
     
     %結果の保存
-    save poseparams.mat TransVec_rs2hsc_mean RotMat_rs2hsc_mean TransVec_marker2rs_mean RotMat_marker2rs_mean
+    save poseparams.mat TransVec_uavrs2hsc_mean RotMat_uavrs2hsc_mean TransVec_marker2ugvrs_mean RotMat_marker2ugvrs_mean
 
     %CSVへの出力
     load setup.mat poseparamfile
     fid = fopen(poseparamfile,'w');
-    fprintf(fid,'%.6f,',RotMat_rs2hsc_mean);
+    fprintf(fid,'%.6f,',RotMat_uavrs2hsc_mean);
     fprintf(fid,'\n');
-    fprintf(fid,'%.6f,',TransVec_rs2hsc_mean);
+    fprintf(fid,'%.6f,',TransVec_uavrs2hsc_mean);
     fprintf(fid,'\n');
-    fprintf(fid,'%.6f,',RotMat_rs2marker_mean);
+    fprintf(fid,'%.6f,',RotMat_marker2ugvrs_mean);
     fprintf(fid,'\n');
-    fprintf(fid,'%.6f,',TransVec_rs2marker_mean);
+    fprintf(fid,'%.6f,',TransVec_marker2ugvrs_mean);
     fprintf(fid,'\n');
     fclose(fid);
 

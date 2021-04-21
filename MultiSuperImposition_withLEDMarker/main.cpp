@@ -109,6 +109,7 @@ double ledcamdir[4][3] = { 0 };
 double lednormdir[4][3] = { 0 };
 glm::mat4 RTm2c = glm::mat4(1.0), RTc2m = glm::mat4(1.0), RTuavrs2ugvrs = glm::mat4(1.0);
 glm::mat4 RTuavrs2hsc = glm::mat4(1.0), RTugvmk2rs = glm::mat4(1.0);
+glm::mat4 RTuavrs2mk = glm::mat4(1.0);
 glm::mat4 *RTuavrs2ugvrs_buffer, *RTuavrs2ugvrs_toGPU;
 int RTuavrs2ugvrs_bufferid = 0, RTuavrs2ugvrs_outid = 0;
 cv::Mat A = cv::Mat::zeros(12, 7, CV_64F);
@@ -199,27 +200,36 @@ int main() {
 	{
 		for (size_t j = 0; j < 3; j++)
 		{
-			fscanf(fpose, "%f,", &RTuavrs2hsc[i][j]);
+			fscanf(fpose, "%f,", &RTuavrs2hsc[j][i]);
 		}
 	}
 	for (size_t i = 0; i < 3; i++)
 	{
-		fscanf(fpose, "%f,", &RTuavrs2hsc[i][3]);
-		RTuavrs2hsc[i][3] /= 1000;//単位はm
+		fscanf(fpose, "%f,", &RTuavrs2hsc[3][i]);
+		RTuavrs2hsc[3][i] /= 1000;//単位はm
 	}
 	for (size_t i = 0; i < 3; i++)
 	{
 		for (size_t j = 0; j < 3; j++)
 		{
-			fscanf(fpose, "%f,", &RTugvmk2rs[i][j]);
+			fscanf(fpose, "%f,", &RTugvmk2rs[j][i]);
 		}
 	}
 	for (size_t i = 0; i < 3; i++)
 	{
-		fscanf(fpose, "%f,", &RTugvmk2rs[i][3]);
-		RTugvmk2rs[i][3] /= 1000;//単位はm
+		fscanf(fpose, "%f,", &RTugvmk2rs[3][i]);
+		RTugvmk2rs[3][i] /= 1000;//単位はm
 	}
 
+	//計算例
+	glm::mat4 rei = glm::mat4(1.0), rei2 = glm::mat4(1.0);
+	rei[1][2] = 3;
+	rei[2][0] = 2;
+	rei2[2][1] = 9;
+	rei2[0][2] = 4;
+	glm::mat4 rei3 = glm::rotate((float)glm::radians(90.0), glm::vec3(0, 0, 1));;
+	rei3 = glm::rotate((float)glm::radians(90.0), glm::vec3(0, 0, 1));
+	glm::mat4 rei4 = rei2 * rei3;
 
 
 	//輝点保存用行列の作成
@@ -956,10 +966,12 @@ int DetectLEDMarker() {
 		//計算された位置に連続性が確認されないときはエラーとする
 
 		//UAVRS2UGVRSの位置姿勢の計算
-		RTc2m[0][0] = RTm2c[0][0]; RTc2m[0][1] = RTm2c[1][0]; RTc2m[0][2] = RTm2c[2][0]; RTc2m[0][3] = -(RTm2c[0][0] * RTm2c[0][3] + RTm2c[1][0] * RTm2c[1][3] + RTm2c[2][0] * RTm2c[2][3]);
+		/*RTc2m[0][0] = RTm2c[0][0]; RTc2m[0][1] = RTm2c[1][0]; RTc2m[0][2] = RTm2c[2][0]; RTc2m[0][3] = -(RTm2c[0][0] * RTm2c[0][3] + RTm2c[1][0] * RTm2c[1][3] + RTm2c[2][0] * RTm2c[2][3]);
 		RTc2m[1][0] = RTm2c[0][1]; RTc2m[1][1] = RTm2c[1][1]; RTc2m[1][2] = RTm2c[2][1]; RTc2m[1][3] = -(RTm2c[0][1] * RTm2c[0][3] + RTm2c[1][1] * RTm2c[1][3] + RTm2c[2][1] * RTm2c[2][3]);
-		RTc2m[2][0] = RTm2c[0][2]; RTc2m[2][1] = RTm2c[1][2]; RTc2m[2][2] = RTm2c[2][2]; RTc2m[2][3] = -(RTm2c[0][2] * RTm2c[0][3] + RTm2c[1][2] * RTm2c[1][3] + RTm2c[2][2] * RTm2c[2][3]);
-
+		RTc2m[2][0] = RTm2c[0][2]; RTc2m[2][1] = RTm2c[1][2]; RTc2m[2][2] = RTm2c[2][2]; RTc2m[2][3] = -(RTm2c[0][2] * RTm2c[0][3] + RTm2c[1][2] * RTm2c[1][3] + RTm2c[2][2] * RTm2c[2][3]);*/
+		RTc2m = glm::inverse(RTm2c);
+		RTc2m = glm::transpose(RTc2m);
+		
 		RTuavrs2ugvrs = RTugvmk2rs * RTc2m * RTuavrs2hsc;
 	
 #ifdef DEBUG_
