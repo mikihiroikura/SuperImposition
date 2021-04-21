@@ -955,9 +955,6 @@ int DetectLEDMarker() {
 		//計算された位置に連続性が確認されないときはエラーとする
 
 		//UAVRS2UGVRSの位置姿勢の計算
-		/*RTc2m[0][0] = RTm2c[0][0]; RTc2m[0][1] = RTm2c[1][0]; RTc2m[0][2] = RTm2c[2][0]; RTc2m[0][3] = -(RTm2c[0][0] * RTm2c[0][3] + RTm2c[1][0] * RTm2c[1][3] + RTm2c[2][0] * RTm2c[2][3]);
-		RTc2m[1][0] = RTm2c[0][1]; RTc2m[1][1] = RTm2c[1][1]; RTc2m[1][2] = RTm2c[2][1]; RTc2m[1][3] = -(RTm2c[0][1] * RTm2c[0][3] + RTm2c[1][1] * RTm2c[1][3] + RTm2c[2][1] * RTm2c[2][3]);
-		RTc2m[2][0] = RTm2c[0][2]; RTc2m[2][1] = RTm2c[1][2]; RTc2m[2][2] = RTm2c[2][2]; RTc2m[2][3] = -(RTm2c[0][2] * RTm2c[0][3] + RTm2c[1][2] * RTm2c[1][3] + RTm2c[2][2] * RTm2c[2][3]);*/
 		RTc2m = glm::inverse(RTm2c);
 		
 		RTuavrs2ugvrs = RTugvmk2rs * RTc2m * RTuavrs2hsc;
