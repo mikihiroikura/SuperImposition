@@ -596,6 +596,7 @@ int DetectLEDMarker() {
 			detectimghsv_on_src = detectimg_on_hsv.ptr<uint8_t>(0);
 			labelptr = labels.ptr<int32_t>(0);
 			memset(greenbluecnt, 0, sizeof(int) * 4 * 2);
+			maxbluegreenratio = 0;
 			for (size_t i = 0; i < ptscnt; i++)
 			{
 				h_on = (int32_t)detectimghsv_on_src[(int)ptscand_ptr[i * 2 + 1] * width * 3 + (int)ptscand_ptr[i * 2 + 0] * 3];
