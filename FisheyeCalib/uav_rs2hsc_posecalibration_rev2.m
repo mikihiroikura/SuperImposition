@@ -56,9 +56,11 @@ function uav_rs2hsc_posecalibration_rev2()
     imageUsed_ugvrs_uavrs_marker(TransVec_marker2hsc(:,1)==0) = 0;
     
     %再度チェッカーボード検出
-    [imagePoints_uavrs,boardSize,imagesUsed_uavrs] = detectCheckerboardPoints(uavrs_img(:,:,:,imageUsed_ugvrs_uavrs_marker));
+    uavrs_img_used = uavrs_img(:,:,:,imageUsed_ugvrs_uavrs_marker);
+    ugvrs_img_used = ugvrs_img(:,:,:,imageUsed_ugvrs_uavrs_marker);
+    [imagePoints_uavrs,boardSize,imagesUsed_uavrs] = detectCheckerboardPoints(uavrs_img_used);
     worldPoints_uavrs = generateCheckerboardPoints(boardSize, squareSize);
-    [imagePoints_ugvrs,boardSize,imagesUsed_ugvrs] = detectCheckerboardPoints(ugvrs_img(:,:,:,imageUsed_ugvrs_uavrs_marker));
+    [imagePoints_ugvrs,boardSize,imagesUsed_ugvrs] = detectCheckerboardPoints(ugvrs_img_used);
     worldPoints_ugvrs = generateCheckerboardPoints(boardSize, squareSize);
     
     %再度CSVからMarkerの位置姿勢を読み取る
@@ -110,9 +112,21 @@ function uav_rs2hsc_posecalibration_rev2()
     %UAVRS-HSC間の変換行列を計算
     RTuavrs2hsc = zeros(4,4,size(RotMatrix_uavrs,3));
     for i = 1:size(RotMatrix_uavrs,3)
-        RTuavrs2hsc(:,:,i) = inv(RTcb2uavrs(:,:,i)) * RTcb2ugvrs(:,:,i) / ...
-            (RTmk2ugvrs) * RTmk2hsc(:,:,i);
+        RTuavrs2hsc(:,:,i) = inv(RTcb2uavrs(:,:,i)) * RTcb2ugvrs(:,:,i) * inv(RTmk2ugvrs) * RTmk2hsc(:,:,i);
     end
     
+    %UAVRS-HSC間の並進ベクトルと回転行列の平均値を計算
+    TransVec_uavrs2hsc = RTuavrs2hsc(4,1:3,:);
+    RotMat_uavrs2hsc = RTuavrs2hsc(1:3,1:3,:);
+    TransVec_uavrs2hsc_mean = mean(TransVec_uavrs2hsc,3);
+    RotVec_uavrs2hsc = zeros(size(RTuavrs2hsc,3), 3);
+    for i = 1:size(RotMat_uavrs2hsc,3)
+        RotVec_uavrs2hsc(i,:) = rotationMatrixToVector(RotMat_uavrs2hsc(:,:,i));
+    end
+    RotVec_uavrs2hsc_mean = mean(RotVec_uavrs2hsc,1);
+    RotMat_uavrs2hsc_mean = rotationVectorToMatrix(RotVec_uavrs2hsc_mean);
 
+    %結果の保存
+    save poseparams.mat TransVec_marker2ugvrs_mean RotMat_marker2ugvrs_mean TransVec_uavrs2hsc_mean RotMat_uavrs2hsc_mean
+    
 end

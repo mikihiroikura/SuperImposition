@@ -16,11 +16,11 @@ function make_setup()
     %RS_calibration()
     %RS0：UGV側
     rs0_video_folder = './videos/RS0/';
-    rs0_video_name = '202104191510_video_rs0.mp4';
+    rs0_video_name = '202104221454_video_rs0.mp4';
     rs0_video_dir = strcat(rs0_video_folder, rs0_video_name);
     %RS1：UAV側
     rs1_video_folder = './videos/RS1/';
-    rs1_video_name = '202104191507_video_rs1.mp4';
+    rs1_video_name = '202104221454_video_rs1.mp4';
     rs1_video_dir = strcat(rs1_video_folder, rs1_video_name);
     
     %共通パラメータ
