@@ -42,10 +42,10 @@ int takepicid, in_imgs_saveid;
 
 
 //RealSenseに関するパラメータ
-cv::Mat in_img_rs;
+cv::Mat in_img_ugvrs, in_img_uavrs;
 vector<cv::Mat> save_img_rs;
 rs2::context context;
-int rsid = 0;
+int ugvrsid = 0, uavrsid = 1;
 const unsigned int colorwidth = 848;
 const unsigned int colorheight = 480;
 const unsigned int colorfps = 60;
@@ -105,14 +105,15 @@ int detectresult = -1;
 #define VIDEO_MODE_
 //#define IMG_MODE_
 #define GET_HSC
-#define GET_RS
+#define GET_UGVRS
+#define GET_UAVRS
 
 #pragma comment(lib,"KAYACoaXpressLib" LIB_EXT)
 #pragma warning(disable:4996)
 using namespace std;
 
 void TakePicture(kayacoaxpress* cam, bool* flg);
-void GetImgsRS(realsense* rs, bool* flg);
+void GetImgsRS(realsense* rs, bool* flg, void* imgdata);
 int DetectLEDMarker();
 
 
@@ -164,16 +165,25 @@ int main() {
 	det = 1 / (stretch_mat[0] - stretch_mat[1] * stretch_mat[2]);
 #endif // GET_HSC
 
-#ifdef GET_RS
+#ifdef GET_UGVRS
 	//RealSenseの初期化
 	cout << "Set RealsenseD435..........";
 	const rs2::device_list device_list = context.query_devices();
-	rs2::device device = device_list[rsid];
-	realsense rs_device(device.get_info(RS2_CAMERA_INFO_SERIAL_NUMBER), RS2_FORMAT_BGR8,
+	rs2::device ugvdevice = device_list[ugvrsid];
+	realsense ugvrs_device(ugvdevice.get_info(RS2_CAMERA_INFO_SERIAL_NUMBER), RS2_FORMAT_BGR8,
 		colorwidth, colorheight, colorfps, RS2_FORMAT_Z16, depthwidth, depthheight, depthfps);
 	cout << "OK!" << endl;
-	in_img_rs = cv::Mat(colorheight, colorwidth, CV_8UC3, cv::Scalar::all(255));
-#endif // GET_RS
+	in_img_ugvrs = cv::Mat(colorheight, colorwidth, CV_8UC3, cv::Scalar::all(255));
+#endif // GET_UGVRS
+
+#ifdef GET_UAVRS
+	rs2::device uavdevice = device_list[uavrsid];
+	realsense uavrs_device(uavdevice.get_info(RS2_CAMERA_INFO_SERIAL_NUMBER), RS2_FORMAT_BGR8,
+		colorwidth, colorheight, colorfps, RS2_FORMAT_Z16, depthwidth, depthheight, depthfps);
+	cout << "OK!" << endl;
+	in_img_uavrs = cv::Mat(colorheight, colorwidth, CV_8UC3, cv::Scalar::all(255));
+#endif // GET_UAVRS
+
 
 	//位置姿勢計算用の変数設定
 	//輝点保存用行列の作成
@@ -203,14 +213,22 @@ int main() {
 		return 1;
 	}
 #endif // GET_HSC
-#ifdef GET_RS
-	sprintf(buff, "%04d%02d%02d%02d%02d_video_rs%01d.mp4", 1900 + pnow->tm_year, 1 + pnow->tm_mon, pnow->tm_mday, pnow->tm_hour, pnow->tm_min, rsid);
-	cv::VideoWriter video_rs(save_dir + buff, cv::VideoWriter::fourcc('M', 'P', '4', 'V'), 30, cv::Size(colorwidth, colorheight), true);
-	if (!video_rs.isOpened()) {
+#ifdef GET_UGVRS
+	sprintf(buff, "%04d%02d%02d%02d%02d_video_rs%01d.mp4", 1900 + pnow->tm_year, 1 + pnow->tm_mon, pnow->tm_mday, pnow->tm_hour, pnow->tm_min, ugvrsid);
+	cv::VideoWriter video_ugvrs(save_dir + buff, cv::VideoWriter::fourcc('M', 'P', '4', 'V'), 30, cv::Size(colorwidth, colorheight), true);
+	if (!video_ugvrs.isOpened()) {
 		cout << "Video cannot be opened..." << endl;
 		return 1;
 	}
-#endif // GET_RS
+#endif // GET_UGVRS
+#ifdef GET_UAVRS
+	sprintf(buff, "%04d%02d%02d%02d%02d_video_rs%01d.mp4", 1900 + pnow->tm_year, 1 + pnow->tm_mon, pnow->tm_mday, pnow->tm_hour, pnow->tm_min, uavrsid);
+	cv::VideoWriter video_uavrs(save_dir + buff, cv::VideoWriter::fourcc('M', 'P', '4', 'V'), 30, cv::Size(colorwidth, colorheight), true);
+	if (!video_uavrs.isOpened()) {
+		cout << "Video cannot be opened..." << endl;
+		return 1;
+	}
+#endif // GET_UGVRS
 	//位置姿勢保存用CSV作成
 	FILE* fr;
 	sprintf(buff, "D:\\Github_output\\SuperImposition\\GetCalibImgs_RS2HSC\\%04d%02d%02d%02d%02d_markerpose.csv", 1900 + pnow->tm_year, 1 + pnow->tm_mon, pnow->tm_mday, pnow->tm_hour, pnow->tm_min);
@@ -224,9 +242,12 @@ int main() {
 	cam.start();
 	thread thr_cam(TakePicture, &cam, &flg);
 #endif // GET_HSC
-#ifdef GET_RS
-	thread thr_rs(GetImgsRS, &rs_device, &flg);
-#endif // GET_RS
+#ifdef GET_UGVRS
+	thread thr_ugvrs(GetImgsRS, &ugvrs_device, &flg, in_img_ugvrs.data);
+#endif // GET_UGVRS
+#ifdef GET_UAVRS
+	thread thr_uavrs(GetImgsRS, &uavrs_device, &flg, in_img_uavrs.data);
+#endif // GET_UGVRS
 	bool videocapflg = false;
 
 	while (true)
@@ -235,9 +256,12 @@ int main() {
 #ifdef GET_HSC
 		cv::imshow("img cam", detectimg[0]);
 #endif // GET_HSC
-#ifdef GET_RS
-		cv::imshow("img realsense", in_img_rs);
-#endif // GET_RS
+#ifdef GET_UGVRS
+		cv::imshow("img UGV realsense", in_img_ugvrs);
+#endif // GET_UGVRS
+#ifdef GET_UGVRS
+		cv::imshow("img UAV realsense", in_img_uavrs);
+#endif // GET_UGVRS
 
 		//位置姿勢計算
 		detectresult = DetectLEDMarker();
@@ -253,9 +277,12 @@ int main() {
 #ifdef GET_HSC
 		if (videocapflg) video_hsc.write(detectimg[0].clone());
 #endif // GET_HSC
-#ifdef GET_RS
-		if (videocapflg) video_rs.write(in_img_rs.clone());
-#endif // GET_RS
+#ifdef GET_UGVRS
+		if (videocapflg) video_ugvrs.write(in_img_ugvrs.clone());
+#endif // GET_UGVRS
+#ifdef GET_UAVRS
+		if (videocapflg) video_uavrs.write(in_img_uavrs.clone());
+#endif // GET_UGVRS
 		if (videocapflg) {
 			if (detectresult == 0) save_RTm2c.push_back(RTm2c);
 			else save_RTm2c.push_back(RTm2c_default);
@@ -266,9 +293,9 @@ int main() {
 #ifdef GET_HSC
 		if (key == 's') save_img_hsc.push_back(in_img_hsc.clone());
 #endif // GET_HSC
-#ifdef GET_RS
-		if (key == 's') save_img_rs.push_back(in_img_rs.clone());
-#endif // GET_RS
+#ifdef GET_UGVRS
+		if (key == 's') save_img_rs.push_back(in_img_ugvrs.clone());
+#endif // GET_UGVRS
 #endif // IMG_MODE_
 
 
@@ -291,10 +318,10 @@ int main() {
 #endif // GET_HSC
 
 
-#ifdef GET_RS
-	if (thr_rs.joinable()) thr_rs.join();
+#ifdef GET_UGVRS
+	if (thr_ugvrs.joinable()) thr_ugvrs.join();
 #ifdef VIDEO_MODE_
-	video_rs.release();
+	video_ugvrs.release();
 #endif // VIDEO_MODE_
 #ifdef IMG_MODE_
 	for (size_t i = 0; i < save_img_rs.size(); i++)
@@ -303,7 +330,21 @@ int main() {
 		cv::imwrite(save_dir + buff, save_img_rs[i]);
 	}
 #endif // IMG_MODE_
-#endif // GET_RS
+#endif // GET_UGVRS
+
+#ifdef GET_UAVRS
+	if (thr_uavrs.joinable()) thr_uavrs.join();
+#ifdef VIDEO_MODE_
+	video_uavrs.release();
+#endif // VIDEO_MODE_
+#ifdef IMG_MODE_
+	for (size_t i = 0; i < save_img_rs.size(); i++)
+	{
+		sprintf(buff, "%04d%02d%02d%02d%02d_img_rs%02d.png", 1900 + pnow->tm_year, 1 + pnow->tm_mon, pnow->tm_mday, pnow->tm_hour, pnow->tm_min, (int)i);
+		cv::imwrite(save_dir + buff, save_img_rs[i]);
+	}
+#endif // IMG_MODE_
+#endif // GET_UAVRS
 
 	//CSVファイルに相対位置姿勢の保存
 	for (size_t rtm2c_id = 0; rtm2c_id < save_RTm2c.size(); rtm2c_id++)
@@ -335,13 +376,13 @@ void TakePicture(kayacoaxpress* cam, bool* flg) {
 	}
 }
 
-void GetImgsRS(realsense* rs, bool* flg) {
+void GetImgsRS(realsense* rs, bool* flg, void* imgdata) {
 	while (*flg)
 	{
 		rs->update_frame();
 		rs->update_color();
 		rs->transform_color_img();
-		memcpy(in_img_rs.data, rs->colorimg.data, colorwidth * colorheight * 3);
+		memcpy(imgdata, rs->colorimg.data, colorwidth * colorheight * 3);
 	}
 }
 
@@ -679,7 +720,7 @@ int DetectLEDMarker() {
 			}
 		}
 
-		cout << "LED blue: " << ledimpos[0][0] << ", " << ledimpos[0][1] << endl;
+		//cout << "LED blue: " << ledimpos[0][0] << ", " << ledimpos[0][1] << endl;
 
 		//4つのLEDから位置姿勢計算
 		///理想ピクセル座標系に変換

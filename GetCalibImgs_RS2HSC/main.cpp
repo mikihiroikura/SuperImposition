@@ -51,6 +51,7 @@ int main() {
 	kayacoaxpress cam;
 	cam.connect(1);
 	//パラメータの設定
+	cam.setParam(paramTypeKAYACoaXpress::AcquisitionMode::TriggerMode, 1); //トリガーモードで起動
 	cam.setParam(paramTypeCamera::paramInt::WIDTH, width);
 	cam.setParam(paramTypeCamera::paramInt::HEIGHT, height);
 	cam.setParam(paramTypeKAYACoaXpress::paramInt::OffsetX, offsetx);
@@ -58,7 +59,7 @@ int main() {
 	cam.setParam(paramTypeCamera::paramFloat::FPS, fps);
 	cam.setParam(paramTypeKAYACoaXpress::paramFloat::ExposureTime, exposuretime);
 	cam.setParam(paramTypeKAYACoaXpress::CaptureType::BayerGRGrab);
-	cam.setParam(paramTypeKAYACoaXpress::Gain::x2);
+	cam.setParam(paramTypeKAYACoaXpress::Gain::x1);
 	cam.parameter_all_print();
 	in_img_hsc = cv::Mat(cam.getParam(paramTypeCamera::paramInt::HEIGHT), cam.getParam(paramTypeCamera::paramInt::WIDTH), CV_8UC3, cv::Scalar::all(255));
 #endif // GET_HSC
