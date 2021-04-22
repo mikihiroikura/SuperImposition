@@ -46,12 +46,12 @@ cv::Mat in_img_ugvrs, in_img_uavrs;
 vector<cv::Mat> save_img_rs;
 rs2::context context;
 int ugvrsid = 0, uavrsid = 1;
-const unsigned int colorwidth = 848;
-const unsigned int colorheight = 480;
-const unsigned int colorfps = 60;
-const unsigned int depthwidth = 848;
-const unsigned int depthheight = 480;
-const unsigned int depthfps = 60;
+const unsigned int colorwidth = 1920;
+const unsigned int colorheight = 1080;
+const unsigned int colorfps = 30;
+const unsigned int depthwidth = 1280;
+const unsigned int depthheight = 720;
+const unsigned int depthfps = 30;
 
 //マーカ検出に関するパラメータ
 vector<glm::mat4> save_RTm2c;
