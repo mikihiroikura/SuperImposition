@@ -28,10 +28,14 @@ function make_setup()
     
     %UAV側のRS-HSC間の位置姿勢Calibration
     video_folder_uav = './videos/UAV/';
-    video_name_uav_rs = 'RS/202104212048_video_rs1.mp4';
-    video_dir_uav_rs = strcat(video_folder_uav, video_name_uav_rs);
-    video_name_uav_hsc = 'HSC/202104212048_video_hsc.mp4';
-    video_dir_uav_hsc = strcat(video_folder_uav, video_name_uav_hsc);
+    video_name_uavcalib_uavrs = 'UAVRS/202104221454_video_rs1.mp4';
+    video_dir_uavcalib_uavrs = strcat(video_folder_uav, video_name_uavcalib_uavrs);
+    video_name_uavcalib_ugvrs = 'UGVRS/202104221454_video_rs0.mp4';
+    video_dir_uavcalib_ugvrs = strcat(video_folder_uav, video_name_uavcalib_ugvrs);
+    csv_name_uavcalib = 'CSV/202104221454_markerpose.csv';
+    csv_dir_uavcalib_marker = strcat(video_folder_uav, csv_name_uavcalib);
+    %video_name_uav_hsc = 'HSC/202104221454_video_rs0.mp4';
+    %video_dir_uav_hsc = strcat(video_folder_uav, video_name_uav_hsc);
     
     %UGV側のRS-Marker間の位置姿勢Calibration
     video_folder_ugv = './videos/UGV/';
@@ -42,7 +46,8 @@ function make_setup()
     csv_name_ugv = 'CSV/202104212020_markerpose.csv';
     csv_dir_ugv_marker = strcat(video_folder_ugv, csv_name_ugv);
     
-    save setup.mat video_dir fish_step squareSize fishparamfile video_dir_uav_rs video_dir_uav_hsc img_step ...
-        video_dir_ugv_rs video_dir_ugv_hsc csv_dir_ugv_marker rs0_video_dir rs1_video_dir poseparamfile
+    save setup.mat video_dir fish_step squareSize fishparamfile video_dir_uavcalib_uavrs img_step ...
+        video_dir_ugv_rs video_dir_ugv_hsc csv_dir_ugv_marker rs0_video_dir rs1_video_dir poseparamfile ...
+        video_dir_uavcalib_ugvrs csv_dir_uavcalib_marker %video_dir_uav_hsc
 end
 

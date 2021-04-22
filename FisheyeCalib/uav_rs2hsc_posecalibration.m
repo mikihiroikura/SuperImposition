@@ -25,14 +25,22 @@ function uav_rs2hsc_posecalibration()
     
     %RSとHSC両方で検出したフレームの洗い出し
     imageUsed_uavrs_and_hsc = logical(imagesUsed_hsc .* imagesUsed_uavrs);
-    for i = 1:size(imagePoints_hsc,3)
-        if size(find(isnan(imagePoints_hsc(:,:,i))),1) > 0
-           imageUsed_uavrs_and_hsc(i) = 0; 
+    cnt = 0;
+    for i = 1:size(imagesUsed_hsc,1)
+        if imagesUsed_hsc(i)
+            cnt = cnt + 1;
+            if size(find(isnan(imagePoints_hsc(:,:,cnt))),1) > 0
+               imageUsed_uavrs_and_hsc(i) = 0; 
+            end
         end
     end
-    for i = 1:size(imagePoints_uavrs,3)
-        if size(find(isnan(imagePoints_uavrs(:,:,i))),1) > 0
-           imageUsed_uavrs_and_hsc(i) = 0; 
+    cnt = 0;
+    for i = 1:size(imagesUsed_uavrs,1)
+        if imagesUsed_uavrs(i)
+            cnt = cnt + 1;
+            if size(find(isnan(imagePoints_uavrs(:,:,cnt))),1) > 0
+               imageUsed_uavrs_and_hsc(i) = 0; 
+            end
         end
     end
     

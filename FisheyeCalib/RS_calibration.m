@@ -3,17 +3,17 @@ function RS_calibration()
     
     %RS0からFrameを保存する
     rs0vidObj = VideoReader(rs0_video_dir);
-    allFrame = read(rs0vidObj);
+    allFrame_rs0 = read(rs0vidObj);
     
     %チェッカーボード検出
-    calibimg = allFrame(:,:,:,1:fish_step:size(allFrame,4));
-    [imagePoints,boardSize] = detectCheckerboardPoints(calibimg);
-    worldPoints = generateCheckerboardPoints(boardSize, squareSize);
+    calibimg_rs0 = allFrame_rs0(:,:,:,1:fish_step:size(allFrame_rs0,4));
+    [imagePoints_rs0,boardSize_rs0] = detectCheckerboardPoints(calibimg_rs0);
+    worldPoints_rs0 = generateCheckerboardPoints(boardSize_rs0, squareSize);
     
     %Calibration
-    imageSize = [size(allFrame, 1), size(allFrame, 2)];
-    rs0params = estimateCameraParameters(imagePoints,worldPoints, ...
-                                  'ImageSize',imageSize);
+    imageSize_rs0 = [size(allFrame_rs0, 1), size(allFrame_rs0, 2)];
+    rs0params = estimateCameraParameters(imagePoints_rs0,worldPoints_rs0, ...
+                                  'ImageSize',imageSize_rs0);
                               
     %RS0 parameterの保存(MATLAB用)
     save rs0params.mat rs0params
@@ -21,19 +21,19 @@ function RS_calibration()
     
     %RS1からFrameを保存する
     rs1vidObj = VideoReader(rs1_video_dir);
-    allFrame = read(rs1vidObj);
+    allFrame_rs1 = read(rs1vidObj);
     
     %チェッカーボード検出
-    calibimg = allFrame(:,:,:,1:fish_step:size(allFrame,4));
-    [imagePoints,boardSize] = detectCheckerboardPoints(calibimg);
-    worldPoints = generateCheckerboardPoints(boardSize, squareSize);
+    calibimg_rs1 = allFrame_rs1(:,:,:,1:fish_step:size(allFrame_rs1,4));
+    [imagePoints_rs1,boardSize_rs1] = detectCheckerboardPoints(calibimg_rs1);
+    worldPoints_rs1 = generateCheckerboardPoints(boardSize_rs1, squareSize);
     
     %Calibration
-    imageSize = [size(allFrame, 1), size(allFrame, 2)];
-    rs1params = estimateCameraParameters(imagePoints,worldPoints, ...
-                                  'ImageSize',imageSize);
+    imageSize_rs1 = [size(allFrame_rs1, 1), size(allFrame_rs1, 2)];
+    rs1params = estimateCameraParameters(imagePoints_rs1,worldPoints_rs1, ...
+                                  'ImageSize',imageSize_rs1);
                               
-    %RS0 parameterの保存(MATLAB用)
+    %RS1 parameterの保存(MATLAB用)
     save rs1params.mat rs1params
     
 end
