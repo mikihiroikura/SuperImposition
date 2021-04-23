@@ -106,7 +106,7 @@ int detectresult = -1;
 //#define IMG_MODE_
 #define GET_HSC
 #define GET_UGVRS
-#define GET_UAVRS
+//#define GET_UAVRS
 
 #pragma comment(lib,"KAYACoaXpressLib" LIB_EXT)
 #pragma warning(disable:4996)
@@ -259,7 +259,7 @@ int main() {
 #ifdef GET_UGVRS
 		cv::imshow("img UGV realsense", in_img_ugvrs);
 #endif // GET_UGVRS
-#ifdef GET_UGVRS
+#ifdef GET_UAVRS
 		cv::imshow("img UAV realsense", in_img_uavrs);
 #endif // GET_UGVRS
 
