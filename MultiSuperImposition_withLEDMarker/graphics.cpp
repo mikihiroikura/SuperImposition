@@ -25,6 +25,7 @@ float init_fov = 60, fov = init_fov;
 float pointsize = 2.5;
 float rotate_x[realsense_cnt] = { 0.0 }, rotate_y[realsense_cnt] = { 0.0 }, rotate_z[realsense_cnt] = { 0.0 };
 float translate_x[realsense_cnt] = { 0.0 }, translate_y[realsense_cnt] = { 0.0 }, translate_z[realsense_cnt] = { -.0 };
+float camtarget[3] = { 0,0,0 };
 double mouse_x, mouse_y, mouse_x_old, mouse_y_old;
 double horiz_angle = -M_PI, vert_angle = 0.0;
 int trans_max = 10;
@@ -35,6 +36,7 @@ bool rs[2] = { true, true };
 bool userelpose = true;
 glm::vec3 position(0, 0, -1), up(0, -1, 0), direction(0, 0, 0);
 glm::mat4 mvp, vp, Model[2], View, Projection;
+float campos_radius = 1.0;
 
 //プロトタイプ宣言
 static void setfov(GLFWwindow* window, double x, double y);
@@ -226,11 +228,14 @@ void drawGL_realsense(float** pts, float** texcoords, rs2::frame** colorframes, 
             rs[i] = true;
         }
         fov = init_fov;
+        camtarget[0] = 0, camtarget[1] = 0, camtarget[2] = 0;
+        campos_radius = 1.0;
     }
 
     //Model view行列の計算
-    position = glm::vec3(cos(vert_angle) * sin(horiz_angle), sin(vert_angle), cos(vert_angle) * cos(horiz_angle));
+    position = glm::vec3(campos_radius * cos(vert_angle) * sin(horiz_angle), campos_radius * sin(vert_angle), campos_radius * cos(vert_angle) * cos(horiz_angle));
     Projection = glm::perspective(glm::radians(fov), (GLfloat)window_width / (GLfloat)window_height, 0.1f, 100.0f);
+    direction.x = camtarget[0]; direction.y = camtarget[1]; direction.z = camtarget[2];
     View = glm::lookAt(position, direction, up);
     for (size_t i = 0; i < realsense_cnt; i++)
     {
@@ -277,7 +282,7 @@ void drawGL_realsense(float** pts, float** texcoords, rs2::frame** colorframes, 
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 
-    ImGui::SetNextWindowSize(ImVec2(320, 300), ImGuiCond_Once);
+    ImGui::SetNextWindowSize(ImVec2(320, 350), ImGuiCond_Once);
     ImGui::Begin("Logs and Parameters");
     hovered = ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem); //IMGUI上のWindowでのカーソル処理時のフラグを立てる
     ImGui::Checkbox("Use RelPose", &userelpose);
@@ -291,6 +296,11 @@ void drawGL_realsense(float** pts, float** texcoords, rs2::frame** colorframes, 
     ImGui::SliderFloat2("translate_x", (float*)&translate_x, -trans_max, trans_max, "%.0f");
     ImGui::SliderFloat2("translate_y", (float*)&translate_y, -trans_max, trans_max, "%.0f");
     ImGui::SliderFloat2("translate_z", (float*)&translate_z, -trans_max, trans_max, "%.0f");
+    ImGui::Text("Camera Position & View target");
+    ImGui::DragFloat("campos radius", &campos_radius);
+    ImGui::DragFloat("viewtarget x", &camtarget[0]);
+    ImGui::DragFloat("viewtarget y", &camtarget[1]);
+    ImGui::DragFloat("viewtarget z", &camtarget[2]);
     ImGui::End();
 
     ImGui::Render();
