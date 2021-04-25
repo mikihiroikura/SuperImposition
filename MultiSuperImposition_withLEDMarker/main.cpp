@@ -44,6 +44,7 @@ double map_coeff[4], stretch_mat[4], det, distort[4];
 /// 画像に関するパラメータ
 const int ringbuffersize = 10;
 vector<cv::Mat> in_imgs_on, in_imgs_off, in_imgs;
+vector<int> in_imgs_on_nums;
 vector<bool> processflgs;
 cv::Mat zero, full, zeromulti;
 int takepicid, in_imgs_saveid;
@@ -57,6 +58,15 @@ const int ring_size_realsense = 5;
 int getpc_id = 0;
 float* texcoords_src;
 int update_ringid;
+struct PointCloud
+{
+	const rs2::vertex* pc_buffer;
+	const rs2::texture_coordinate* texcoords;
+	float* pc_ringbuffer;
+	float* texcoords_ringbuffer;
+	rs2::frame colorframe_buffer[ring_size_realsense];
+	int pc_ringid = 0;
+};
 
 //出力に関するパラメータ
 float* gl_pc_src[realsense_cnt];
@@ -125,19 +135,24 @@ int detectresult = -1;
 
 
 //ログに関するパラメータ
-struct PointCloud
+const int timeout = 30;
+const int log_img_fps = 40;
+const int log_img_finish_cnt = log_img_fps * timeout + 100;
+const int log_pose_finish_cnt = fps * timeout + 100;
+long long log_img_cnt = 0, log_lsm_cnt = 0;
+uint8_t* save_img_on_src;
+struct Logs
 {
-	const rs2::vertex* pc_buffer;
-	const rs2::texture_coordinate* texcoords;
-	float* pc_ringbuffer;
-	float* texcoords_ringbuffer;
-	rs2::frame colorframe_buffer[ring_size_realsense];
-	int pc_ringid = 0;
+	vector<vector<vector<double>>> LSM_pts;
+	//double LSM_pts_cycle[cyclebuffersize][rends - rstart][3] = {0};
+	vector<cv::Mat> in_imgs_log;
+	cv::Mat* in_imgs_log_ptr;
 };
+
 
 void GetPointClouds(realsense* rs, bool* flg, PointCloud* pc);
 void TakePicture(kayacoaxpress* cam, bool* flg);
-void ShowAllLogs(bool* flg, PointCloud** pc_src);
+void ShowGLLogs(bool* flg, PointCloud** pc_src);
 int DetectLEDMarker();
 
 #define GETPOINTSREALSENSE_THREAD_
@@ -147,6 +162,9 @@ int DetectLEDMarker();
 #define SHOW_OPENGL_THREAD_
 //#define DEBUG_
 #define ROI_MODE_
+
+#define SAVE_IMGS_
+#define SAVE_HSC2MK_POSE_
 
 int main() {
 	//パラメータ
@@ -177,9 +195,8 @@ int main() {
 	cout << "Set Mat Cycle Buffer..." << endl;
 	for (size_t i = 0; i < ringbuffersize; i++)
 	{
-		in_imgs_on.push_back(zero.clone());
-		in_imgs_off.push_back(zero.clone());
 		in_imgs.push_back(zeromulti.clone());
+		in_imgs_on_nums.push_back(-1);
 		processflgs.push_back(false);
 	}
 
@@ -247,7 +264,7 @@ int main() {
 		memcpy((RTuavrs2ugvrs_buffer + i), &RTuavrs2ugvrs, sizeof(glm::mat4));
 	}
 
-	//ログ初期化
+	//Point Cloudのリングバッファ初期化
 	cout << "Set PointCloud buffers....";
 	vector<PointCloud> pcs;
 	PointCloud* pcs_src[realsense_cnt];
@@ -275,6 +292,17 @@ int main() {
 	}
 	cout << "OK!" << endl;
 
+	//OpenGL出力の画像と位置姿勢計算の画像保存バッファの作成
+#ifdef SAVE_IMGS_
+	Logs logs;
+//取得画像を格納するVectorの作成
+	std::cout << "Set Img Vector for logs....................";
+	for (size_t i = 0; i < log_img_finish_cnt; i++) { logs.in_imgs_log.push_back(zero.clone()); }
+	logs.in_imgs_log_ptr = logs.in_imgs_log.data();
+	cout << "OK!" << endl;
+#endif // SAVE_IMGS_
+
+
 	//カメラ起動
 	cout << "Camera Start!" << endl;
 	cam.start();
@@ -289,7 +317,7 @@ int main() {
 #endif // GETPOINTREALSENSE_THREAD_
 	thread TakePictureThread(TakePicture, &cam, &flg);
 #ifdef SHOW_IMGS_THREAD_
-	thread ShowLogsThread(ShowAllLogs, &flg, pcs_src);
+	thread ShowLogsThread(ShowGLLogs, &flg, pcs_src);
 #endif // SHOW_	
 
 
@@ -368,8 +396,8 @@ void TakePicture(kayacoaxpress* cam, bool* flg) {
 	}
 }
 
-//画像の点群全てを表示
-void ShowAllLogs(bool* flg, PointCloud **pc_src) {
+//OpenGLでRealSenseの点群を全て出力
+void ShowGLLogs(bool* flg, PointCloud **pc_src) {
 	//OpenGLの初期化
 	initGL();
 
@@ -382,17 +410,6 @@ void ShowAllLogs(bool* flg, PointCloud **pc_src) {
 	while (*flg)
 	{
 		QueryPerformanceCounter(&showstart);
-
-		//OpenCVで画像表示
-		cv::imshow("img", in_imgs[(in_imgs_saveid - 2 + ringbuffersize) % ringbuffersize]);
-		int key = cv::waitKey(1);
-		if (key == 'q') *flg = false;
-
-#ifdef SAVE_IMGS_
-		memcpy((imglog + log_img_cnt)->data, in_imgs[(in_imgs_saveid - 2 + cyclebuffersize) % cyclebuffersize].data, height * width * 3);
-		log_img_cnt++;
-		if (log_img_cnt > log_img_finish_cnt) *flg = false;
-#endif // SAVE_IMGS_
 
 #ifdef SHOW_OPENGL_THREAD_
 		//OpenGLで2台のRealsenseの点群出力
@@ -418,12 +435,30 @@ void ShowAllLogs(bool* flg, PointCloud **pc_src) {
 			showtime = (double)(showend.QuadPart - showstart.QuadPart) / freq.QuadPart;
 		}
 #ifdef SHOW_PROCESSING_TIME_
-		std::cout << "ShowAllLogs() time: " << showtime << endl;
+		std::cout << "ShowGLLogs() time: " << showtime << endl;
 #endif // SHOW_PROCESSING_TIME_
 	}
 
 	//OpenGLの終了
 	finishGL();
+}
+
+void ShowSaveImgsLogs(bool* flg, cv::Mat* imglog) {
+	//OpenCVで画像表示
+	cv::imshow("img", in_imgs[(in_imgs_saveid - 2 + ringbuffersize) % ringbuffersize]);
+	int key = cv::waitKey(1);
+	if (key == 'q') *flg = false;
+
+#ifdef SAVE_IMGS_
+	//LED ON画像の保存
+	save_img_on_src	= in_imgs[(in_imgs_saveid - 2 + ringbuffersize) % ringbuffersize].ptr<uint8_t>(0);
+	memcpy((imglog + log_img_cnt)->data, save_img_on_src + in_imgs_on_nums[(static_cast<long long>(in_imgs_saveid) - 2 + ringbuffersize) % ringbuffersize] *  height * width * 3, height * width * 3);
+	log_img_cnt++;
+	if (log_img_cnt > log_img_finish_cnt) *flg = false;
+
+	//OpenGL表示の画像保存
+
+#endif // SAVE_IMGS_
 }
 
 //RealSenseから点群や画像の取得
@@ -588,6 +623,7 @@ int DetectLEDMarker() {
 			if (on_img_cnt > ptscnt / 2) on_img_id = 0;
 			else on_img_id = 1;
 			detectimg_on_src = detectimg[on_img_id].ptr<uint8_t>(0);
+			in_imgs_on_nums[detectid] = on_img_id;
 
 			//分類ごとに青緑の個数のカウント
 			blueno = -1;

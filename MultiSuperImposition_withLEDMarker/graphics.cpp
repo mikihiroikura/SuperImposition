@@ -318,3 +318,11 @@ void finishGL() {
     glDeleteBuffers(1, &tcbo);
     glDeleteTextures(1, &tex);
 }
+
+void saveImgCV(void* data) {
+    //読み取るOpenGLのバッファの指定
+    glReadBuffer(GL_BACK);
+
+    //OpenGLで画面に表示されている内容をバッファに保存
+    glReadPixels(0, 0, window_width, window_height, GL_BGR, GL_UNSIGNED_BYTE, data);
+}

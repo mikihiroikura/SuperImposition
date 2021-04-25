@@ -32,5 +32,6 @@ const int realsense_cnt = 2;
 extern void initGL();
 extern void drawGL_realsense(float** pts, float** texcoords, rs2::frame** colorframes, glm::mat4* rtuavrs2ugvrs);
 extern void finishGL();
+extern void saveImgCV(void* data);
 
 #endif // !GRAPHICS_H_
