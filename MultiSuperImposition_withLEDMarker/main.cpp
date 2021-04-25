@@ -452,7 +452,15 @@ void ShowSaveImgsLogs(bool* flg, cv::Mat* imglog) {
 #ifdef SAVE_IMGS_
 	//LED ON‰æ‘œ‚Ì•Û‘¶
 	save_img_on_src	= in_imgs[(in_imgs_saveid - 2 + ringbuffersize) % ringbuffersize].ptr<uint8_t>(0);
-	memcpy((imglog + log_img_cnt)->data, save_img_on_src + in_imgs_on_nums[(static_cast<long long>(in_imgs_saveid) - 2 + ringbuffersize) % ringbuffersize] *  height * width * 3, height * width * 3);
+	if (in_imgs_on_nums[(in_imgs_saveid - 2 + ringbuffersize) % ringbuffersize] == 0)
+	{
+		memcpy((imglog + log_img_cnt)->data, save_img_on_src, height * width * 3);
+	}
+	else
+	{
+		memcpy((imglog + log_img_cnt)->data, save_img_on_src + height * width * 3, height * width * 3);
+	}
+	
 	log_img_cnt++;
 	if (log_img_cnt > log_img_finish_cnt) *flg = false;
 
