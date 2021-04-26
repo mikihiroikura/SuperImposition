@@ -78,8 +78,9 @@ LARGE_INTEGER start, stop, freq;
 LARGE_INTEGER glstart, glstop;
 LARGE_INTEGER takestart, takeend;
 LARGE_INTEGER showstart, showend;
+LARGE_INTEGER logstart, logend;
 LARGE_INTEGER detectstart, detectstartdebug, detectend;
-double taketime = 0, showtime = 0;
+double taketime = 0, showtime = 0, logtime = 0;
 double timer = 0, gltimer = 0;
 double detecttimea = 0, detecttimeb = 0, detecttimec = 0, detecttimed = 0, detecttimee = 0, detecttimef = 0, detecttime = 0;
 
@@ -99,7 +100,7 @@ roi_led_maxx_ini[4] = { 0 }, roi_led_miny_ini[4] = { height, height, height, hei
 int roi_led_minx[4], roi_led_maxx[4], roi_led_miny[4], roi_led_maxy[4];
 bool leddetected = false;
 int ptscnt;
-float* ptsptr, * ptscand_ptr, *center_src;
+float* ptsptr, * ptscand_ptr, * center_src;
 cv::Mat pts, ptscand, labels, centers, afterlabel;
 double dist, dist_cluster_thr = 20, dist_centers_thr = 10;
 uint8_t* diffimg_src, * detectimg0_src, * detectimg1_src, * detectimg_on_src, * detectimghsv_on_src, * afterlabel_src;
@@ -120,7 +121,7 @@ double lednormdir[4][3] = { 0 };
 glm::mat4 RTm2c = glm::mat4(1.0), RTc2m = glm::mat4(1.0), RTuavrs2ugvrs = glm::mat4(1.0);
 glm::mat4 RTuavrs2hsc = glm::mat4(1.0), RTugvmk2rs = glm::mat4(1.0);
 glm::mat4 RTuavrs2mk = glm::mat4(1.0);
-glm::mat4 *RTuavrs2ugvrs_buffer, *RTuavrs2ugvrs_toGPU;
+glm::mat4* RTuavrs2ugvrs_buffer, * RTuavrs2ugvrs_toGPU;
 int RTuavrs2ugvrs_bufferid = 0, RTuavrs2ugvrs_outid = 0;
 cv::Mat A = cv::Mat::zeros(12, 7, CV_64F);
 cv::Mat x = cv::Mat::zeros(7, 1, CV_64F);
@@ -135,26 +136,26 @@ int detectresult = -1;
 
 
 //ログに関するパラメータ
-const int timeout = 30;
+const int timeout = 10;
 const int log_img_fps = 40;
 const int log_img_finish_cnt = log_img_fps * timeout + 100;
 const int log_pose_finish_cnt = fps * timeout + 100;
 long long log_img_cnt = 0, log_lsm_cnt = 0;
 uint8_t* save_img_on_src;
+bool saveimgflg = false, savestart = false;
 struct Logs
 {
-	vector<vector<vector<double>>> LSM_pts;
-	//double LSM_pts_cycle[cyclebuffersize][rends - rstart][3] = {0};
 	vector<cv::Mat> in_imgs_log;
+	cv::Mat gl_img;
+	vector<cv::Mat> gl_imgs_log;
 	cv::Mat* in_imgs_log_ptr;
 };
 
 
 void GetPointClouds(realsense* rs, bool* flg, PointCloud* pc);
 void TakePicture(kayacoaxpress* cam, bool* flg);
-void ShowGLLogs(bool* flg, PointCloud** pc_src);
+void ShowAllLogs(bool* flg, PointCloud** pc_src, cv::Mat* imglog);
 int DetectLEDMarker();
-void ShowSaveImgsLogs(bool* flg, cv::Mat* imglog);
 
 #define GETPOINTSREALSENSE_THREAD_
 #define GETRELPOSE_THREAD_
@@ -164,7 +165,7 @@ void ShowSaveImgsLogs(bool* flg, cv::Mat* imglog);
 //#define DEBUG_
 #define ROI_MODE_
 
-//#define SAVE_IMGS_
+#define SAVE_IMGS_
 #define SAVE_HSC2MK_POSE_
 
 int main() {
@@ -265,7 +266,7 @@ int main() {
 		memcpy((RTuavrs2ugvrs_buffer + i), &RTuavrs2ugvrs, sizeof(glm::mat4));
 	}
 
-	//Point Cloudのリングバッファ初期化
+	//ログ初期化
 	cout << "Set PointCloud buffers....";
 	vector<PointCloud> pcs;
 	PointCloud* pcs_src[realsense_cnt];
@@ -296,13 +297,12 @@ int main() {
 	//OpenGL出力の画像と位置姿勢計算の画像保存バッファの作成
 	Logs logs;
 #ifdef SAVE_IMGS_
-//取得画像を格納するVectorの作成
+	//取得画像を格納するVectorの作成
 	std::cout << "Set Img Vector for logs....................";
 	for (size_t i = 0; i < log_img_finish_cnt; i++) { logs.in_imgs_log.push_back(zero.clone()); }
 	logs.in_imgs_log_ptr = logs.in_imgs_log.data();
 	cout << "OK!" << endl;
 #endif // SAVE_IMGS_
-
 
 	//カメラ起動
 	cout << "Camera Start!" << endl;
@@ -318,9 +318,8 @@ int main() {
 #endif // GETPOINTREALSENSE_THREAD_
 	thread TakePictureThread(TakePicture, &cam, &flg);
 #ifdef SHOW_IMGS_THREAD_
-	thread ShowGLLogsThread(ShowGLLogs, &flg, pcs_src);
+	thread ShowLogsThread(ShowAllLogs, &flg, pcs_src, logs.in_imgs_log_ptr);
 #endif // SHOW_	
-	//thread ShowSaveImgsTherad(ShowSaveImgsLogs, &flg, logs.in_imgs_log_ptr);
 
 
 	//メインループ
@@ -366,10 +365,8 @@ int main() {
 #endif // GETPOINTSREALSENSE_THREAD_
 	if (TakePictureThread.joinable())TakePictureThread.join();
 #ifdef SHOW_IMGS_THREAD_
-	if (ShowGLLogsThread.joinable())ShowGLLogsThread.join();
+	if (ShowLogsThread.joinable())ShowLogsThread.join();
 #endif // SHOW_IMGS_THREAD_
-	//if (ShowSaveImgsTherad.joinable())ShowSaveImgsTherad.join();
-
 
 
 	return 0;
@@ -400,10 +397,11 @@ void TakePicture(kayacoaxpress* cam, bool* flg) {
 	}
 }
 
-//OpenGLでRealSenseの点群を全て出力
-void ShowGLLogs(bool* flg, PointCloud **pc_src) {
+//画像の点群全てを表示
+void ShowAllLogs(bool* flg, PointCloud** pc_src, cv::Mat* imglog) {
 	//OpenGLの初期化
 	initGL();
+	logtime = 0;
 
 	QueryPerformanceCounter(&showstart);
 	while (showtime < 1.5)
@@ -419,6 +417,40 @@ void ShowGLLogs(bool* flg, PointCloud **pc_src) {
 		cv::imshow("img", in_imgs[(in_imgs_saveid - 2 + ringbuffersize) % ringbuffersize]);
 		int key = cv::waitKey(1);
 		if (key == 'q') *flg = false;
+		if (key == 's' && !savestart) {
+			saveimgflg = true;
+			QueryPerformanceCounter(&logstart);
+			savestart = true;
+		}
+
+#ifdef SAVE_IMGS_
+		if (saveimgflg)
+		{
+			//LED ON画像の保存
+			save_img_on_src = in_imgs[(in_imgs_saveid - 2 + ringbuffersize) % ringbuffersize].ptr<uint8_t>(0);
+			if (in_imgs_on_nums[(in_imgs_saveid - 2 + ringbuffersize) % ringbuffersize] == 0)
+			{
+				memcpy((imglog + log_img_cnt)->data, save_img_on_src, height * width * 3);
+			}
+			else
+			{
+				memcpy((imglog + log_img_cnt)->data, save_img_on_src + height * width * 3, height * width * 3);
+			}
+
+			log_img_cnt++;
+			if (log_img_cnt > log_img_finish_cnt) *flg = false;
+
+			//OpenGL表示の画像保存
+
+
+			//時間計測
+			QueryPerformanceCounter(&logend);
+			logtime = (double)(logend.QuadPart - logstart.QuadPart) / freq.QuadPart;
+			if (logtime > timeout) *flg = false;
+		}
+		
+
+#endif // SAVE_IMGS_
 
 #ifdef SHOW_OPENGL_THREAD_
 		//OpenGLで2台のRealsenseの点群出力
@@ -443,39 +475,14 @@ void ShowGLLogs(bool* flg, PointCloud **pc_src) {
 			QueryPerformanceCounter(&showend);
 			showtime = (double)(showend.QuadPart - showstart.QuadPart) / freq.QuadPart;
 		}
+		
 #ifdef SHOW_PROCESSING_TIME_
-		std::cout << "ShowGLLogs() time: " << showtime << endl;
+		std::cout << "ShowAllLogs() time: " << showtime << endl;
 #endif // SHOW_PROCESSING_TIME_
 	}
 
 	//OpenGLの終了
 	finishGL();
-}
-
-void ShowSaveImgsLogs(bool* flg, cv::Mat* imglog) {
-	//OpenCVで画像表示
-	cv::imshow("img", in_imgs[(in_imgs_saveid - 2 + ringbuffersize) % ringbuffersize]);
-	int key = cv::waitKey(1);
-	if (key == 'q') *flg = false;
-
-#ifdef SAVE_IMGS_
-	//LED ON画像の保存
-	save_img_on_src	= in_imgs[(in_imgs_saveid - 2 + ringbuffersize) % ringbuffersize].ptr<uint8_t>(0);
-	if (in_imgs_on_nums[(in_imgs_saveid - 2 + ringbuffersize) % ringbuffersize] == 0)
-	{
-		memcpy((imglog + log_img_cnt)->data, save_img_on_src, height * width * 3);
-	}
-	else
-	{
-		memcpy((imglog + log_img_cnt)->data, save_img_on_src + height * width * 3, height * width * 3);
-	}
-	
-	log_img_cnt++;
-	if (log_img_cnt > log_img_finish_cnt) *flg = false;
-
-	//OpenGL表示の画像保存
-
-#endif // SAVE_IMGS_
 }
 
 //RealSenseから点群や画像の取得
@@ -1009,9 +1016,9 @@ int DetectLEDMarker() {
 
 		//UAVRS2UGVRSの位置姿勢の計算
 		RTc2m = glm::inverse(RTm2c);
-		
+
 		RTuavrs2ugvrs = RTugvmk2rs * RTc2m * RTuavrs2hsc;
-	
+
 #ifdef DEBUG_
 		QueryPerformanceCounter(&detectend);
 		detecttimee = (double)(detectend.QuadPart - detectstartdebug.QuadPart) / freq.QuadPart;
