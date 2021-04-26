@@ -140,7 +140,7 @@ int detectresult = -1;
 
 
 //ƒƒO‚ÉŠÖ‚·‚éƒpƒ‰ƒ[ƒ^
-const int timeout = 1;
+const int timeout = 20;
 const int log_img_fps = 40;
 const int log_img_finish_cnt = log_img_fps * timeout + 100;
 const int log_pose_finish_cnt = fps * timeout + 100;
@@ -388,43 +388,47 @@ int main() {
 
 	//æ“¾‚µ‚½‰æ‘œ‚Ì•Û‘¶
 #ifdef SAVE_IMGS_
-	std::cout << "Saving imgs..." << endl;
-	//HSC‚Ì‰æ‘œ•Û‘¶
-	char picdir[256];
-	struct stat statBuf;
-	strftime(picdir, 256, "D:/Github_output/SuperImposition/MultiSuperImposition_withLEDMarker/results/%y%m%d", &now);
-	if (stat(picdir, &statBuf) != 0) {
-		if (_mkdir(picdir) != 0) { return 0; }
-	}
-	strftime(picdir, 256, "D:/Github_output/SuperImposition/MultiSuperImposition_withLEDMarker/results/%y%m%d/%H%M%S", &now);
-	if (stat(picdir, &statBuf) != 0) {
-		if (_mkdir(picdir) != 0) { return 0; }
-	}
-	strftime(picdir, 256, "D:/Github_output/SuperImposition/MultiSuperImposition_withLEDMarker/results/%y%m%d/%H%M%S/HSC", &now);
-	if (stat(picdir, &statBuf) != 0) {
-		if (_mkdir(picdir) != 0) { return 0; }
-	}
-	char picturename[256];
-	char picsubname[256];
-	strftime(picsubname, 256, "D:/Github_output/SuperImposition/MultiSuperImposition_withLEDMarker/results/%y%m%d/%H%M%S/HSC/frame", &now);
-	for (int i = 0; i < log_img_cnt; i++)
+	if (log_img_cnt > 0)
 	{
-		sprintf(picturename, "%s%05d.png", picsubname, i);//png‰Â‹tˆ³k
-		cv::imwrite(picturename, logs.in_imgs_log[i]);
+		std::cout << "Saving imgs..." << endl;
+		//HSC‚Ì‰æ‘œ•Û‘¶
+		char picdir[256];
+		struct stat statBuf;
+		strftime(picdir, 256, "D:/Github_output/SuperImposition/MultiSuperImposition_withLEDMarker/results/%y%m%d", &now);
+		if (stat(picdir, &statBuf) != 0) {
+			if (_mkdir(picdir) != 0) { return 0; }
+		}
+		strftime(picdir, 256, "D:/Github_output/SuperImposition/MultiSuperImposition_withLEDMarker/results/%y%m%d/%H%M%S", &now);
+		if (stat(picdir, &statBuf) != 0) {
+			if (_mkdir(picdir) != 0) { return 0; }
+		}
+		strftime(picdir, 256, "D:/Github_output/SuperImposition/MultiSuperImposition_withLEDMarker/results/%y%m%d/%H%M%S/HSC", &now);
+		if (stat(picdir, &statBuf) != 0) {
+			if (_mkdir(picdir) != 0) { return 0; }
+		}
+		char picturename[256];
+		char picsubname[256];
+		strftime(picsubname, 256, "D:/Github_output/SuperImposition/MultiSuperImposition_withLEDMarker/results/%y%m%d/%H%M%S/HSC/frame", &now);
+		for (int i = 0; i < log_img_cnt; i++)
+		{
+			sprintf(picturename, "%s%05d.png", picsubname, i);//png‰Â‹tˆ³k
+			cv::imwrite(picturename, logs.in_imgs_log[i]);
+		}
+		//OpenGL‚Ì‰æ‘œ•Û‘¶
+		strftime(picdir, 256, "D:/Github_output/SuperImposition/MultiSuperImposition_withLEDMarker/results/%y%m%d/%H%M%S/GL", &now);
+		if (stat(picdir, &statBuf) != 0) {
+			if (_mkdir(picdir) != 0) { return 0; }
+		}
+		strftime(picsubname, 256, "D:/Github_output/SuperImposition/MultiSuperImposition_withLEDMarker/results/%y%m%d/%H%M%S/GL/frame", &now);
+		for (int i = 0; i < log_img_cnt; i++)
+		{
+			sprintf(picturename, "%s%05d.png", picsubname, i);//png‰Â‹tˆ³k
+			cv::flip(logs.gl_imgs_log[i], logs.gl_imgs_log[i], 0);
+			cv::imwrite(picturename, logs.gl_imgs_log[i]);
+		}
+		std::cout << "Imgs finished!" << endl;
 	}
-	//OpenGL‚Ì‰æ‘œ•Û‘¶
-	strftime(picdir, 256, "D:/Github_output/SuperImposition/MultiSuperImposition_withLEDMarker/results/%y%m%d/%H%M%S/GL", &now);
-	if (stat(picdir, &statBuf) != 0) {
-		if (_mkdir(picdir) != 0) { return 0; }
-	}
-	strftime(picsubname, 256, "D:/Github_output/SuperImposition/MultiSuperImposition_withLEDMarker/results/%y%m%d/%H%M%S/GL/frame", &now);
-	for (int i = 0; i < log_img_cnt; i++)
-	{
-		sprintf(picturename, "%s%05d.png", picsubname, i);//png‰Â‹tˆ³k
-		cv::flip(logs.gl_imgs_log[i], logs.gl_imgs_log[i], 0);
-		cv::imwrite(picturename, logs.gl_imgs_log[i]);
-	}
-	std::cout << "Imgs finished!" << endl;
+	
 #endif // SAVE_IMGS_
 
 
