@@ -332,7 +332,11 @@ int main() {
 #ifdef SHOW_IMGS_THREAD_
 	thread ShowLogsThread(ShowImgsHSCGL, &flg, pcs_src);
 #endif // SHOW_	
+#ifdef SAVE_IMGS_
 	thread SaveImgsThread(SaveImgsHSCGL, &flg, &logs);
+#endif // SAVE_IMGS_
+
+	
 
 
 	//メインループ
@@ -486,12 +490,15 @@ void ShowImgsHSCGL(bool* flg, PointCloud** pc_src) {
 		cv::imshow("img", in_imgs[(in_imgs_saveid - 2 + ringbuffersize) % ringbuffersize]);
 		int key = cv::waitKey(1);
 		if (key == 'q') *flg = false;
+#ifdef SAVE_IMGS_
 		//sを押すと，画像保存が開始される
 		if (key == 's' && !savestartflg) {
 			saveimgflg = true;
 			QueryPerformanceCounter(&logstart);
 			savestartflg = true;
 		}
+#endif // SAVE_IMGS_
+
 
 #ifdef SHOW_OPENGL_THREAD_
 		//OpenGLで2台のRealsenseの点群出力
