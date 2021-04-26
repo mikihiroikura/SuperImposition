@@ -154,6 +154,7 @@ void GetPointClouds(realsense* rs, bool* flg, PointCloud* pc);
 void TakePicture(kayacoaxpress* cam, bool* flg);
 void ShowGLLogs(bool* flg, PointCloud** pc_src);
 int DetectLEDMarker();
+void ShowSaveImgsLogs(bool* flg, cv::Mat* imglog);
 
 #define GETPOINTSREALSENSE_THREAD_
 #define GETRELPOSE_THREAD_
@@ -163,7 +164,7 @@ int DetectLEDMarker();
 //#define DEBUG_
 #define ROI_MODE_
 
-#define SAVE_IMGS_
+//#define SAVE_IMGS_
 #define SAVE_HSC2MK_POSE_
 
 int main() {
@@ -293,8 +294,8 @@ int main() {
 	cout << "OK!" << endl;
 
 	//OpenGL出力の画像と位置姿勢計算の画像保存バッファの作成
-#ifdef SAVE_IMGS_
 	Logs logs;
+#ifdef SAVE_IMGS_
 //取得画像を格納するVectorの作成
 	std::cout << "Set Img Vector for logs....................";
 	for (size_t i = 0; i < log_img_finish_cnt; i++) { logs.in_imgs_log.push_back(zero.clone()); }
@@ -317,8 +318,9 @@ int main() {
 #endif // GETPOINTREALSENSE_THREAD_
 	thread TakePictureThread(TakePicture, &cam, &flg);
 #ifdef SHOW_IMGS_THREAD_
-	thread ShowLogsThread(ShowGLLogs, &flg, pcs_src);
+	thread ShowGLLogsThread(ShowGLLogs, &flg, pcs_src);
 #endif // SHOW_	
+	//thread ShowSaveImgsTherad(ShowSaveImgsLogs, &flg, logs.in_imgs_log_ptr);
 
 
 	//メインループ
@@ -364,8 +366,10 @@ int main() {
 #endif // GETPOINTSREALSENSE_THREAD_
 	if (TakePictureThread.joinable())TakePictureThread.join();
 #ifdef SHOW_IMGS_THREAD_
-	if (ShowLogsThread.joinable())ShowLogsThread.join();
+	if (ShowGLLogsThread.joinable())ShowGLLogsThread.join();
 #endif // SHOW_IMGS_THREAD_
+	//if (ShowSaveImgsTherad.joinable())ShowSaveImgsTherad.join();
+
 
 
 	return 0;
@@ -410,6 +414,11 @@ void ShowGLLogs(bool* flg, PointCloud **pc_src) {
 	while (*flg)
 	{
 		QueryPerformanceCounter(&showstart);
+
+		//OpenCVで画像表示
+		cv::imshow("img", in_imgs[(in_imgs_saveid - 2 + ringbuffersize) % ringbuffersize]);
+		int key = cv::waitKey(1);
+		if (key == 'q') *flg = false;
 
 #ifdef SHOW_OPENGL_THREAD_
 		//OpenGLで2台のRealsenseの点群出力
