@@ -523,8 +523,7 @@ void ShowAllLogs(bool* flg, PointCloud** pc_src, Logs *logs) {
 			gl_texcoord_src[i] = pc_src[i]->texcoords_ringbuffer + (unsigned long long)getpc_id * 2 * vert_cnt;
 			gl_tex_src[i] = pc_src[i]->colorframe_buffer + getpc_id;
 		}
-		RTuavrs2ugvrs_outid = RTuavrs2ugvrs_bufferid - 1;
-		if (RTuavrs2ugvrs_outid < 0) RTuavrs2ugvrs_outid += ringbuffersize;
+		RTuavrs2ugvrs_outid = (RTuavrs2ugvrs_bufferid - 1 + ringbuffersize) % ringbuffersize;
 		RTuavrs2ugvrs_toGPU = RTuavrs2ugvrs_buffer + RTuavrs2ugvrs_outid;
 		drawGL_realsense(gl_pc_src, gl_texcoord_src, gl_tex_src, RTuavrs2ugvrs_toGPU);
 #endif // SHOW_OPENGL_
