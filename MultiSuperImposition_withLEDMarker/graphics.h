@@ -18,6 +18,10 @@
 #include <librealsense2/rs.hpp>
 #include "realsense.h"
 
+//window
+const unsigned int window_width = 1280;
+const unsigned int window_height = 720;
+
 //realsense
 const unsigned int colorwidth = 848;
 const unsigned int colorheight = 480;

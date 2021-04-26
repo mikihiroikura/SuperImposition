@@ -149,12 +149,13 @@ struct Logs
 	cv::Mat gl_img;
 	vector<cv::Mat> gl_imgs_log;
 	cv::Mat* in_imgs_log_ptr;
+	cv::Mat* gl_imgs_log_ptr;
 };
 
 
 void GetPointClouds(realsense* rs, bool* flg, PointCloud* pc);
 void TakePicture(kayacoaxpress* cam, bool* flg);
-void ShowAllLogs(bool* flg, PointCloud** pc_src, cv::Mat* imglog);
+void ShowAllLogs(bool* flg, PointCloud** pc_src, Logs* logs);
 int DetectLEDMarker();
 
 #define GETPOINTSREALSENSE_THREAD_
@@ -266,7 +267,7 @@ int main() {
 		memcpy((RTuavrs2ugvrs_buffer + i), &RTuavrs2ugvrs, sizeof(glm::mat4));
 	}
 
-	//ログ初期化
+	//PointCloud初期化
 	cout << "Set PointCloud buffers....";
 	vector<PointCloud> pcs;
 	PointCloud* pcs_src[realsense_cnt];
@@ -299,8 +300,11 @@ int main() {
 #ifdef SAVE_IMGS_
 	//取得画像を格納するVectorの作成
 	std::cout << "Set Img Vector for logs....................";
+	logs.gl_img = cv::Mat(window_height, window_width, CV_8UC4, cv::Scalar::all(0));
+	for (size_t i = 0; i < log_img_finish_cnt; i++) { logs.gl_imgs_log.push_back(logs.gl_img.clone()); }
 	for (size_t i = 0; i < log_img_finish_cnt; i++) { logs.in_imgs_log.push_back(zero.clone()); }
 	logs.in_imgs_log_ptr = logs.in_imgs_log.data();
+	logs.gl_imgs_log_ptr = logs.gl_imgs_log.data();
 	cout << "OK!" << endl;
 #endif // SAVE_IMGS_
 
@@ -318,7 +322,7 @@ int main() {
 #endif // GETPOINTREALSENSE_THREAD_
 	thread TakePictureThread(TakePicture, &cam, &flg);
 #ifdef SHOW_IMGS_THREAD_
-	thread ShowLogsThread(ShowAllLogs, &flg, pcs_src, logs.in_imgs_log_ptr);
+	thread ShowLogsThread(ShowAllLogs, &flg, pcs_src, &logs);
 #endif // SHOW_	
 
 
@@ -398,7 +402,7 @@ void TakePicture(kayacoaxpress* cam, bool* flg) {
 }
 
 //画像の点群全てを表示
-void ShowAllLogs(bool* flg, PointCloud** pc_src, cv::Mat* imglog) {
+void ShowAllLogs(bool* flg, PointCloud** pc_src, Logs *logs) {
 	//OpenGLの初期化
 	initGL();
 	logtime = 0;
@@ -430,18 +434,19 @@ void ShowAllLogs(bool* flg, PointCloud** pc_src, cv::Mat* imglog) {
 			save_img_on_src = in_imgs[(in_imgs_saveid - 2 + ringbuffersize) % ringbuffersize].ptr<uint8_t>(0);
 			if (in_imgs_on_nums[(in_imgs_saveid - 2 + ringbuffersize) % ringbuffersize] == 0)
 			{
-				memcpy((imglog + log_img_cnt)->data, save_img_on_src, height * width * 3);
+				memcpy((logs->in_imgs_log_ptr + log_img_cnt)->data, save_img_on_src, height * width * 3);
 			}
 			else
 			{
-				memcpy((imglog + log_img_cnt)->data, save_img_on_src + height * width * 3, height * width * 3);
+				memcpy((logs->in_imgs_log_ptr + log_img_cnt)->data, save_img_on_src + height * width * 3, height * width * 3);
 			}
+			//OpenGL表示の画像保存
+			saveImgCV(logs->gl_img.data);
+			cv::flip(logs->gl_img, logs->gl_img, 0);
+			memcpy((logs->gl_imgs_log_ptr + log_img_cnt)->data, logs->gl_img.data, height * width * 4);
 
 			log_img_cnt++;
 			if (log_img_cnt > log_img_finish_cnt) *flg = false;
-
-			//OpenGL表示の画像保存
-
 
 			//時間計測
 			QueryPerformanceCounter(&logend);
