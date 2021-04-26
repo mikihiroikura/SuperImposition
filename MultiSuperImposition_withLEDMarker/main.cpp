@@ -300,7 +300,7 @@ int main() {
 #ifdef SAVE_IMGS_
 	//æ“¾‰æ‘œ‚ğŠi”[‚·‚éVector‚Ìì¬
 	std::cout << "Set Img Vector for logs....................";
-	logs.gl_img = cv::Mat(window_height, window_width, CV_8UC4, cv::Scalar::all(0));
+	logs.gl_img = cv::Mat(window_height, window_width, CV_8UC3, cv::Scalar::all(0));
 	for (size_t i = 0; i < log_img_finish_cnt; i++) { logs.gl_imgs_log.push_back(logs.gl_img.clone()); }
 	for (size_t i = 0; i < log_img_finish_cnt; i++) { logs.in_imgs_log.push_back(zero.clone()); }
 	logs.in_imgs_log_ptr = logs.in_imgs_log.data();
@@ -443,7 +443,7 @@ void ShowAllLogs(bool* flg, PointCloud** pc_src, Logs *logs) {
 			//OpenGL•\¦‚Ì‰æ‘œ•Û‘¶
 			saveImgCV(logs->gl_img.data);
 			cv::flip(logs->gl_img, logs->gl_img, 0);
-			memcpy((logs->gl_imgs_log_ptr + log_img_cnt)->data, logs->gl_img.data, height * width * 4);
+			memcpy((logs->gl_imgs_log_ptr + log_img_cnt)->data, logs->gl_img.data, height * width * 3);
 
 			log_img_cnt++;
 			if (log_img_cnt > log_img_finish_cnt) *flg = false;

@@ -322,5 +322,5 @@ void saveImgCV(void* data) {
     glReadBuffer(GL_BACK);
 
     //OpenGLで画面に表示されている内容をバッファに保存
-    glReadPixels(0, 0, window_width, window_height, GL_BGRA, GL_UNSIGNED_BYTE, data);
+    glReadPixels(0, 0, window_width, window_height, GL_BGR, GL_UNSIGNED_BYTE, data);
 }
