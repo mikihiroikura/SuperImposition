@@ -19,6 +19,10 @@
 #include <thread>
 #include <vector>
 #include "graphics.h"
+#include <cstdio>
+#include <iostream>
+#include <direct.h>
+#include <sys/stat.h>
 
 #ifdef _DEBUG
 #define LIB_EXT "d.lib"
@@ -136,7 +140,7 @@ int detectresult = -1;
 
 
 //ログに関するパラメータ
-const int timeout = 10;
+const int timeout = 1;
 const int log_img_fps = 40;
 const int log_img_finish_cnt = log_img_fps * timeout + 100;
 const int log_pose_finish_cnt = fps * timeout + 100;
@@ -152,11 +156,13 @@ struct Logs
 	cv::Mat* gl_imgs_log_ptr;
 };
 
-
+//プロトタイプ宣言
 void GetPointClouds(realsense* rs, bool* flg, PointCloud* pc);
 void TakePicture(kayacoaxpress* cam, bool* flg);
 void ShowAllLogs(bool* flg, PointCloud** pc_src, Logs* logs);
 int DetectLEDMarker();
+
+using namespace std;
 
 #define GETPOINTSREALSENSE_THREAD_
 #define GETRELPOSE_THREAD_
@@ -371,6 +377,54 @@ int main() {
 #ifdef SHOW_IMGS_THREAD_
 	if (ShowLogsThread.joinable())ShowLogsThread.join();
 #endif // SHOW_IMGS_THREAD_
+
+	//ログ保存のための準備
+	FILE* fr;
+	time_t timer;
+	struct tm now;
+	timer = time(NULL);
+	localtime_s(&now, &timer);
+
+
+	//取得した画像の保存
+#ifdef SAVE_IMGS_
+	std::cout << "Saving imgs..." << endl;
+	//HSCの画像保存
+	char picdir[256];
+	struct stat statBuf;
+	strftime(picdir, 256, "D:/Github_output/SuperImposition/MultiSuperImposition_withLEDMarker/results/%y%m%d", &now);
+	if (stat(picdir, &statBuf) != 0) {
+		if (_mkdir(picdir) != 0) { return 0; }
+	}
+	strftime(picdir, 256, "D:/Github_output/SuperImposition/MultiSuperImposition_withLEDMarker/results/%y%m%d/%H%M%S", &now);
+	if (stat(picdir, &statBuf) != 0) {
+		if (_mkdir(picdir) != 0) { return 0; }
+	}
+	strftime(picdir, 256, "D:/Github_output/SuperImposition/MultiSuperImposition_withLEDMarker/results/%y%m%d/%H%M%S/HSC", &now);
+	if (stat(picdir, &statBuf) != 0) {
+		if (_mkdir(picdir) != 0) { return 0; }
+	}
+	char picturename[256];
+	char picsubname[256];
+	strftime(picsubname, 256, "D:/Github_output/SuperImposition/MultiSuperImposition_withLEDMarker/results/%y%m%d/%H%M%S/HSC/frame", &now);
+	for (int i = 0; i < log_img_cnt; i++)
+	{
+		sprintf(picturename, "%s%05d.png", picsubname, i);//png可逆圧縮
+		cv::imwrite(picturename, logs.in_imgs_log[i]);
+	}
+	//OpenGLの画像保存
+	strftime(picdir, 256, "D:/Github_output/SuperImposition/MultiSuperImposition_withLEDMarker/results/%y%m%d/%H%M%S/GL", &now);
+	if (stat(picdir, &statBuf) != 0) {
+		if (_mkdir(picdir) != 0) { return 0; }
+	}
+	strftime(picsubname, 256, "D:/Github_output/SuperImposition/MultiSuperImposition_withLEDMarker/results/%y%m%d/%H%M%S/GL/frame", &now);
+	for (int i = 0; i < log_img_cnt; i++)
+	{
+		sprintf(picturename, "%s%05d.png", picsubname, i);//png可逆圧縮
+		cv::imwrite(picturename, logs.gl_imgs_log[i]);
+	}
+	std::cout << "Imgs finished!" << endl;
+#endif // SAVE_IMGS_
 
 
 	return 0;
