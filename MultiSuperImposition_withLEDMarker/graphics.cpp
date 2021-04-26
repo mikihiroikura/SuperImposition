@@ -317,7 +317,7 @@ void finishGL() {
     glDeleteTextures(1, &tex);
 }
 
-void saveImgCV(void* data) {
+void saveImgCV(uchar* data) {
     //読み取るOpenGLのバッファの指定
     glReadBuffer(GL_BACK);
 

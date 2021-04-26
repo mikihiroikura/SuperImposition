@@ -421,6 +421,7 @@ int main() {
 	for (int i = 0; i < log_img_cnt; i++)
 	{
 		sprintf(picturename, "%s%05d.png", picsubname, i);//png‰Â‹tˆ³k
+		cv::flip(logs.gl_imgs_log[i], logs.gl_imgs_log[i], 0);
 		cv::imwrite(picturename, logs.gl_imgs_log[i]);
 	}
 	std::cout << "Imgs finished!" << endl;
@@ -495,9 +496,7 @@ void ShowAllLogs(bool* flg, PointCloud** pc_src, Logs *logs) {
 				memcpy((logs->in_imgs_log_ptr + log_img_cnt)->data, save_img_on_src + height * width * 3, height * width * 3);
 			}
 			//OpenGL•\¦‚Ì‰æ‘œ•Û‘¶
-			saveImgCV(logs->gl_img.data);
-			cv::flip(logs->gl_img, logs->gl_img, 0);
-			memcpy((logs->gl_imgs_log_ptr + log_img_cnt)->data, logs->gl_img.data, height * width * 3);
+			saveImgCV((logs->gl_imgs_log_ptr + log_img_cnt)->data);
 
 			log_img_cnt++;
 			if (log_img_cnt > log_img_finish_cnt) *flg = false;
@@ -542,6 +541,10 @@ void ShowAllLogs(bool* flg, PointCloud** pc_src, Logs *logs) {
 
 	//OpenGL‚ÌI—¹
 	finishGL();
+}
+
+void ShowHSCLogs() {
+
 }
 
 //RealSense‚©‚ç“_ŒQ‚â‰æ‘œ‚Ìæ“¾
