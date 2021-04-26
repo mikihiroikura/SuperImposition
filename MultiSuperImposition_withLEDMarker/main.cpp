@@ -48,7 +48,6 @@ double map_coeff[4], stretch_mat[4], det, distort[4];
 /// 画像に関するパラメータ
 const int ringbuffersize = 10;
 vector<cv::Mat> in_imgs_on, in_imgs_off, in_imgs;
-vector<int> in_imgs_on_nums;
 vector<bool> processflgs;
 cv::Mat zero, full, zeromulti;
 int takepicid, in_imgs_saveid;
@@ -207,7 +206,6 @@ int main() {
 	for (size_t i = 0; i < ringbuffersize; i++)
 	{
 		in_imgs.push_back(zeromulti.clone());
-		in_imgs_on_nums.push_back(-1);
 		processflgs.push_back(false);
 	}
 
@@ -492,16 +490,9 @@ void ShowSaveImgsHSC(bool* flg, Logs* logs) {
 		//sを押して画像保存開始
 		if (saveimgsflg)
 		{
-			//LED ON画像の保存
+			//LED画像の保存
 			save_img_on_src = in_imgs[(in_imgs_saveid - 2 + ringbuffersize) % ringbuffersize].ptr<uint8_t>(0);
-			if (in_imgs_on_nums[(in_imgs_saveid - 2 + ringbuffersize) % ringbuffersize] == 0)
-			{
-				memcpy((logs->in_imgs_log_ptr + log_hscimg_cnt)->data, save_img_on_src, height * width * 3);
-			}
-			else
-			{
-				memcpy((logs->in_imgs_log_ptr + log_hscimg_cnt)->data, save_img_on_src + height * width * 3, height * width * 3);
-			}
+			memcpy((logs->in_imgs_log_ptr + log_hscimg_cnt)->data, save_img_on_src, height * width * 3);
 
 			log_hscimg_cnt++;
 			if (log_hscimg_cnt > log_img_finish_cnt) *flg = false;
@@ -762,7 +753,6 @@ int DetectLEDMarker() {
 			if (on_img_cnt > ptscnt / 2) on_img_id = 0;
 			else on_img_id = 1;
 			detectimg_on_src = detectimg[on_img_id].ptr<uint8_t>(0);
-			in_imgs_on_nums[detectid] = on_img_id;
 
 			//分類ごとに青緑の個数のカウント
 			blueno = -1;
