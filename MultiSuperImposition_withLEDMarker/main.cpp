@@ -464,7 +464,6 @@ void TakePicture(kayacoaxpress* cam, bool* flg) {
 void ShowAllLogs(bool* flg, PointCloud** pc_src, Logs *logs) {
 	//OpenGL‚Ì‰Šú‰»
 	initGL();
-	logtime = 0;
 
 	QueryPerformanceCounter(&showstart);
 	while (showtime < 1.5)
