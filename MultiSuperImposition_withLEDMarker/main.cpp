@@ -1148,55 +1148,53 @@ int DetectLEDMarker() {
 		//法線ベクトルから，LEDマーカの辺の方向ベクトルを2つ求める
 		for (size_t i = 0; i < 2; i++)
 		{
-			RTm2c[i][0] = -(lednormdir[i][1] * lednormdir[(i + 2)][2] - lednormdir[i][2] * lednormdir[(i + 2)][1]);
-			RTm2c[i][1] = -(lednormdir[i][2] * lednormdir[(i + 2)][0] - lednormdir[i][0] * lednormdir[(i + 2)][2]);
-			RTm2c[i][2] = -(lednormdir[i][0] * lednormdir[(i + 2)][1] - lednormdir[i][1] * lednormdir[(i + 2)][0]);
-			lambda = 1 / pow(pow(RTm2c[i][0], 2) + pow(RTm2c[i][1], 2) + pow(RTm2c[i][2], 2), 0.5);
-			RTm2c[i][0] *= lambda;
-			RTm2c[i][1] *= lambda;
-			RTm2c[i][2] *= lambda;
+			RTc2m[0][i] = -(lednormdir[i][1] * lednormdir[(i + 2)][2] - lednormdir[i][2] * lednormdir[(i + 2)][1]);
+			RTc2m[1][i] = -(lednormdir[i][2] * lednormdir[(i + 2)][0] - lednormdir[i][0] * lednormdir[(i + 2)][2]);
+			RTc2m[2][i] = -(lednormdir[i][0] * lednormdir[(i + 2)][1] - lednormdir[i][1] * lednormdir[(i + 2)][0]);
+			lambda = 1 / pow(pow(RTc2m[0][i], 2) + pow(RTc2m[1][i], 2) + pow(RTc2m[2][i], 2), 0.5);
+			RTc2m[0][i] *= lambda;
+			RTc2m[1][i] *= lambda;
+			RTc2m[2][i] *= lambda;
 		}
 
 		//カメラ-マーカ間の相対姿勢の計算(残りの方向ベクトルを外積で求める)
-		RTm2c[2][0] = RTm2c[0][1] * RTm2c[1][2] - RTm2c[0][2] * RTm2c[1][1];
-		RTm2c[2][1] = RTm2c[0][2] * RTm2c[1][0] - RTm2c[0][0] * RTm2c[1][2];
-		RTm2c[2][2] = RTm2c[0][0] * RTm2c[1][1] - RTm2c[0][1] * RTm2c[1][0];
-		lambda = 1 / pow(pow(RTm2c[2][0], 2) + pow(RTm2c[2][1], 2) + pow(RTm2c[2][2], 2), 0.5);
-		RTm2c[2][0] *= lambda;
-		RTm2c[2][1] *= lambda;
-		RTm2c[2][2] *= lambda;
+		RTc2m[0][2] = RTc2m[1][0] * RTc2m[2][1] - RTc2m[2][0] * RTc2m[1][1];
+		RTc2m[1][2] = RTc2m[2][0] * RTc2m[0][1] - RTc2m[0][0] * RTc2m[2][1];
+		RTc2m[2][2] = RTc2m[0][0] * RTc2m[1][1] - RTc2m[1][0] * RTc2m[0][1];
+		lambda = 1 / pow(pow(RTc2m[0][2], 2) + pow(RTc2m[1][2], 2) + pow(RTc2m[2][2], 2), 0.5);
+		RTc2m[0][2] *= lambda;
+		RTc2m[1][2] *= lambda;
+		RTc2m[2][2] *= lambda;
 
 		//ここで，方向ベクトルが画像処理の誤差を乗せて直交しないときに強引に直交する方向ベクトルを計算する
-		RTm2c[1][0] = RTm2c[2][1] * RTm2c[0][2] - RTm2c[2][2] * RTm2c[0][1];
-		RTm2c[1][1] = RTm2c[2][2] * RTm2c[0][0] - RTm2c[2][0] * RTm2c[0][2];
-		RTm2c[1][2] = RTm2c[2][0] * RTm2c[0][1] - RTm2c[2][1] * RTm2c[0][0];
-		lambda = 1 / pow(pow(RTm2c[1][0], 2) + pow(RTm2c[1][1], 2) + pow(RTm2c[1][2], 2), 0.5);
-		RTm2c[1][0] *= lambda;
-		RTm2c[1][1] *= lambda;
-		RTm2c[1][2] *= lambda;
+		RTc2m[0][1] = RTc2m[1][2] * RTc2m[2][0] - RTc2m[2][2] * RTc2m[1][0];
+		RTc2m[1][1] = RTc2m[2][2] * RTc2m[0][0] - RTc2m[0][2] * RTc2m[2][0];
+		RTc2m[2][1] = RTc2m[0][2] * RTc2m[1][0] - RTc2m[1][2] * RTc2m[0][0];
+		lambda = 1 / pow(pow(RTc2m[0][1], 2) + pow(RTc2m[1][1], 2) + pow(RTc2m[2][1], 2), 0.5);
+		RTc2m[0][1] *= lambda;
+		RTc2m[1][1] *= lambda;
+		RTc2m[2][1] *= lambda;
 
 		//魚眼モデルと相対姿勢を用いてカメラ-マーカ間の相対位置を計算
 		for (size_t i = 0; i < 4; i++)
 		{
-			Asrc[i * 7 * 3 + i] = ledcamdir[i][0];
-			Asrc[i * 7 * 3 + 7 + i] = ledcamdir[i][1];
-			Asrc[i * 7 * 3 + 14 + i] = ledcamdir[i][2];
-			Asrc[i * 7 * 3 + 4] = -1;
-			Asrc[i * 7 * 3 + 12] = -1;
-			Asrc[i * 7 * 3 + 20] = -1;
-			bsrc[i * 3 + 0] = RTm2c[0][0] * markerpos[i][0] + RTm2c[1][0] * markerpos[i][1];
-			bsrc[i * 3 + 1] = RTm2c[0][1] * markerpos[i][0] + RTm2c[1][1] * markerpos[i][1];
-			bsrc[i * 3 + 2] = RTm2c[0][2] * markerpos[i][0] + RTm2c[1][2] * markerpos[i][1];
+			Asrc[i * 7 * 3 + i] = RTc2m[0][0] * ledcamdir[i][0] + RTc2m[1][0] * ledcamdir[i][1] + RTc2m[2][0] * ledcamdir[i][2];
+			Asrc[i * 7 * 3 + 7 + i] = RTc2m[0][1] * ledcamdir[i][0] + RTc2m[1][1] * ledcamdir[i][1] + RTc2m[2][1] * ledcamdir[i][2];
+			Asrc[i * 7 * 3 + 14 + i] = RTc2m[0][2] * ledcamdir[i][0] + RTc2m[1][2] * ledcamdir[i][1] + RTc2m[2][2] * ledcamdir[i][2];
+			Asrc[i * 7 * 3 + 4] = 1;
+			Asrc[i * 7 * 3 + 12] = 1;
+			Asrc[i * 7 * 3 + 20] = 1;
+			bsrc[i * 3 + 0] = markerpos[i][0];
+			bsrc[i * 3 + 1] = markerpos[i][1];
+			bsrc[i * 3 + 2] = 0;
 		}
 		x = A.inv(cv::DECOMP_SVD) * b;
-		RTm2c[3][0] = xsrc[4];
-		RTm2c[3][1] = xsrc[5];
-		RTm2c[3][2] = xsrc[6];
+		RTc2m[3][0] = xsrc[4];
+		RTc2m[3][1] = xsrc[5];
+		RTc2m[3][2] = xsrc[6];
 		//計算された位置に連続性が確認されないときはエラーとする
 
 		//UAVRS2UGVRSの位置姿勢の計算
-		RTc2m = glm::inverse(RTm2c);
-
 		RTuavrs2ugvrs = RTugvmk2rs * RTc2m * RTuavrs2hsc;
 
 #ifdef DEBUG_
