@@ -139,11 +139,12 @@ int detectresult = -1;
 
 
 //ログに関するパラメータ
-const int timeout = 20;
+const int timeout = 10;
 const int log_img_fps = 40;
+const int log_led_fps = 500;
 const int log_img_finish_cnt = log_img_fps * timeout + 100;
-const int log_pose_finish_cnt = fps * timeout + 100;
-long long log_glimg_cnt = 0, log_hscimg_cnt = 0;
+const int log_pose_finish_cnt = log_led_fps * timeout + 100;
+long long log_glimg_cnt = 0, log_hscimg_cnt = 0, log_pose_cnt = 0;
 bool showsavehscimg = false, showsaveglimg = false;
 uint8_t* save_img_on_src;
 bool saveimgsflg = false, saveimgsstartflg = false;
@@ -154,6 +155,9 @@ struct Logs
 	vector<cv::Mat> gl_imgs_log;
 	cv::Mat* in_imgs_log_ptr;
 	cv::Mat* gl_imgs_log_ptr;
+	double* LED_times;
+	int* LED_results;
+	vector<glm::mat4> LED_RTuavrs2ugvrs;
 };
 
 //プロトタイプ宣言
@@ -313,6 +317,18 @@ int main() {
 	logs.gl_imgs_log_ptr = logs.gl_imgs_log.data();
 	cout << "OK!" << endl;
 #endif // SAVE_IMGS_
+#ifdef SAVE_HSC2MK_POSE_
+	cout << "Set Pose vector for logs........................";
+	logs.LED_times = (double*)malloc(sizeof(double) * log_pose_finish_cnt);
+	logs.LED_results = (int*)malloc(sizeof(int) * log_pose_finish_cnt);
+	for (size_t i = 0; i < log_pose_finish_cnt; i++)
+	{
+		logs.LED_RTuavrs2ugvrs.push_back(glm::mat4(1.0));
+	}
+	cout << "OK!" << endl;
+#endif // SAVE_HSC2MK_POSE_
+
+	cout << logs.LED_RTuavrs2ugvrs[0][1][1];
 
 	//カメラ起動
 	cout << "Camera Start!" << endl;
@@ -349,10 +365,11 @@ int main() {
 #endif // GETRELPOSE_THREAD_
 
 		if (detectresult == 0)
-		{//ここに位置姿勢推定結果を反映させる計算を実装
+		{	//ここに位置姿勢推定結果を反映させる計算を実装
 			memcpy((RTuavrs2ugvrs_buffer + RTuavrs2ugvrs_bufferid), &RTuavrs2ugvrs, sizeof(glm::mat4));
 			RTuavrs2ugvrs_bufferid = (RTuavrs2ugvrs_bufferid + 1) % ringbuffersize;
 		}
+
 		QueryPerformanceCounter(&detectend);
 		detecttime = (double)(detectend.QuadPart - detectstart.QuadPart) / freq.QuadPart;
 		while (detecttime < 0.002)
@@ -360,6 +377,24 @@ int main() {
 			QueryPerformanceCounter(&detectend);
 			detecttime = (double)(detectend.QuadPart - detectstart.QuadPart) / freq.QuadPart;
 		}
+
+		if (saveimgsflg)
+		{
+#ifdef SAVE_HSC2MK_POSE_
+			//位置姿勢ログ保存
+			* (logs.LED_results + log_pose_cnt) = detectresult;
+			* (logs.LED_times + log_pose_cnt) = logtime;
+			logs.LED_RTuavrs2ugvrs[log_pose_cnt] = RTuavrs2ugvrs;
+			log_pose_cnt++;
+			if (log_pose_cnt > log_pose_finish_cnt) flg = false;
+#endif // SAVE_HSC2MK_POSE_
+
+			//ログ時間計測
+			QueryPerformanceCounter(&logend);
+			logtime = (double)(logend.QuadPart - logstart.QuadPart) / freq.QuadPart;
+			if (logtime > timeout) flg = false;
+		}
+
 #ifdef SHOW_PROCESSING_TIME_
 		cout << "DetectLEDMarker() result: " << detectresult << endl;
 		std::cout << "DetectLEDMarker() time: " << detecttime << endl;
@@ -386,6 +421,46 @@ int main() {
 	struct tm now;
 	timer = time(NULL);
 	localtime_s(&now, &timer);
+	char dir[256];
+	char picdir[256];
+	char logfile[256];
+	struct stat statBuf;
+
+	//取得した位置姿勢の保存
+#ifdef SAVE_HSC2MK_POSE_
+	if (log_pose_cnt > 0)
+	{
+		cout << "Saving poses.." << endl;
+		//HSC2MKの位置姿勢保存
+		strftime(dir, 256, "D:/Github_output/SuperImposition/MultiSuperImposition_withLEDMarker/results/%y%m%d", &now);
+		if (stat(dir, &statBuf) != 0) {
+			if (_mkdir(dir) != 0) { return 0; }
+		}
+		strftime(dir, 256, "D:/Github_output/SuperImposition/MultiSuperImposition_withLEDMarker/results/%y%m%d/%H%M%S", &now);
+		if (stat(dir, &statBuf) != 0) {
+			if (_mkdir(dir) != 0) { return 0; }
+		}
+		strftime(logfile, 256, "D:/Github_output/SuperImposition/MultiSuperImposition_withLEDMarker/results/%y%m%d/%H%M%S/%y%m%d%H%M%S_LEDpose_results.csv", &now);
+		fr = fopen(logfile, "w");
+		for (size_t i = 0; i < log_pose_cnt; i++)
+		{
+			fprintf(fr, "%d,", logs.LED_results[i]);
+			fprintf(fr, "%lf,", logs.LED_times[i]);
+			for (size_t j = 0; j < 3; j++)
+			{
+				for (size_t k = 0; k < 3; k++)
+				{
+					fprintf(fr, "%f,", logs.LED_RTuavrs2ugvrs[i][k][j]);
+				}
+			}
+			for (size_t j = 0; j < 3; j++)
+			{
+				fprintf(fr, "%f,", logs.LED_RTuavrs2ugvrs[i][3][j]);
+			}
+			fprintf(fr, "\n");
+		}
+	}
+#endif // SAVE_HSC2MK_POSE_
 
 
 	//取得した画像の保存
@@ -394,8 +469,6 @@ int main() {
 	{
 		std::cout << "Saving imgs..." << endl;
 		//HSCの画像保存
-		char picdir[256];
-		struct stat statBuf;
 		strftime(picdir, 256, "D:/Github_output/SuperImposition/MultiSuperImposition_withLEDMarker/results/%y%m%d", &now);
 		if (stat(picdir, &statBuf) != 0) {
 			if (_mkdir(picdir) != 0) { return 0; }
@@ -561,11 +634,6 @@ void ShowSaveImgsGL(bool* flg, PointCloud** pc_src, Logs* logs) {
 
 			log_glimg_cnt++;
 			if (log_glimg_cnt > log_img_finish_cnt) *flg = false;
-
-			//時間計測
-			QueryPerformanceCounter(&logend);
-			logtime = (double)(logend.QuadPart - logstart.QuadPart) / freq.QuadPart;
-			if (logtime > timeout) *flg = false;
 		}
 #endif // SAVE_IMGS_
 
@@ -666,7 +734,10 @@ int DetectLEDMarker() {
 				}
 			}
 			//ここで差分画像から輝点が見つからないときの例外処理を書く
-			if (ptscnt <= 0) return 6;
+			if (ptscnt <= 0) {
+				processflgs[detectid] = false;
+				return 6;
+			}
 #ifdef DEBUG_
 			QueryPerformanceCounter(&detectend);
 			detecttimea = (double)(detectend.QuadPart - detectstartdebug.QuadPart) / freq.QuadPart;
