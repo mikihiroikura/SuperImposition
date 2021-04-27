@@ -705,7 +705,7 @@ int DetectLEDMarker() {
 	QueryPerformanceCounter(&detectstartdebug);
 #endif // SHOW_PROCESSING_TIME_
 	//LEDが未検出の時は，画像全体を探索する
-	if (detectimg[0].data != NULL && detectimg[1].data != NULL && (int)detectimg[0].data[0] != 255 && (int)detectimg[1].data[0] != 255 && (int)detectimg[0].data[0] != 0 && (int)detectimg[1].data[0] != 0)
+	if (detectimg[0].data != NULL && detectimg[1].data != NULL && (int)detectimg[0].data[0] != 255 && (int)detectimg[1].data[0] != 255)
 	{
 		//クラスターごとに輝度重心を計算する
 		for (size_t i = 0; i < 4; i++)
