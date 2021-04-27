@@ -121,7 +121,7 @@ double cross, dot, theta[3];
 double phi, w, lambda;
 double ledcamdir[4][3] = { 0 };
 double lednormdir[4][3] = { 0 };
-glm::mat4 RTm2c = glm::mat4(1.0), RTc2m = glm::mat4(1.0), RTuavrs2ugvrs = glm::mat4(1.0);
+glm::mat4 RTc2m = glm::mat4(1.0), RTuavrs2ugvrs = glm::mat4(1.0);
 glm::mat4 RTuavrs2hsc = glm::mat4(1.0), RTugvmk2rs = glm::mat4(1.0);
 glm::mat4 RTuavrs2mk = glm::mat4(1.0);
 glm::mat4* RTuavrs2ugvrs_buffer, * RTuavrs2ugvrs_toGPU;
