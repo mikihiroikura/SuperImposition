@@ -156,6 +156,7 @@ struct Logs
 	cv::Mat* in_imgs_log_ptr;
 	cv::Mat* gl_imgs_log_ptr;
 	double* LED_times;
+	double* log_times;
 	int* LED_results;
 	vector<glm::mat4> LED_RTuavrs2ugvrs;
 };
@@ -320,6 +321,7 @@ int main() {
 #ifdef SAVE_HSC2MK_POSE_
 	cout << "Set Pose vector for logs........................";
 	logs.LED_times = (double*)malloc(sizeof(double) * log_pose_finish_cnt);
+	logs.log_times = (double*)malloc(sizeof(double) * log_pose_finish_cnt);
 	logs.LED_results = (int*)malloc(sizeof(int) * log_pose_finish_cnt);
 	for (size_t i = 0; i < log_pose_finish_cnt; i++)
 	{
@@ -383,7 +385,8 @@ int main() {
 #ifdef SAVE_HSC2MK_POSE_
 			//ˆÊ’uŽp¨ƒƒO•Û‘¶
 			* (logs.LED_results + log_pose_cnt) = detectresult;
-			* (logs.LED_times + log_pose_cnt) = logtime;
+			* (logs.LED_times + log_pose_cnt) = detecttime;
+			*(logs.log_times + log_pose_cnt) = logtime;
 			logs.LED_RTuavrs2ugvrs[log_pose_cnt] = RTuavrs2ugvrs;
 			log_pose_cnt++;
 			if (log_pose_cnt > log_pose_finish_cnt) flg = false;
@@ -444,6 +447,7 @@ int main() {
 		fr = fopen(logfile, "w");
 		for (size_t i = 0; i < log_pose_cnt; i++)
 		{
+			fprintf(fr, "%lf,", logs.log_times[i]);
 			fprintf(fr, "%d,", logs.LED_results[i]);
 			fprintf(fr, "%lf,", logs.LED_times[i]);
 			for (size_t j = 0; j < 3; j++)
