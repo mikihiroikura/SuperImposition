@@ -81,9 +81,9 @@ LARGE_INTEGER start, stop, freq;
 LARGE_INTEGER takestart, takeend;
 LARGE_INTEGER hscstart, hscend;
 LARGE_INTEGER glstart, glend;
-LARGE_INTEGER logstart, logend;
+LARGE_INTEGER logstart, logend, glrslogend;
 LARGE_INTEGER detectstart, detectstartdebug, detectend;
-double taketime = 0, hsctime = 0, logtime = 0, gltime = 0;
+double taketime = 0, hsctime = 0, logtime = 0, gltime = 0, glrslogtime = 0;
 double timer = 0, gltimer = 0;
 double detecttimea = 0, detecttimeb = 0, detecttimec = 0, detecttimed = 0, detecttimee = 0, detecttimef = 0, detecttime = 0;
 
@@ -144,19 +144,20 @@ const int log_img_fps = 40;
 const int log_led_fps = 500;
 const int log_img_finish_cnt = log_img_fps * timeout + 100;
 const int log_pose_finish_cnt = log_led_fps * timeout + 100;
-long long log_glimg_cnt = 0, log_hscimg_cnt = 0, log_pose_cnt = 0;
+long long log_glrsimg_cnt = 0, log_hscimg_cnt = 0, log_pose_cnt = 0;
 bool showsavehscimg = false, showsaveglimg = false;
 uint8_t* save_img_on_src;
 bool saveimgsflg = false, saveimgsstartflg = false;
 struct Logs
 {
 	vector<cv::Mat> in_imgs_log;
-	cv::Mat gl_img;
 	vector<cv::Mat> gl_imgs_log;
+	vector<vector<cv::Mat>> rs_imgs_log;
 	cv::Mat* in_imgs_log_ptr;
 	cv::Mat* gl_imgs_log_ptr;
 	double* LED_times;
 	double* log_times;
+	double* glrslog_times;
 	int* LED_results;
 	vector<glm::mat4> LED_RTuavrs2ugvrs;
 };
@@ -311,11 +312,22 @@ int main() {
 #ifdef SAVE_IMGS_
 	//æ“¾‰æ‘œ‚ğŠi”[‚·‚éVector‚Ìì¬
 	std::cout << "Set Img Vector for logs....................";
-	logs.gl_img = cv::Mat(window_height, window_width, CV_8UC3, cv::Scalar::all(0));
-	for (size_t i = 0; i < log_img_finish_cnt; i++) { logs.gl_imgs_log.push_back(logs.gl_img.clone()); }
+	cv::Mat gl_img = cv::Mat(window_height, window_width, CV_8UC3, cv::Scalar::all(0));
+	cv::Mat rs_img = cv::Mat(colorheight, colorwidth, CV_8UC3, cv::Scalar::all(0));
+	for (size_t i = 0; i < log_img_finish_cnt; i++) { logs.gl_imgs_log.push_back(gl_img.clone()); }
 	for (size_t i = 0; i < log_img_finish_cnt; i++) { logs.in_imgs_log.push_back(zero.clone()); }
+	vector<cv::Mat> rs_imgs;
+	for (size_t j = 0; j < realsense_cnt; j++)
+	{
+		rs_imgs.push_back(rs_img);
+	}
+	for (size_t i = 0; i < log_img_finish_cnt; i++)
+	{
+		logs.rs_imgs_log.push_back(rs_imgs);
+	}
 	logs.in_imgs_log_ptr = logs.in_imgs_log.data();
 	logs.gl_imgs_log_ptr = logs.gl_imgs_log.data();
+	logs.glrslog_times = (double*)malloc(sizeof(double) * log_img_finish_cnt);
 	cout << "OK!" << endl;
 #endif // SAVE_IMGS_
 #ifdef SAVE_HSC2MK_POSE_
@@ -330,7 +342,6 @@ int main() {
 	cout << "OK!" << endl;
 #endif // SAVE_HSC2MK_POSE_
 
-	cout << logs.LED_RTuavrs2ugvrs[0][1][1];
 
 	//ƒJƒƒ‰‹N“®
 	cout << "Camera Start!" << endl;
@@ -463,13 +474,14 @@ int main() {
 			}
 			fprintf(fr, "\n");
 		}
+		fclose(fr);
 	}
 #endif // SAVE_HSC2MK_POSE_
 
 
 	//æ“¾‚µ‚½‰æ‘œ‚Ì•Û‘¶
 #ifdef SAVE_IMGS_
-	if (log_glimg_cnt > 0)
+	if (log_glrsimg_cnt > 0)
 	{
 		std::cout << "Saving imgs..." << endl;
 		//HSC‚Ì‰æ‘œ•Û‘¶
@@ -499,12 +511,36 @@ int main() {
 			if (_mkdir(picdir) != 0) { return 0; }
 		}
 		strftime(picsubname, 256, "D:/Github_output/SuperImposition/MultiSuperImposition_withLEDMarker/results/%y%m%d/%H%M%S/GL/frame", &now);
-		for (int i = 0; i < log_glimg_cnt; i++)
+		for (int i = 0; i < log_glrsimg_cnt; i++)
 		{
 			sprintf(picturename, "%s%05d.png", picsubname, i);//png‰Â‹tˆ³k
 			cv::flip(logs.gl_imgs_log[i], logs.gl_imgs_log[i], 0);
 			cv::imwrite(picturename, logs.gl_imgs_log[i]);
 		}
+		//RealSense‚Ì‰æ‘œ•Û‘¶
+		for (int i = 0; i < realsense_cnt; i++)
+		{
+			strftime(picdir, 256, "D:/Github_output/SuperImposition/MultiSuperImposition_withLEDMarker/results/%y%m%d/%H%M%S/RS", &now);
+			char rsnum[10];
+			sprintf(rsnum, "%d", i);
+			strcat(picdir, rsnum);
+			if (stat(picdir, &statBuf) != 0) {
+				if (_mkdir(picdir) != 0) { return 0; }
+			}
+			for (int j = 0; j < log_glrsimg_cnt; j++)
+			{
+				sprintf(picturename, "%s/frame%05d.png", picdir, j);
+				cv::imwrite(picturename, logs.rs_imgs_log[j][i]);
+			}
+		}
+		//RealSense‚Ì‰æ‘œ•Û‘¶‚Ì•Û‘¶
+		strftime(logfile, 256, "D:/Github_output/SuperImposition/MultiSuperImposition_withLEDMarker/results/%y%m%d/%H%M%S/%y%m%d%H%M%S_RSimg_times.csv", &now);
+		fr = fopen(logfile, "w");
+		for (size_t i = 0; i < log_glrsimg_cnt; i++)
+		{
+			fprintf(fr, "%lf\n", logs.glrslog_times[i]);
+		}
+		fclose(fr);
 		std::cout << "Imgs finished!" << endl;
 	}
 	
@@ -634,10 +670,21 @@ void ShowSaveImgsGL(bool* flg, PointCloud** pc_src, Logs* logs) {
 		if (saveimgsflg)
 		{
 			//OpenGL•\¦‚Ì‰æ‘œ•Û‘¶
-			saveImgCV((logs->gl_imgs_log_ptr + log_glimg_cnt)->data);
+			saveImgCV((logs->gl_imgs_log_ptr + log_glrsimg_cnt)->data);
 
-			log_glimg_cnt++;
-			if (log_glimg_cnt > log_img_finish_cnt) *flg = false;
+			//RealSense‚Ì‰æ‘œ•Û‘¶
+			for (size_t i = 0; i < realsense_cnt; i++)
+			{
+				memcpy(logs->rs_imgs_log[log_glrsimg_cnt][i].data, gl_tex_src[i]->get_data(), colorwidth * colorheight * 3);
+			}
+
+			//OpenGL‚ÆRealSense‚Ì‰æ‘œæ“¾ŠÔŒv‘ª
+			QueryPerformanceCounter(&glrslogend);
+			glrslogtime = (double)(glrslogend.QuadPart - logstart.QuadPart) / freq.QuadPart;
+			*(logs->glrslog_times+ log_glrsimg_cnt) = glrslogtime;
+
+			log_glrsimg_cnt++;
+			if (log_glrsimg_cnt > log_img_finish_cnt) *flg = false;
 		}
 #endif // SAVE_IMGS_
 
