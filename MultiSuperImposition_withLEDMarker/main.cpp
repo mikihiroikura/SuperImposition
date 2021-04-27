@@ -295,6 +295,7 @@ int main() {
 	}
 	pcs_src[0] = &pcs[0];
 	pcs_src[1] = &pcs[1];
+
 	cout << "OK!" << endl;
 
 	//2‚Â‚ÌRealsense‚Ì‰Šú‰»
@@ -302,7 +303,8 @@ int main() {
 	const rs2::device_list device_list = context.query_devices();
 	for (rs2::device device : device_list)
 	{
-		realsense rs(device.get_info(RS2_CAMERA_INFO_SERIAL_NUMBER), RS2_FORMAT_RGB8, colorwidth, colorheight, colorfps, RS2_FORMAT_Z16, depthwidth, depthheight, depthfps);
+		realsense rs(device.get_info(RS2_CAMERA_INFO_SERIAL_NUMBER), RS2_FORMAT_BGR8, 
+			colorwidth, colorheight, colorfps, RS2_FORMAT_Z16, depthwidth, depthheight, depthfps);
 		rs_devices.push_back(rs);
 	}
 	cout << "OK!" << endl;
@@ -319,7 +321,7 @@ int main() {
 	vector<cv::Mat> rs_imgs;
 	for (size_t j = 0; j < realsense_cnt; j++)
 	{
-		rs_imgs.push_back(rs_img);
+		rs_imgs.push_back(rs_img.clone());
 	}
 	for (size_t i = 0; i < log_img_finish_cnt; i++)
 	{
