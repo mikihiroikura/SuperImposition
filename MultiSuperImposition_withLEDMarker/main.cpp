@@ -23,6 +23,7 @@
 #include <iostream>
 #include <direct.h>
 #include <sys/stat.h>
+#include "RS232c.h"
 
 #ifdef _DEBUG
 #define LIB_EXT "d.lib"
@@ -136,6 +137,15 @@ const double markeredge = 235 / 2 * 0.001;//単位はm
 const double markerpos[4][2] = { {markeredge, markeredge}, {-markeredge, markeredge}, {-markeredge, -markeredge}, {markeredge, -markeredge} };
 int detectresult = -1;
 
+/// 単軸ロボットに関する変数
+RS232c axisrobot;
+#define READBUFFERSIZE 256
+char replybuf[READBUFFERSIZE];
+char axisrobmodes[][10] = { "@SRVO", "@START", "@ORG" };
+char axisrobcommand[READBUFFERSIZE] = "";
+const int initaxisstart = 0, initaxisend = 600;
+const int posunits = 100, speedunits = 10;
+
 
 
 //ログに関するパラメータ
@@ -168,6 +178,9 @@ void TakePicture(kayacoaxpress* cam, bool* flg);
 int DetectLEDMarker();
 void ShowSaveImgsHSC(bool* flg, Logs* logs);
 void ShowSaveImgsGL(bool* flg, PointCloud** pc_src, Logs* logs);
+void Read_Reply_toEND(RS232c* robot);
+void wait_QueryPerformance(double finishtime, LARGE_INTEGER freq);
+void ControlAxisRobot(RS232c* robot, bool* flg);
 
 using namespace std;
 
@@ -181,6 +194,7 @@ using namespace std;
 
 #define SAVE_IMGS_
 #define SAVE_HSC2MK_POSE_
+#define MOVE_AXISROBOT_
 
 int main() {
 	//パラメータ
@@ -344,6 +358,29 @@ int main() {
 	cout << "OK!" << endl;
 #endif // SAVE_HSC2MK_POSE_
 
+	//単軸ロボットとの通信確保
+#ifdef MOVE_AXISROBOT_
+	std::cout << "Set commection to AXIS ROBOT...............";
+	if (!axisrobot.Connect("COM6", 38400, 8, ODDPARITY, 0, 0, 0, 20000, 20000)) {
+		cout << "No connect" << endl;
+		return 1;
+	}
+	std::cout << "OK!" << endl;
+
+	snprintf(axisrobcommand, READBUFFERSIZE, "%s%d.1\r\n", axisrobmodes[0], 1);
+	axisrobot.Send(axisrobcommand);
+	memset(axisrobcommand, '\0', READBUFFERSIZE);
+	Read_Reply_toEND(&axisrobot);
+	std::cout << "SERVO ON" << endl;
+	wait_QueryPerformance(0.1, freq);
+	snprintf(axisrobcommand, READBUFFERSIZE, "%s.1\r\n", axisrobmodes[2]);
+	axisrobot.Send(axisrobcommand);
+	cout << "ORG START" << endl;
+	memset(axisrobcommand, '\0', READBUFFERSIZE);
+	Read_Reply_toEND(&axisrobot);
+	std::cout << "ORG STOP" << endl;
+#endif // MOVE_AXISROBOT_
+
 
 	//カメラ起動
 	cout << "Camera Start!" << endl;
@@ -362,6 +399,10 @@ int main() {
 	thread ShowSaveImgsHSCThread(ShowSaveImgsHSC, &flg, &logs);
 #endif // SHOW_	
 	thread ShowSaveImgsGLThread(ShowSaveImgsGL, &flg, pcs_src, &logs);
+#ifdef MOVE_AXISROBOT_
+	thread MoveAxisRobotThread(ControlAxisRobot, &axisrobot, &flg);
+#endif // MOVE_AXISROBOT_
+
 
 	//メインループ
 	cout << "Main loop start!" << endl;
@@ -429,7 +470,22 @@ int main() {
 	if (ShowSaveImgsHSCThread.joinable())ShowSaveImgsHSCThread.join();
 #endif // SHOW_IMGS_THREAD_
 	if (ShowSaveImgsGLThread.joinable())ShowSaveImgsGLThread.join(); 
+#ifdef MOVE_AXISROBOT_
+	if (MoveAxisRobotThread.joinable())MoveAxisRobotThread.join();
+#endif // MOVE_AXISROBOT_
 
+	//カメラの停止
+	cam.stop();
+	cam.disconnect();
+
+	//単軸ロボットの停止
+#ifdef MOVE_AXISROBOT_
+	snprintf(axisrobcommand, READBUFFERSIZE, "%s%d.1\r\n", axisrobmodes[0], 0);
+	axisrobot.Send(axisrobcommand);
+	Read_Reply_toEND(&axisrobot);
+	memset(axisrobcommand, '\0', READBUFFERSIZE);
+	cout << "SERVO OFF" << endl;
+#endif // MOVE_AXISROBOT_
 
 	//ログ保存のための準備
 	FILE* fr;
@@ -1260,5 +1316,54 @@ int DetectLEDMarker() {
 		//入力画像が異常であるときに，強制終了
 		leddetected = false;
 		return 4;
+	}
+}
+
+void Read_Reply_toEND(RS232c* robot) {
+	char bufreply[256];
+	while (true)
+	{
+		robot->Read_CRLF(bufreply, 256);
+		if (bufreply[0] == 'E' || bufreply[0] == 'O') {
+			break;
+		}
+	}
+}
+
+void ControlAxisRobot(RS232c* robot, bool* flg) {
+	srand(time(NULL));
+	int axisspeed = 100;
+	int axisposition = 200000;
+	int initaxispos = 600;
+	char controlcommand[READBUFFERSIZE];
+	while (*flg)
+	{
+		//位置と速度のランダム設定
+		if (initaxispos == initaxisend) initaxispos = initaxisstart;
+		else if (initaxispos == initaxisstart) initaxispos = initaxisend;
+		else initaxispos = initaxisstart;
+		axisposition = (initaxispos + rand() % posunits + 1) * 100; //0~100 or 600~700
+		axisspeed = (rand() % speedunits + 1); //10~100で10刻み
+
+		//コマンド送信
+		snprintf(controlcommand, READBUFFERSIZE, "@S_17.1=%d\r\n", axisspeed);
+		robot->Send(controlcommand);
+		memset(controlcommand, '\0', READBUFFERSIZE);
+		Read_Reply_toEND(robot);
+		snprintf(controlcommand, READBUFFERSIZE, "@START17#P%d.1\r\n", axisposition);
+		robot->Send(controlcommand);
+		memset(controlcommand, '\0', READBUFFERSIZE);
+		Read_Reply_toEND(robot);
+	}
+}
+
+void wait_QueryPerformance(double finishtime, LARGE_INTEGER freq) {
+	LARGE_INTEGER waitstart, waitstop;
+	double waittime = 0;
+	QueryPerformanceCounter(&waitstart);
+	while (waittime < finishtime)
+	{
+		QueryPerformanceCounter(&waitstop);
+		waittime = (double)(waitstop.QuadPart - waitstart.QuadPart) / freq.QuadPart;
 	}
 }
