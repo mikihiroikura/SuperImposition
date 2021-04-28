@@ -106,7 +106,7 @@ int detectresult = -1;
 //#define IMG_MODE_
 #define GET_HSC
 #define GET_UGVRS
-//#define GET_UAVRS
+#define GET_UAVRS
 
 #pragma comment(lib,"KAYACoaXpressLib" LIB_EXT)
 #pragma warning(disable:4996)

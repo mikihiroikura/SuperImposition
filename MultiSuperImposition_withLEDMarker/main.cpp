@@ -149,7 +149,7 @@ const int posunits = 100, speedunits = 10;
 
 
 //ログに関するパラメータ
-const int timeout = 10;
+const int timeout = 20;
 const int log_img_fps = 40;
 const int log_led_fps = 500;
 const int log_img_finish_cnt = log_img_fps * timeout + 100;
@@ -512,7 +512,7 @@ int main() {
 		if (stat(dir, &statBuf) != 0) {
 			if (_mkdir(dir) != 0) { return 0; }
 		}
-		strftime(logfile, 256, "D:/Github_output/SuperImposition/MultiSuperImposition_withLEDMarker/results/%y%m%d/%H%M%S/%y%m%d%H%M%S_LEDpose_results.csv", &now);
+		strftime(logfile, 256, "D:/Github_output/SuperImposition/MultiSuperImposition_withLEDMarker/results/%y%m%d/%H%M%S/LEDpose_results.csv", &now);
 		fr = fopen(logfile, "w");
 		for (size_t i = 0; i < log_pose_cnt; i++)
 		{
@@ -592,7 +592,7 @@ int main() {
 			}
 		}
 		//RealSenseの画像保存時刻の保存
-		strftime(logfile, 256, "D:/Github_output/SuperImposition/MultiSuperImposition_withLEDMarker/results/%y%m%d/%H%M%S/%y%m%d%H%M%S_RSimg_times.csv", &now);
+		strftime(logfile, 256, "D:/Github_output/SuperImposition/MultiSuperImposition_withLEDMarker/results/%y%m%d/%H%M%S/RSimg_times.csv", &now);
 		fr = fopen(logfile, "w");
 		for (size_t i = 0; i < log_glrsimg_cnt; i++)
 		{
