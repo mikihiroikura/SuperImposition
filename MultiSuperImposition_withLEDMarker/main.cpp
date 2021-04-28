@@ -332,13 +332,13 @@ int main() {
 	cv::Mat rs_img = cv::Mat(colorheight, colorwidth, CV_8UC3, cv::Scalar::all(0));
 	for (size_t i = 0; i < log_img_finish_cnt; i++) { logs.gl_imgs_log.push_back(gl_img.clone()); }
 	for (size_t i = 0; i < log_img_finish_cnt; i++) { logs.in_imgs_log.push_back(zero.clone()); }
-	vector<cv::Mat> rs_imgs;
-	for (size_t j = 0; j < realsense_cnt; j++)
-	{
-		rs_imgs.push_back(rs_img.clone());
-	}
 	for (size_t i = 0; i < log_img_finish_cnt; i++)
 	{
+		vector<cv::Mat> rs_imgs;
+		for (size_t j = 0; j < realsense_cnt; j++)
+		{
+			rs_imgs.push_back(rs_img.clone());
+		}
 		logs.rs_imgs_log.push_back(rs_imgs);
 	}
 	logs.in_imgs_log_ptr = logs.in_imgs_log.data();
