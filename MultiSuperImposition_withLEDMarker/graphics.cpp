@@ -267,7 +267,7 @@ void drawGL_realsense(float** pts, float** texcoords, rs2::frame** colorframes, 
         {
             mvp = vp * Model[i];
             glUniformMatrix4fv(matlocation, 1, GL_FALSE, &mvp[0][0]); //シェーダプログラムの開始の後にシェーダプログラム内のMVP行列を更新
-            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, colorwidth, colorheight, GL_RGB, GL_UNSIGNED_BYTE, (void*)colorframes[i]->get_data());
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, colorwidth, colorheight, GL_BGR, GL_UNSIGNED_BYTE, (void*)colorframes[i]->get_data());
             glDrawArrays(GL_POINTS, vert_cnt * i, vert_cnt);//実際の描画
         }
     }
