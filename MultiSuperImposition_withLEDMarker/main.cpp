@@ -1343,7 +1343,7 @@ void ControlAxisRobot(RS232c* robot, bool* flg) {
 		else if (initaxispos == initaxisstart) initaxispos = initaxisend;
 		else initaxispos = initaxisstart;
 		axisposition = (initaxispos + rand() % posunits + 1) * 100; //0~100 or 600~700
-		axisspeed = (rand() % speedunits + 1); //10~100で10刻み
+		axisspeed = (rand() % speedunits + 1) * 10; //10~100で10刻み
 
 		//コマンド送信
 		snprintf(controlcommand, READBUFFERSIZE, "@S_17.1=%d\r\n", axisspeed);
