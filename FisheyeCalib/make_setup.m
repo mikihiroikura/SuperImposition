@@ -20,7 +20,7 @@ function make_setup()
     rs0_video_dir = strcat(rs0_video_folder, rs0_video_name);
     %RS1：UAV側
     rs1_video_folder = './videos/RS1/';
-    rs1_video_name = '202104231651_video_rs1.mp4';
+    rs1_video_name = '202104301858_video_rs1.mp4';
     rs1_video_dir = strcat(rs1_video_folder, rs1_video_name);
     
     %共通パラメータ

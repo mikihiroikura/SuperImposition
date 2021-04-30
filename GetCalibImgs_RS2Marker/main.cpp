@@ -38,11 +38,15 @@ const int ringbuffersize = 10;
 vector<cv::Mat> in_imgs_on, in_imgs_off, in_imgs;
 vector<bool> processflgs;
 cv::Mat zero, full, zeromulti;
+vector<cv::Mat> rs_imgs;
 int takepicid, in_imgs_saveid;
 
 
 //RealSenseに関するパラメータ
 cv::Mat in_img_ugvrs, in_img_uavrs;
+vector<cv::Mat> in_imgs_ugvrs_buffer, in_imgs_uavrs_buffer;
+uint8_t* in_imgs_ugvrs_buff_beginptr, *in_imgs_uavrs_buff_beginptr;
+int in_imgs_ugvrs_buffid = 0, in_imgs_uavrs_buffid = 0;
 vector<cv::Mat> save_img_rs;
 rs2::context context;
 int ugvrsid = 0, uavrsid = 1;
@@ -113,7 +117,8 @@ int detectresult = -1;
 using namespace std;
 
 void TakePicture(kayacoaxpress* cam, bool* flg);
-void GetImgsRS(realsense* rs, bool* flg, void* imgdata);
+void GetImgsRS0(realsense* rs, bool* flg);
+void GetImgsRS1(realsense* rs, bool* flg);
 int DetectLEDMarker();
 
 
@@ -174,6 +179,11 @@ int main() {
 		colorwidth, colorheight, colorfps, RS2_FORMAT_Z16, depthwidth, depthheight, depthfps);
 	cout << "OK!" << endl;
 	in_img_ugvrs = cv::Mat(colorheight, colorwidth, CV_8UC3, cv::Scalar::all(255));
+	for (size_t i = 0; i < ringbuffersize; i++)
+	{
+		in_imgs_ugvrs_buffer.push_back(in_img_ugvrs.clone());
+	}
+	in_imgs_ugvrs_buff_beginptr = in_imgs_ugvrs_buffer[0].ptr<uint8_t>(0);
 #endif // GET_UGVRS
 
 #ifdef GET_UAVRS
@@ -182,6 +192,11 @@ int main() {
 		colorwidth, colorheight, colorfps, RS2_FORMAT_Z16, depthwidth, depthheight, depthfps);
 	cout << "OK!" << endl;
 	in_img_uavrs = cv::Mat(colorheight, colorwidth, CV_8UC3, cv::Scalar::all(255));
+	for (size_t i = 0; i < ringbuffersize; i++)
+	{
+		in_imgs_uavrs_buffer.push_back(in_img_uavrs.clone());
+	}
+	in_imgs_uavrs_buff_beginptr = in_imgs_uavrs_buffer[0].ptr<uint8_t>(0);
 #endif // GET_UAVRS
 
 
@@ -243,10 +258,10 @@ int main() {
 	thread thr_cam(TakePicture, &cam, &flg);
 #endif // GET_HSC
 #ifdef GET_UGVRS
-	thread thr_ugvrs(GetImgsRS, &ugvrs_device, &flg, in_img_ugvrs.data);
+	thread thr_ugvrs(GetImgsRS0, &ugvrs_device, &flg);
 #endif // GET_UGVRS
 #ifdef GET_UAVRS
-	thread thr_uavrs(GetImgsRS, &uavrs_device, &flg, in_img_uavrs.data);
+	thread thr_uavrs(GetImgsRS1, &uavrs_device, &flg);
 #endif // GET_UGVRS
 	bool videocapflg = false;
 
@@ -257,10 +272,10 @@ int main() {
 		cv::imshow("img cam", detectimg[0]);
 #endif // GET_HSC
 #ifdef GET_UGVRS
-		cv::imshow("img UGV realsense", in_img_ugvrs);
+		cv::imshow("img UGV realsense", in_imgs_ugvrs_buffer[(in_imgs_ugvrs_buffid-3 + ringbuffersize) % ringbuffersize]);
 #endif // GET_UGVRS
 #ifdef GET_UAVRS
-		cv::imshow("img UAV realsense", in_img_uavrs);
+		cv::imshow("img UAV realsense", in_imgs_uavrs_buffer[(in_imgs_uavrs_buffid - 3 + ringbuffersize) % ringbuffersize]);
 #endif // GET_UGVRS
 
 		//位置姿勢計算
@@ -278,10 +293,10 @@ int main() {
 		if (videocapflg) video_hsc.write(detectimg[0].clone());
 #endif // GET_HSC
 #ifdef GET_UGVRS
-		if (videocapflg) video_ugvrs.write(in_img_ugvrs.clone());
+		if (videocapflg) video_ugvrs.write(in_imgs_ugvrs_buffer[(in_imgs_ugvrs_buffid - 1 + ringbuffersize) % ringbuffersize].clone());
 #endif // GET_UGVRS
 #ifdef GET_UAVRS
-		if (videocapflg) video_uavrs.write(in_img_uavrs.clone());
+		if (videocapflg) video_uavrs.write(in_imgs_uavrs_buffer[(in_imgs_uavrs_buffid - 1 + ringbuffersize) % ringbuffersize].clone());
 #endif // GET_UGVRS
 		if (videocapflg) {
 			if (detectresult == 0) save_RTm2c.push_back(RTm2c);
@@ -376,13 +391,35 @@ void TakePicture(kayacoaxpress* cam, bool* flg) {
 	}
 }
 
-void GetImgsRS(realsense* rs, bool* flg, void* imgdata) {
+void GetImgsRS0(realsense* rs, bool* flg) {
+	int takersid0 = 0;
+	uint8_t* imgdata0;
 	while (*flg)
 	{
+		takersid0 = in_imgs_ugvrs_buffid % ringbuffersize;
+		imgdata0 = in_imgs_ugvrs_buffer[takersid0].ptr<uint8_t>(0);
 		rs->update_frame();
 		rs->update_color();
 		rs->transform_color_img();
-		memcpy(imgdata, rs->colorimg.data, colorwidth * colorheight * 3);
+		memcpy(imgdata0, rs->colorimg.data, colorwidth * colorheight * 3);
+
+		in_imgs_ugvrs_buffid = (in_imgs_ugvrs_buffid + 1) % ringbuffersize;
+	}
+}
+
+void GetImgsRS1(realsense* rs, bool* flg) {
+	int takersid1 = 0;
+	uint8_t* imgdata1;
+	while (*flg)
+	{
+		takersid1 = in_imgs_uavrs_buffid % ringbuffersize;
+		imgdata1 = in_imgs_uavrs_buffer[takersid1].ptr<uint8_t>(0);
+		rs->update_frame();
+		rs->update_color();
+		rs->transform_color_img();
+		memcpy(imgdata1, rs->colorimg.data, colorwidth * colorheight * 3);
+
+		in_imgs_uavrs_buffid = (in_imgs_uavrs_buffid + 1) % ringbuffersize;
 	}
 }
 
