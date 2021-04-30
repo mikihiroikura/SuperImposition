@@ -143,7 +143,7 @@ RS232c axisrobot;
 char replybuf[READBUFFERSIZE];
 char axisrobmodes[][10] = { "@SRVO", "@START", "@ORG" };
 char axisrobcommand[READBUFFERSIZE] = "";
-const int initaxisstart = 0, initaxisend = 600;
+const int initaxisstart = 100, initaxisend = 500;
 const int posunits = 100, speedunits = 10;
 
 
@@ -1343,7 +1343,7 @@ void ControlAxisRobot(RS232c* robot, bool* flg) {
 		else if (initaxispos == initaxisstart) initaxispos = initaxisend;
 		else initaxispos = initaxisstart;
 		axisposition = (initaxispos + rand() % posunits + 1) * 100; //0~100 or 600~700
-		axisspeed = (rand() % speedunits + 1) * 10; //10~100で10刻み
+		axisspeed = (rand() % speedunits + 1) * 2; //10~100で10刻み
 
 		//コマンド送信
 		snprintf(controlcommand, READBUFFERSIZE, "@S_17.1=%d\r\n", axisspeed);
