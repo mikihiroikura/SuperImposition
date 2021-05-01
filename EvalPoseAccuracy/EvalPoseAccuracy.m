@@ -1,7 +1,7 @@
 %各種パラメータの読み取り
 rsimg_csv_name = 'data/RSimg_times.csv';
 ledpose_csv_name = 'data/LEDpose_results.csv';
-calibratedpose_csv_name = '202104231718_poseparam.csv';
+calibratedpose_csv_name = '202105011946_poseparam.csv';
 squareSize = 32;
 rsimgwidth = 1920;
 rsimgheight = 1080;
@@ -103,4 +103,13 @@ for k = 1:3
     figure
     plot(ledtime,Rvec_uavrs2ugvrs_diff(:,k));
 end
+
+%ずれの平均分散を計算
+% mean(RT_uavrs2ugvrs_diff(4,1,:))
+% mean(RT_uavrs2ugvrs_diff(4,2,:))
+% mean(RT_uavrs2ugvrs_diff(4,3,:))
+% std(RT_uavrs2ugvrs_diff(4,1,:))
+% std(RT_uavrs2ugvrs_diff(4,2,:))
+% std(RT_uavrs2ugvrs_diff(4,3,:))
+
 
