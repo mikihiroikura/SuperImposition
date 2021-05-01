@@ -194,7 +194,7 @@ using namespace std;
 
 #define SAVE_IMGS_
 #define SAVE_HSC2MK_POSE_
-#define MOVE_AXISROBOT_
+//#define MOVE_AXISROBOT_
 
 int main() {
 	//パラメータ
@@ -241,7 +241,7 @@ int main() {
 
 	//PoseCalibration結果の呼び出し
 	FILE* fpose;
-	fpose = fopen("202104231718_poseparam.csv", "r");
+	fpose = fopen("202105011946_poseparam.csv", "r");
 	for (size_t i = 0; i < 3; i++)
 	{
 		for (size_t j = 0; j < 3; j++)

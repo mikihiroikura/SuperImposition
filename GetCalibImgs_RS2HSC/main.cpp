@@ -17,6 +17,9 @@ float fps = 1000.0;
 float exposuretime = 912.0;
 int offsetx = 512;
 int offsety = 92;
+const int ringbuffersize = 10;
+int takepicid = 0;
+int in_imgs_saveid = 0;
 
 
 //RealSenseに関するパラメータ
@@ -31,7 +34,7 @@ const unsigned int depthfps = 60;
 
 #define VIDEO_MODE_
 //#define IMG_MODE_
-//#define GET_HSC
+#define GET_HSC
 #define GET_RS
 
 #pragma comment(lib,"KAYACoaXpressLib" LIB_EXT)
@@ -42,6 +45,7 @@ void TakePicture(kayacoaxpress* cam, bool* flg);
 void GetImgsRS(realsense* rs, bool* flg);
 
 cv::Mat in_img_hsc, in_img_rs;
+vector<cv::Mat> in_img_hscs;
 vector<cv::Mat> save_img_hsc, save_img_rs;
 
 int main() {
@@ -62,6 +66,10 @@ int main() {
 	cam.setParam(paramTypeKAYACoaXpress::Gain::x1);
 	cam.parameter_all_print();
 	in_img_hsc = cv::Mat(cam.getParam(paramTypeCamera::paramInt::HEIGHT), cam.getParam(paramTypeCamera::paramInt::WIDTH), CV_8UC3, cv::Scalar::all(255));
+	for (size_t i = 0; i < ringbuffersize; i++)
+	{
+		in_img_hscs.push_back(in_img_hsc.clone());
+	}
 #endif // GET_HSC
 
 #ifdef GET_RS
@@ -115,7 +123,7 @@ int main() {
 	{
 		//現在の画像を表示
 #ifdef GET_HSC
-		cv::imshow("img cam", in_img_hsc);
+		cv::imshow("img cam", in_img_hscs[(in_imgs_saveid-3 + ringbuffersize)%ringbuffersize]);
 #endif // GET_HSC
 #ifdef GET_RS
 		cv::imshow("img realsense", in_img_rs);
@@ -130,7 +138,7 @@ int main() {
 		if (key == 's') videocapflg = true;
 		if (key == 'f') videocapflg = false;
 #ifdef GET_HSC
-		if (videocapflg) video_hsc.write(in_img_hsc.clone());
+		if (videocapflg) video_hsc.write(in_img_hscs[(in_imgs_saveid - 1 + ringbuffersize) % ringbuffersize].clone());
 #endif // GET_HSC
 #ifdef GET_RS
 		if (videocapflg) video_rs.write(in_img_rs.clone());
@@ -190,7 +198,10 @@ int main() {
 void TakePicture(kayacoaxpress* cam, bool* flg) {
 	while (*flg)
 	{
-		cam->captureFrame(in_img_hsc.data);
+		takepicid = in_imgs_saveid % ringbuffersize;
+		cam->captureFrame(in_img_hscs[takepicid].data);
+		in_imgs_saveid = (in_imgs_saveid + 1 + ringbuffersize) % ringbuffersize;
+
 	}
 }
 

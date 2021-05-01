@@ -6,7 +6,7 @@ make_setup();
 disp('Setup Finished.');
 
 % 魚眼カメラのキャリブレーション
-fisheye_calibration_rgb();
+fisheye_calibration();
 disp('Camera Calibration finished.');
 
 % 2つのRealSenseキャリブレーション

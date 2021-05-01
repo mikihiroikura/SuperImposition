@@ -116,12 +116,12 @@ function uav_rs2hsc_posecalibration_rev2()
     end
     
     %UAVRS-HSC間の並進ベクトルと回転行列の平均値を計算
-    TransVec_uavrs2hsc = RTuavrs2hsc(4,1:3,:);
+    TransVec_uavrs2hsc = squeeze(RTuavrs2hsc(4,1:3,:)).';
     RotMat_uavrs2hsc = RTuavrs2hsc(1:3,1:3,:);
-    TransVec_uavrs2hsc_mean = mean(TransVec_uavrs2hsc,3);
+    TransVec_uavrs2hsc_mean = mean(TransVec_uavrs2hsc,1);
     RotVec_uavrs2hsc = zeros(size(RTuavrs2hsc,3), 3);
     for i = 1:size(RotMat_uavrs2hsc,3)
-        RotVec_uavrs2hsc(i,:) = rotationMatrixToVector(RotMat_uavrs2hsc(:,:,i));
+    RotVec_uavrs2hsc(i,:) = rotationMatrixToVector(RotMat_uavrs2hsc(:,:,i));
     end
     RotVec_uavrs2hsc_mean = mean(RotVec_uavrs2hsc,1);
     RotMat_uavrs2hsc_mean = rotationVectorToMatrix(RotVec_uavrs2hsc_mean);

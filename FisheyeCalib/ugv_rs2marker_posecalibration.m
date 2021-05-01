@@ -35,14 +35,22 @@ function ugv_rs2marker_posecalibration()
     
     %RSとHSC両方で検出したフレームの洗い出し
     imageUsed_ugvrs_hsc_marker = logical(imagesUsed_hsc .* imagesUsed_ugvrs);
-    for i = 1:size(imagePoints_hsc,3)
-        if size(find(isnan(imagePoints_hsc(:,:,i))),1) > 0
-           imageUsed_ugvrs_hsc_marker(i) = 0; 
+    cnt = 0;
+    for i = 1:size(imagesUsed_hsc,1)
+        if imagesUsed_hsc(i)
+            cnt = cnt + 1;
+            if size(find(isnan(imagePoints_hsc(:,:,cnt))),1) > 0
+               imageUsed_ugvrs_hsc_marker(i) = 0; 
+            end
         end
     end
-    for i = 1:size(imagePoints_ugvrs,3)
-        if size(find(isnan(imagePoints_ugvrs(:,:,i))),1) > 0
-           imageUsed_ugvrs_hsc_marker(i) = 0; 
+    cnt = 0;
+    for i = 1:size(imagesUsed_ugvrs,1)
+        if imagesUsed_ugvrs(i)
+            cnt = cnt + 1;
+            if size(find(isnan(imagePoints_ugvrs(:,:,cnt))),1) > 0
+               imageUsed_ugvrs_hsc_marker(i) = 0; 
+            end
         end
     end
     imageUsed_ugvrs_hsc_marker(TransVec_marker2hsc(:,1)==0) = 0;

@@ -12,6 +12,7 @@
 *.fig
 util/lib
 FisheyeCalib/videos
+FisheyeCalib/calib_result
 EvalPoseAccuracy/data
 
 # User-specific files

@@ -1,12 +1,12 @@
 function RS_calibration()
-    load setup.mat rs0_video_dir rs1_video_dir fish_step squareSize
+    load setup.mat rs0_video_dir rs1_video_dir img_step squareSize
     
     %RS0からFrameを保存する
     rs0vidObj = VideoReader(rs0_video_dir);
     allFrame_rs0 = read(rs0vidObj);
     
     %チェッカーボード検出
-    calibimg_rs0 = allFrame_rs0(:,:,:,1:fish_step:size(allFrame_rs0,4));
+    calibimg_rs0 = allFrame_rs0(:,:,:,1:img_step*2:size(allFrame_rs0,4));
     [imagePoints_rs0,boardSize_rs0] = detectCheckerboardPoints(calibimg_rs0);
     worldPoints_rs0 = generateCheckerboardPoints(boardSize_rs0, squareSize);
     
@@ -20,7 +20,7 @@ function RS_calibration()
     allFrame_rs1 = read(rs1vidObj);
     
     %チェッカーボード検出
-    calibimg_rs1 = allFrame_rs1(:,:,:,1:fish_step:size(allFrame_rs1,4));
+    calibimg_rs1 = allFrame_rs1(:,:,:,1:img_step*2:size(allFrame_rs1,4));
     [imagePoints_rs1,boardSize_rs1] = detectCheckerboardPoints(calibimg_rs1);
     worldPoints_rs1 = generateCheckerboardPoints(boardSize_rs1, squareSize);
     
