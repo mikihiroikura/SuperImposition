@@ -185,8 +185,9 @@ int main() {
 	}
 	in_imgs_ugvrs_buff_beginptr = in_imgs_ugvrs_buffer[0].ptr<uint8_t>(0);
 #endif // GET_UGVRS
-
+	
 #ifdef GET_UAVRS
+	cout << "Set RealsenseD435..........";
 	rs2::device uavdevice = device_list[uavrsid];
 	realsense uavrs_device(uavdevice.get_info(RS2_CAMERA_INFO_SERIAL_NUMBER), RS2_FORMAT_BGR8,
 		colorwidth, colorheight, colorfps, RS2_FORMAT_Z16, depthwidth, depthheight, depthfps);
@@ -198,8 +199,7 @@ int main() {
 	}
 	in_imgs_uavrs_buff_beginptr = in_imgs_uavrs_buffer[0].ptr<uint8_t>(0);
 #endif // GET_UAVRS
-
-
+	
 	//位置姿勢計算用の変数設定
 	//輝点保存用行列の作成
 	ptscand = cv::Mat::zeros(width * height, 1, CV_32FC2);

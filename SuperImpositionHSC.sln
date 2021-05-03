@@ -25,6 +25,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "GetCalibImgs_RS2HSC", "GetC
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "GetCalibImgs_RS2Marker", "GetCalibImgs_RS2Marker\GetCalibImgs_RS2Marker.vcxproj", "{3415E658-5D37-4667-A08B-CAC900BD2AE1}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Get_RS_IntrinsicParams", "Get_RS_IntrinsicParams\Get_RS_IntrinsicParams.vcxproj", "{7A9C3B3E-3B3A-4630-8BE8-1F107FE4113A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -121,6 +123,14 @@ Global
 		{3415E658-5D37-4667-A08B-CAC900BD2AE1}.Release|x64.Build.0 = Release|x64
 		{3415E658-5D37-4667-A08B-CAC900BD2AE1}.Release|x86.ActiveCfg = Release|Win32
 		{3415E658-5D37-4667-A08B-CAC900BD2AE1}.Release|x86.Build.0 = Release|Win32
+		{7A9C3B3E-3B3A-4630-8BE8-1F107FE4113A}.Debug|x64.ActiveCfg = Debug|x64
+		{7A9C3B3E-3B3A-4630-8BE8-1F107FE4113A}.Debug|x64.Build.0 = Debug|x64
+		{7A9C3B3E-3B3A-4630-8BE8-1F107FE4113A}.Debug|x86.ActiveCfg = Debug|Win32
+		{7A9C3B3E-3B3A-4630-8BE8-1F107FE4113A}.Debug|x86.Build.0 = Debug|Win32
+		{7A9C3B3E-3B3A-4630-8BE8-1F107FE4113A}.Release|x64.ActiveCfg = Release|x64
+		{7A9C3B3E-3B3A-4630-8BE8-1F107FE4113A}.Release|x64.Build.0 = Release|x64
+		{7A9C3B3E-3B3A-4630-8BE8-1F107FE4113A}.Release|x86.ActiveCfg = Release|Win32
+		{7A9C3B3E-3B3A-4630-8BE8-1F107FE4113A}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

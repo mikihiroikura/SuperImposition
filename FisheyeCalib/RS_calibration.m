@@ -14,7 +14,10 @@ function RS_calibration()
     imageSize_rs0 = [size(allFrame_rs0, 1), size(allFrame_rs0, 2)];
     rs0params = estimateCameraParameters(imagePoints_rs0,worldPoints_rs0, ...
                                   'ImageSize',imageSize_rs0, 'EstimateSkew', true, 'NumRadialDistortionCoefficients', 3);
-                               
+    
+    %保存したFrameのメモリ解放
+    clear allFrame_rs0 calibimg_rs0
+                              
     %RS1からFrameを保存する
     rs1vidObj = VideoReader(rs1_video_dir);
     allFrame_rs1 = read(rs1vidObj);
@@ -29,6 +32,9 @@ function RS_calibration()
     rs1params = estimateCameraParameters(imagePoints_rs1,worldPoints_rs1, ...
                                   'ImageSize',imageSize_rs1, 'EstimateSkew', true, 'NumRadialDistortionCoefficients', 3);
     
+    %保存したFrameのメモリ解放
+    clear allFrame_rs1 calibimg_rs1
+                              
     %RS0 parameterの保存(MATLAB用)
     save rs0params.mat rs0params
     %RS1 parameterの保存(MATLAB用)
