@@ -2,13 +2,13 @@ function uav_rs2hsc_posecalibration_rev2()
     load rs0params.mat rs0params
     load rs1params.mat rs1params
     load setup.mat video_dir_uavcalib_uavrs video_dir_uavcalib_ugvrs ...
-        csv_dir_uavcalib_marker img_step squareSize
+        csv_dir_uavcalib_marker img_step squareSize time_margin
     
     %UAVRSの動画
     %動画からFrameを保存する
     vidObj_uavrs = VideoReader(video_dir_uavcalib_uavrs);
     allFrame_uavrs = read(vidObj_uavrs);
-    uavrs_img = allFrame_uavrs(:,:,:,1:img_step:end);
+    uavrs_img = allFrame_uavrs(:,:,:,int16(time_margin*vidObj_uavrs.FrameRate):img_step:int16((vidObj_uavrs.Duration-time_margin)*vidObj_uavrs.FrameRate));
     
     %チェッカーボードを検出する
     [imagePoints_uavrs,boardSize,imagesUsed_uavrs] = detectCheckerboardPoints(uavrs_img);
@@ -18,7 +18,7 @@ function uav_rs2hsc_posecalibration_rev2()
     %動画からFrameを保存する
     vidObj_ugvrs = VideoReader(video_dir_uavcalib_ugvrs);
     allFrame_ugvrs = read(vidObj_ugvrs);
-    ugvrs_img = allFrame_ugvrs(:,:,:,1:img_step:end);
+    ugvrs_img = allFrame_ugvrs(:,:,:,int16(time_margin*vidObj_ugvrs.FrameRate):img_step:int16((vidObj_ugvrs.Duration-time_margin)*vidObj_ugvrs.FrameRate));
     
     %チェッカーボードを検出する
     [imagePoints_ugvrs,boardSize,imagesUsed_ugvrs] = detectCheckerboardPoints(ugvrs_img);
@@ -26,7 +26,7 @@ function uav_rs2hsc_posecalibration_rev2()
     
     %CSVからMarkerの位置姿勢を読み取る
     M =csvread(csv_dir_uavcalib_marker);
-    M_marker = M(1:img_step:end,:);
+    M_marker = M(int16(time_margin*vidObj_ugvrs.FrameRate):img_step:int16((vidObj_ugvrs.Duration-time_margin)*vidObj_ugvrs.FrameRate),:);
     TransVec_marker2hsc = M_marker(:,10:12) * 1000;%単位はmm
     RotMatrix_marker2hsc = zeros(3,3,size(M_marker,1));
     for i = 1:size(M_marker,1)

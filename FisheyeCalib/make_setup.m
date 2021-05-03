@@ -43,9 +43,10 @@ function make_setup()
     video_dir_ugv_hsc = strcat(video_folder_ugv, video_name_ugv_hsc);
     csv_name_ugv = 'CSV/202105011905_markerpose.csv';
     csv_dir_ugv_marker = strcat(video_folder_ugv, csv_name_ugv);
+    time_margin = 3;
     
     save setup.mat video_dir fish_step squareSize fishparamfile video_dir_uavcalib_uavrs img_step ...
         video_dir_ugv_rs video_dir_ugv_hsc csv_dir_ugv_marker rs0_video_dir rs1_video_dir poseparamfile ...
-        video_dir_uavcalib_ugvrs csv_dir_uavcalib_marker %video_dir_uav_hsc
+        video_dir_uavcalib_ugvrs csv_dir_uavcalib_marker time_margin
 end
 

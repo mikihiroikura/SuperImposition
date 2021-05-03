@@ -4,10 +4,10 @@ function ugv_rs2marker_posecalibration()
     
     %RSの動画
     %動画からFrameを保存する
-    load setup.mat video_dir_ugv_rs video_dir_ugv_hsc img_step squareSize
+    load setup.mat video_dir_ugv_rs video_dir_ugv_hsc img_step squareSize time_margin
     vidObj_ugvrs = VideoReader(video_dir_ugv_rs);
     allFrame_ugvrs = read(vidObj_ugvrs);
-    ugvrs_img = allFrame_ugvrs(:,:,:,1:img_step:end);
+    ugvrs_img = allFrame_ugvrs(:,:,:,int16(time_margin*vidObj_ugvrs.FrameRate):img_step:int16((vidObj_ugvrs.Duration-time_margin)*vidObj_ugvrs.FrameRate));
     
     %チェッカーボードを検出する
     [imagePoints_ugvrs,boardSize,imagesUsed_ugvrs] = detectCheckerboardPoints(ugvrs_img);
@@ -17,7 +17,7 @@ function ugv_rs2marker_posecalibration()
     %動画からFrameを保存する
     vidObj_hsc = VideoReader(video_dir_ugv_hsc);
     allFrame_hsc = read(vidObj_hsc);
-    hsc_img = allFrame_hsc(:,:,:,1:img_step:end);
+    hsc_img = allFrame_hsc(:,:,:,int16(time_margin*vidObj_hsc.FrameRate):img_step:int16((vidObj_hsc.Duration-time_margin)*vidObj_hsc.FrameRate));
     
     %チェッカーボードを検出する
     [imagePoints_hsc,boardSize,imagesUsed_hsc] = detectCheckerboardPoints(hsc_img);
@@ -26,7 +26,7 @@ function ugv_rs2marker_posecalibration()
     %CSVからMarkerの位置姿勢を読み取る
     load setup.mat csv_dir_ugv_marker
     M =csvread(csv_dir_ugv_marker);
-    M_marker = M(1:img_step:end,:);
+    M_marker = M(int16(time_margin*vidObj_hsc.FrameRate):img_step:int16((vidObj_hsc.Duration-time_margin)*vidObj_hsc.FrameRate),:);
     TransVec_marker2hsc = M_marker(:,10:12) * 1000;%単位はmm
     RotMatrix_marker2hsc = zeros(3,3,size(M_marker,1));
     for i = 1:size(M_marker,1)
