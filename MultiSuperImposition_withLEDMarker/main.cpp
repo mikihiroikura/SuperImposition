@@ -241,7 +241,7 @@ int main() {
 
 	//PoseCalibrationŒ‹‰Ê‚ÌŒÄ‚Ño‚µ
 	FILE* fpose;
-	fpose = fopen("202105011946_poseparam.csv", "r");
+	fpose = fopen("202105040303_poseparam.csv", "r");
 	for (size_t i = 0; i < 3; i++)
 	{
 		for (size_t j = 0; j < 3; j++)
