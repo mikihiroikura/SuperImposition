@@ -1,6 +1,6 @@
 function ugv_rs2marker_posecalibration()
     load fishparams.mat fisheyeParams
-    load rs0params.mat rs0params
+    load rs0params.mat rs0params rs0_RTcol2dpt
     
     %RSの動画
     %動画からFrameを保存する
@@ -69,7 +69,7 @@ function ugv_rs2marker_posecalibration()
         RotMatrix_marker2hsc(:,:,i) = reshape(M_used(i,1:9),[3 3]).';
     end
     
-    %チェッカーボード(World)toRSの外部パラメータの計算
+    %チェッカーボード(World)toRSCOLの外部パラメータの計算
     RotMatrix_ugvrs = zeros(3,3,size(imagePoints_ugvrs,3));
     TransVec_ugvrs = zeros(size(imagePoints_ugvrs,3), 3);
     for i=1:size(imagePoints_ugvrs,3)
@@ -87,7 +87,7 @@ function ugv_rs2marker_posecalibration()
         TransVec_hsc(i,:) = t;
     end
     
-    %RS-HSCの位置姿勢を計算
+    %RSCOL-HSCの位置姿勢を計算
     RotMatrix_ugvrs2hsc = pagemtimes(pagetranspose(RotMatrix_ugvrs),RotMatrix_hsc);
     TransVec_ugvrs2hsc = zeros(size(TransVec_hsc));
     for i = 1:size(TransVec_ugvrs2hsc,1)
@@ -95,7 +95,7 @@ function ugv_rs2marker_posecalibration()
     end
     
     
-    %RS-Marker間位置姿勢の計算
+    %RSCOL-Marker間位置姿勢の計算
     RotMatrix_ugvrs2marker = pagemtimes(RotMatrix_ugvrs2hsc, pagetranspose(RotMatrix_marker2hsc));
     TransVec_ugvrs2marker = zeros(size(TransVec_hsc));
     RotMatrix_hsc2marker = pagetranspose(RotMatrix_marker2hsc);
@@ -103,7 +103,7 @@ function ugv_rs2marker_posecalibration()
         TransVec_ugvrs2marker(i,:) =(-TransVec_marker2hsc(i,:) + TransVec_ugvrs2hsc(i,:)) * RotMatrix_hsc2marker(:,:,i);
     end
     
-    %RS-Marker間位置姿勢の平均
+    %RSCOL-Marker間位置姿勢の平均
     TransVec_ugvrs2marker_mean = mean(TransVec_ugvrs2marker,1);
     RotVec_ugvrs2marker = zeros(size(RotMatrix_ugvrs2marker,3), 3);
     for i = 1:size(RotMatrix_ugvrs2marker,3)
@@ -112,12 +112,20 @@ function ugv_rs2marker_posecalibration()
     RotVec_ugvrs2marker_mean = mean(RotVec_ugvrs2marker,1);
     RotMat_ugvrs2marker_mean = rotationVectorToMatrix(RotVec_ugvrs2marker_mean);
     
-    %Marker-RS間位置姿勢の計算
+    %Marker-RSCOL間位置姿勢の計算
     TransVec_marker2ugvrs_mean = - TransVec_ugvrs2marker_mean * RotMat_ugvrs2marker_mean.';
     RotMat_marker2ugvrs_mean = RotMat_ugvrs2marker_mean.';
     
+    %MK-RSDPT間の位置姿勢計算
+    RT_mk2rscol = zeros(4,4);
+    RT_mk2rscol(4,1:3) = TransVec_marker2ugvrs_mean;
+    RT_mk2rscol(1:3,1:3) = RotMat_marker2ugvrs_mean;
+    RT_mk2rscol(4,4) = 1.0;
+    RT_mk2rsdpt = RT_mk2rscol * rs0_RTcol2dpt;
+    TransVec_marker2ugvrsdpt_mean = RT_mk2rsdpt(4,1:3);
+    RotMat_marker2ugvrsdpt_mean = RT_mk2rsdpt(1:3,1:3);
     
     %結果の保存
-    save poseparams.mat TransVec_marker2ugvrs_mean RotMat_marker2ugvrs_mean
+    save poseparams.mat TransVec_marker2ugvrsdpt_mean RotMat_marker2ugvrsdpt_mean
 
 end

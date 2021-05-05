@@ -30,10 +30,17 @@ int main() {
 
 
 	//ここにRSの内部パラを呼び出す
-	rs2_intrinsics ugvrs_intparams = ugvrs_device.pipe.get_active_profile().get_stream(RS2_STREAM_COLOR).as<rs2::video_stream_profile>().get_intrinsics();
-	rs2_intrinsics uavrs_intparams = uavrs_device.pipe.get_active_profile().get_stream(RS2_STREAM_COLOR).as<rs2::video_stream_profile>().get_intrinsics();
-	rs2_intrinsics ugvrs_intparams_depth = ugvrs_device.pipe.get_active_profile().get_stream(RS2_STREAM_DEPTH).as<rs2::video_stream_profile>().get_intrinsics();
-	rs2_intrinsics uavrs_intparams_depth = uavrs_device.pipe.get_active_profile().get_stream(RS2_STREAM_DEPTH).as<rs2::video_stream_profile>().get_intrinsics();
+	rs2::stream_profile ugvrs_stream_color = ugvrs_device.pipe.get_active_profile().get_stream(RS2_STREAM_COLOR);
+	rs2::stream_profile uavrs_stream_color = uavrs_device.pipe.get_active_profile().get_stream(RS2_STREAM_COLOR);
+	rs2::stream_profile ugvrs_stream_depth = ugvrs_device.pipe.get_active_profile().get_stream(RS2_STREAM_DEPTH);
+	rs2::stream_profile uavrs_stream_depth = uavrs_device.pipe.get_active_profile().get_stream(RS2_STREAM_DEPTH);
+	rs2_intrinsics ugvrs_intparams = ugvrs_stream_color.as<rs2::video_stream_profile>().get_intrinsics();
+	rs2_intrinsics uavrs_intparams = uavrs_stream_color.as<rs2::video_stream_profile>().get_intrinsics();
+	rs2_intrinsics ugvrs_intparams_depth = ugvrs_stream_depth.as<rs2::video_stream_profile>().get_intrinsics();
+	rs2_intrinsics uavrs_intparams_depth = uavrs_stream_depth.as<rs2::video_stream_profile>().get_intrinsics();
+	rs2_extrinsics ugvrs_extparams_col2dpt = ugvrs_stream_color.get_extrinsics_to(ugvrs_stream_depth);
+	rs2_extrinsics uavrs_extparams_col2dpt = uavrs_stream_color.get_extrinsics_to(uavrs_stream_depth);
+
 
 	//内部パラメータ保存
 	//UGVRS = RS0
@@ -54,6 +61,16 @@ int main() {
 		fprintf(fr, "%lf,", ugvrs_intparams.coeffs[i]);
 	}
 	fprintf(fr, "\n");
+	for (size_t i = 0; i < 9; i++)
+	{
+		fprintf(fr, "%lf,", ugvrs_extparams_col2dpt.rotation[i]);
+	}
+	fprintf(fr, "\n");
+	for (size_t i = 0; i < 3; i++)
+	{
+		fprintf(fr, "%lf,", ugvrs_extparams_col2dpt.translation[i]);
+	}
+	fprintf(fr, "\n");
 	fclose(fr);
 
 	//RS1
@@ -68,6 +85,16 @@ int main() {
 	for (size_t i = 0; i < 5; i++)
 	{
 		fprintf(fr, "%lf,", uavrs_intparams.coeffs[i]);
+	}
+	fprintf(fr, "\n");
+	for (size_t i = 0; i < 9; i++)
+	{
+		fprintf(fr, "%lf,", uavrs_extparams_col2dpt.rotation[i]);
+	}
+	fprintf(fr, "\n");
+	for (size_t i = 0; i < 3; i++)
+	{
+		fprintf(fr, "%lf,", uavrs_extparams_col2dpt.translation[i]);
 	}
 	fprintf(fr, "\n");
 	fclose(fr);

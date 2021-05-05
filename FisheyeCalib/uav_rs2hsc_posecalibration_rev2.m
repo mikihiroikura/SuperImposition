@@ -1,6 +1,6 @@
 function uav_rs2hsc_posecalibration_rev2()
-    load rs0params.mat rs0params
-    load rs1params.mat rs1params
+    load rs0params.mat rs0params rs0_RTcol2dpt
+    load rs1params.mat rs1params rs1_RTcol2dpt
     load setup.mat video_dir_uavcalib_uavrs video_dir_uavcalib_ugvrs ...
         csv_dir_uavcalib_marker img_step squareSize time_margin
     
@@ -72,7 +72,7 @@ function uav_rs2hsc_posecalibration_rev2()
     end
     
     %Marker-UGVRS間位置姿勢の呼び出し
-    load poseparams.mat TransVec_marker2ugvrs_mean RotMat_marker2ugvrs_mean
+    load poseparams.mat TransVec_marker2ugvrsdpt_mean RotMat_marker2ugvrsdpt_mean
     
     %チェッカーボード(World)toUAVRSの外部パラメータの計算
     RotMatrix_uavrs = zeros(3,3,size(imagePoints_uavrs,3));
@@ -95,7 +95,7 @@ function uav_rs2hsc_posecalibration_rev2()
     %同次座標変換行列を作成
     RTcb2uavrs = zeros(4,4,size(RotMatrix_uavrs,3));
     RTcb2ugvrs = zeros(4,4,size(RotMatrix_ugvrs,3));
-    RTmk2ugvrs = eye(4,4);
+    RTmk2ugvrsdpt = eye(4,4);
     RTmk2hsc = zeros(4,4,size(RotMatrix_marker2hsc,3));
     RTcb2uavrs(1:3,1:3,:) = RotMatrix_uavrs;
     RTcb2uavrs(4,1:3,:) = TransVec_uavrs.';
@@ -103,42 +103,46 @@ function uav_rs2hsc_posecalibration_rev2()
     RTcb2ugvrs(1:3,1:3,:) = RotMatrix_ugvrs;
     RTcb2ugvrs(4,1:3,:) = TransVec_ugvrs.';
     RTcb2ugvrs(4,4,:) = 1;
-    RTmk2ugvrs(1:3,1:3) = RotMat_marker2ugvrs_mean;
-    RTmk2ugvrs(4,1:3) = TransVec_marker2ugvrs_mean;
+    RTmk2ugvrsdpt(1:3,1:3) = RotMat_marker2ugvrsdpt_mean;
+    RTmk2ugvrsdpt(4,1:3) = TransVec_marker2ugvrsdpt_mean;
     RTmk2hsc(1:3,1:3,:) = RotMatrix_marker2hsc;
     RTmk2hsc(4,1:3,:) = TransVec_marker2hsc.';
     RTmk2hsc(4,4,:) = 1;
     
+    %RS関連同次座標変換行列をCOLからDPTに変換
+    RTcb2uavrsdpt = pagemtimes(RTcb2uavrs, rs1_RTcol2dpt);
+    RTcb2ugvrsdpt = pagemtimes(RTcb2ugvrs, rs0_RTcol2dpt);
+    
     %UAVRS-HSC間の変換行列を計算
-    RTuavrs2hsc = zeros(4,4,size(RotMatrix_uavrs,3));
+    RTuavrsdpt2hsc = zeros(4,4,size(RotMatrix_uavrs,3));
     for i = 1:size(RotMatrix_uavrs,3)
-        RTuavrs2hsc(:,:,i) = inv(RTcb2uavrs(:,:,i)) * RTcb2ugvrs(:,:,i) * inv(RTmk2ugvrs) * RTmk2hsc(:,:,i);
+        RTuavrsdpt2hsc(:,:,i) = inv(RTcb2uavrsdpt(:,:,i)) * RTcb2ugvrsdpt(:,:,i) * inv(RTmk2ugvrsdpt) * RTmk2hsc(:,:,i);
     end
     
     %UAVRS-HSC間の並進ベクトルと回転行列の平均値を計算
-    TransVec_uavrs2hsc = squeeze(RTuavrs2hsc(4,1:3,:)).';
-    RotMat_uavrs2hsc = RTuavrs2hsc(1:3,1:3,:);
-    TransVec_uavrs2hsc_mean = mean(TransVec_uavrs2hsc,1);
-    RotVec_uavrs2hsc = zeros(size(RTuavrs2hsc,3), 3);
-    for i = 1:size(RotMat_uavrs2hsc,3)
-    RotVec_uavrs2hsc(i,:) = rotationMatrixToVector(RotMat_uavrs2hsc(:,:,i));
+    TransVec_uavrsdpt2hsc = squeeze(RTuavrsdpt2hsc(4,1:3,:)).';
+    RotMat_uavrsdpt2hsc = RTuavrsdpt2hsc(1:3,1:3,:);
+    TransVec_uavrsdpt2hsc_mean = mean(TransVec_uavrsdpt2hsc,1);
+    RotVec_uavrsdpt2hsc = zeros(size(RTuavrsdpt2hsc,3), 3);
+    for i = 1:size(RotMat_uavrsdpt2hsc,3)
+        RotVec_uavrsdpt2hsc(i,:) = rotationMatrixToVector(RotMat_uavrsdpt2hsc(:,:,i));
     end
-    RotVec_uavrs2hsc_mean = mean(RotVec_uavrs2hsc,1);
-    RotMat_uavrs2hsc_mean = rotationVectorToMatrix(RotVec_uavrs2hsc_mean);
-
+    RotVec_uavrsdpt2hsc_mean = mean(RotVec_uavrsdpt2hsc,1);
+    RotMat_uavrsdpt2hsc_mean = rotationVectorToMatrix(RotVec_uavrsdpt2hsc_mean);
+    
     %結果の保存
-    save poseparams.mat TransVec_marker2ugvrs_mean RotMat_marker2ugvrs_mean TransVec_uavrs2hsc_mean RotMat_uavrs2hsc_mean
+    save poseparams.mat TransVec_marker2ugvrsdpt_mean RotMat_marker2ugvrsdpt_mean TransVec_uavrsdpt2hsc_mean RotMat_uavrsdpt2hsc_mean
     
     %CSVへの出力
     load setup.mat poseparamfile
     fid = fopen(poseparamfile,'w');
-    fprintf(fid,'%.6f,',RotMat_uavrs2hsc_mean);
+    fprintf(fid,'%.6f,',RotMat_uavrsdpt2hsc_mean);
     fprintf(fid,'\n');
-    fprintf(fid,'%.6f,',TransVec_uavrs2hsc_mean);
+    fprintf(fid,'%.6f,',TransVec_uavrsdpt2hsc_mean);
     fprintf(fid,'\n');
-    fprintf(fid,'%.6f,',RotMat_marker2ugvrs_mean);
+    fprintf(fid,'%.6f,',RotMat_marker2ugvrsdpt_mean);
     fprintf(fid,'\n');
-    fprintf(fid,'%.6f,',TransVec_marker2ugvrs_mean);
+    fprintf(fid,'%.6f,',TransVec_marker2ugvrsdpt_mean);
     fprintf(fid,'\n');
     fclose(fid);
     
