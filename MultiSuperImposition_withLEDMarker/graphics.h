@@ -23,9 +23,9 @@ const unsigned int window_width = 1280;
 const unsigned int window_height = 720;
 
 //realsense
-const unsigned int colorwidth = 1920;
-const unsigned int colorheight = 1080;
-const unsigned int colorfps = 30;
+const unsigned int colorwidth = 848;
+const unsigned int colorheight = 480;
+const unsigned int colorfps = 60;
 const unsigned int depthwidth = 848;
 const unsigned int depthheight = 480;
 const unsigned int depthfps = 60;

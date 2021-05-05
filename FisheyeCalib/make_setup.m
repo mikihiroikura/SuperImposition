@@ -28,20 +28,20 @@ function make_setup()
     
     %UAV側のRS-HSC間の位置姿勢Calibration
     video_folder_uav = './videos/UAV/';
-    video_name_uavcalib_uavrs = 'UAVRS/202105011912_video_rs1.mp4';
+    video_name_uavcalib_uavrs = 'UAVRS/202105051712_video_rs1.mp4';
     video_dir_uavcalib_uavrs = strcat(video_folder_uav, video_name_uavcalib_uavrs);
-    video_name_uavcalib_ugvrs = 'UGVRS/202105011912_video_rs0.mp4';
+    video_name_uavcalib_ugvrs = 'UGVRS/202105051712_video_rs0.mp4';
     video_dir_uavcalib_ugvrs = strcat(video_folder_uav, video_name_uavcalib_ugvrs);
-    csv_name_uavcalib = 'CSV/202105011912_markerpose.csv';
+    csv_name_uavcalib = 'CSV/202105051712_markerpose.csv';
     csv_dir_uavcalib_marker = strcat(video_folder_uav, csv_name_uavcalib);
     
     %UGV側のRS-Marker間の位置姿勢Calibration
     video_folder_ugv = './videos/UGV/';
-    video_name_ugv_rs = 'RS/202105011905_video_rs0.mp4';
+    video_name_ugv_rs = 'RS/202105051716_video_rs0.mp4';
     video_dir_ugv_rs = strcat(video_folder_ugv, video_name_ugv_rs);
-    video_name_ugv_hsc = 'HSC/202105011905_video_hsc.mp4';
+    video_name_ugv_hsc = 'HSC/202105051716_video_hsc.mp4';
     video_dir_ugv_hsc = strcat(video_folder_ugv, video_name_ugv_hsc);
-    csv_name_ugv = 'CSV/202105011905_markerpose.csv';
+    csv_name_ugv = 'CSV/202105051716_markerpose.csv';
     csv_dir_ugv_marker = strcat(video_folder_ugv, csv_name_ugv);
     time_margin = 3;
     

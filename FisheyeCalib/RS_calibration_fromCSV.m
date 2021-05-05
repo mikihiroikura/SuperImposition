@@ -1,6 +1,6 @@
 function RS_calibration_fromCSV()
-    rs0_csv_dir = './videos/RS0/202105040212_RS0_intrinsicparams.csv';
-    rs1_csv_dir = './videos/RS1/202105040212_RS1_intrinsicparams.csv';
+    rs0_csv_dir = './videos/RS0/202105051710_RS0_intrinsicparams.csv';
+    rs1_csv_dir = './videos/RS1/202105051710_RS1_intrinsicparams.csv';
     
 
     M_rs0 = csvread(rs0_csv_dir);

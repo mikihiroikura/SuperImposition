@@ -5,12 +5,12 @@
 //RealSenseに関するパラメータ
 rs2::context context;
 int ugvrsid = 0, uavrsid = 1;
-const unsigned int colorwidth = 1920;
-const unsigned int colorheight = 1080;
-const unsigned int colorfps = 30;
-const unsigned int depthwidth = 1280;
-const unsigned int depthheight = 720;
-const unsigned int depthfps = 30;
+const unsigned int colorwidth = 848;
+const unsigned int colorheight = 480;
+const unsigned int colorfps = 60;
+const unsigned int depthwidth = 848;
+const unsigned int depthheight = 480;
+const unsigned int depthfps = 60;
 
 int main() {
 	//RealSenseの初期化
@@ -32,7 +32,8 @@ int main() {
 	//ここにRSの内部パラを呼び出す
 	rs2_intrinsics ugvrs_intparams = ugvrs_device.pipe.get_active_profile().get_stream(RS2_STREAM_COLOR).as<rs2::video_stream_profile>().get_intrinsics();
 	rs2_intrinsics uavrs_intparams = uavrs_device.pipe.get_active_profile().get_stream(RS2_STREAM_COLOR).as<rs2::video_stream_profile>().get_intrinsics();
-
+	rs2_intrinsics ugvrs_intparams_depth = ugvrs_device.pipe.get_active_profile().get_stream(RS2_STREAM_DEPTH).as<rs2::video_stream_profile>().get_intrinsics();
+	rs2_intrinsics uavrs_intparams_depth = uavrs_device.pipe.get_active_profile().get_stream(RS2_STREAM_DEPTH).as<rs2::video_stream_profile>().get_intrinsics();
 
 	//内部パラメータ保存
 	//UGVRS = RS0
