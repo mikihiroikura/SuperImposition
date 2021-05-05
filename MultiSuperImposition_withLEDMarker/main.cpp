@@ -82,9 +82,9 @@ LARGE_INTEGER start, stop, freq;
 LARGE_INTEGER takestart, takeend;
 LARGE_INTEGER hscstart, hscend;
 LARGE_INTEGER glstart, glend;
-LARGE_INTEGER logstart, logend, glrslogend;
+LARGE_INTEGER logstart, logend, glrslogend, hsclogend;
 LARGE_INTEGER detectstart, detectstartdebug, detectend;
-double taketime = 0, hsctime = 0, logtime = 0, gltime = 0, glrslogtime = 0;
+double taketime = 0, hsctime = 0, logtime = 0, gltime = 0, glrslogtime = 0, hsclogtime = 0;
 double timer = 0, gltimer = 0;
 double detecttimea = 0, detecttimeb = 0, detecttimec = 0, detecttimed = 0, detecttimee = 0, detecttimef = 0, detecttime = 0;
 
@@ -168,6 +168,7 @@ struct Logs
 	double* LED_times;
 	double* log_times;
 	double* glrslog_times;
+	double* hsclog_times;
 	int* LED_results;
 	vector<glm::mat4> LED_RTuavrs2ugvrs;
 };
@@ -344,6 +345,7 @@ int main() {
 	logs.in_imgs_log_ptr = logs.in_imgs_log.data();
 	logs.gl_imgs_log_ptr = logs.gl_imgs_log.data();
 	logs.glrslog_times = (double*)malloc(sizeof(double) * log_img_finish_cnt);
+	logs.hsclog_times = (double*)malloc(sizeof(double) * log_img_finish_cnt);
 	cout << "OK!" << endl;
 #endif // SAVE_IMGS_
 #ifdef SAVE_HSC2MK_POSE_
@@ -563,6 +565,14 @@ int main() {
 			sprintf(picturename, "%s%05d.png", picsubname, i);//png可逆圧縮
 			cv::imwrite(picturename, logs.in_imgs_log[i]);
 		}
+		//HSCの画像保存時刻の保存
+		strftime(logfile, 256, "D:/Github_output/SuperImposition/MultiSuperImposition_withLEDMarker/results/%y%m%d/%H%M%S/HSCimg_times.csv", &now);
+		fr = fopen(logfile, "w");
+		for (size_t i = 0; i < log_hscimg_cnt; i++)
+		{
+			fprintf(fr, "%lf\n", logs.hsclog_times[i]);
+		}
+		fclose(fr);
 		//OpenGLの画像保存
 		strftime(picdir, 256, "D:/Github_output/SuperImposition/MultiSuperImposition_withLEDMarker/results/%y%m%d/%H%M%S/GL", &now);
 		if (stat(picdir, &statBuf) != 0) {
@@ -664,6 +674,11 @@ void ShowSaveImgsHSC(bool* flg, Logs* logs) {
 			//LED画像の保存
 			save_img_on_src = in_imgs[(in_imgs_saveid - 2 + ringbuffersize) % ringbuffersize].ptr<uint8_t>(0);
 			memcpy((logs->in_imgs_log_ptr + log_hscimg_cnt)->data, save_img_on_src, height * width * 3);
+
+			//HSCの画像取得時間計測
+			QueryPerformanceCounter(&hsclogend);
+			hsclogtime = (double)(hsclogend.QuadPart - logstart.QuadPart) / freq.QuadPart;
+			*(logs->hsclog_times + log_hscimg_cnt) = hsclogtime;
 
 			log_hscimg_cnt++;
 			if (log_hscimg_cnt > log_img_finish_cnt) *flg = false;
@@ -1343,7 +1358,7 @@ void ControlAxisRobot(RS232c* robot, bool* flg) {
 		else if (initaxispos == initaxisstart) initaxispos = initaxisend;
 		else initaxispos = initaxisstart;
 		axisposition = (initaxispos + rand() % posunits + 1) * 100; //0~100 or 600~700
-		axisspeed = (rand() % speedunits + 1) * 2; //10~100で10刻み
+		axisspeed = (rand() % speedunits + 1) * 10; //10~100で10刻み
 
 		//コマンド送信
 		snprintf(controlcommand, READBUFFERSIZE, "@S_17.1=%d\r\n", axisspeed);

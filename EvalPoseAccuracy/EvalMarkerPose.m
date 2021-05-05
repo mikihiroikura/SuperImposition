@@ -1,7 +1,7 @@
 %各種パラメータの読み取り
-rsimg_csv_name = 'data/RSimg_times.csv';
+hscimg_csv_name = 'data/HSCimg_times.csv';
 ledpose_csv_name = 'data/LEDpose_results.csv';
-calibratedpose_csv_name = '202105040303_poseparam.csv';
+calibratedpose_csv_name = '202105051723_poseparam.csv';
 squareSize = 32;
 hscwidth = 896;
 hscheight = 896;
@@ -9,7 +9,7 @@ load fishparams.mat fisheyeParams
 
 %CSV読み取り
 M_ledpose = csvread(ledpose_csv_name);
-M_rstime = csvread(rsimg_csv_name);
+M_hsctime = csvread(hscimg_csv_name);
 M_calibpose = csvread(calibratedpose_csv_name);
 
 %Calibration済のデータの読み取り
@@ -44,15 +44,18 @@ for i = 1:size(imageUsed,1)
     end
 end
 
+%再度チェッカーボード検出
+hsc_imgs_used = hsc_imgs(:,:,:,imageUsed_hsc);
+[imagePoints_hsc,boardSize_hsc,imageUsed] = detectCheckerboardPoints(hsc_imgs_used);
+M_hsctime_used = M_hsctime(imageUsed_hsc,:);
+
 %HSCからCBの検出，位置姿勢保存
 worldPoints_hsc = generateCheckerboardPoints(boardSize_hsc, squareSize);
-RT_cb2hsc = zeros(4,4,size(hsc_imgs,4));
-for k = 1:size(hsc_imgs,4)
-    if imageUsed_hsc(k)    
-        [R,t] = extrinsics(imagePoints_hsc(:,:,k),worldPoints_hsc,fisheyeParams.Intrinsics);
-        RT_cb2hsc(1:3,1:3,k) = R;
-        RT_cb2hsc(4,1:3,k) = t.';
-    end
+RT_cb2hsc = zeros(4,4,size(hsc_imgs_used,4));
+for k = 1:size(hsc_imgs_used,4)
+    [R,t] = extrinsics(imagePoints_hsc(:,:,k),worldPoints_hsc,fisheyeParams.Intrinsics);
+    RT_cb2hsc(1:3,1:3,k) = R;
+    RT_cb2hsc(4,1:3,k) = t.';
 end
 RT_cb2hsc(4,4,:) = 1.0;
 
@@ -73,8 +76,8 @@ for k = 1:size(RT_hsc2mk, 3)
 end
 
 %cb2hscの初期位置からの変動を計算
-RT_cbinit2cbi = zeros(4,4,size(hsc_imgs,4));
-for k = 1:size(hsc_imgs,4)
+RT_cbinit2cbi = zeros(4,4,size(hsc_imgs_used,4));
+for k = 1:size(hsc_imgs_used,4)
     if RT_cb2hsc(4,1,k)~=0
         RT_cbinit2cbi(:,:,k) = RT_cb2hsc(:,:,1) / (RT_cb2hsc(:,:,k));
     end
@@ -82,13 +85,13 @@ end
 
 %CB2MKの変換行列を求める
 RT_cb2mk = zeros(size(RT_hsc2mk));
-cbtimeid = 1;
+hsctimeid = 1;
 for i = 1:size(RT_cb2mk,3)
-    while M_rstime(cbtimeid)<ledtime(i)
-        cbtimeid = cbtimeid + 1;
+    while M_hsctime_used(hsctimeid)<ledtime(i) && hsctimeid < size(M_hsctime_used,1)
+        hsctimeid = hsctimeid + 1;
     end
-    if RT_hsc2mk(4,1,i)~=0 && RT_cb2hsc(4,1,cbtimeid)~=0
-        RT_cb2mk(:,:,i) = RT_cb2hsc(:,:,cbtimeid) * RT_hsc2mk(:,:,i);
+    if RT_hsc2mk(4,1,i)~=0 && RT_cb2hsc(4,1,hsctimeid)~=0
+        RT_cb2mk(:,:,i) = RT_cb2hsc(:,:,hsctimeid) * RT_hsc2mk(:,:,i);
     end
 end
 
@@ -102,26 +105,26 @@ end
 
 %CBの位置変動@CBiをMKi座標系に変換
 T_cbinit2cbi_at_mki = zeros(size(RT_cbinit2cbi,3),3);
-rstimeid = 1;
+hsctimeid = 1;
 for i = 1:size(T_cbinit2cbi_at_mki,1)
-    while M_rstime(rstimeid)<ledtime(i)
-        rstimeid = rstimeid + 1;
+    while M_hsctime_used(hsctimeid)<ledtime(i) && hsctimeid < size(M_hsctime_used,1)
+        hsctimeid = hsctimeid + 1;
     end
-    if RT_cbinit2cbi(4,1,i)~=0 && RT_cb2mk(4,1,rstimeid)~=0
-        T_cbinit2cbi_at_mki(i,:) = RT_cbinit2cbi(4,1:3,i) * RT_cb2mk(1:3,1:3,rstimeid);
+    if RT_cbinit2cbi(4,1,i)~=0 && RT_cb2mk(4,1,hsctimeid)~=0
+        T_cbinit2cbi_at_mki(i,:) = RT_cbinit2cbi(4,1:3,i) * RT_cb2mk(1:3,1:3,hsctimeid);
     end
 end
 %CBの姿勢変動@CbiをMki座標系に変換
 Rvec_cbinit2cbi_at_mki = zeros(size(RT_cbinit2cbi,3),3);
 R_cbinit2cbi_at_mki = zeros(3, 3, size(RT_cbinit2cbi,3));
-rstimeid = 1;
+hsctimeid = 1;
 for i = 1:size(Rvec_cbinit2cbi_at_mki,1)
-    while M_rstime(rstimeid)<ledtime(i)
-        rstimeid = rstimeid + 1;
+    while M_hsctime_used(hsctimeid)<ledtime(i) && hsctimeid < size(M_hsctime_used,1)
+        hsctimeid = hsctimeid + 1;
     end
-    if RT_cb2mk(4,1,rstimeid)~=0 && RT_cbinit2cbi(4,1,i)~=0
+    if RT_cb2mk(4,1,hsctimeid)~=0 && RT_cbinit2cbi(4,1,i)~=0
         Rvec_cbinit2cbi_at_cbi = rotationMatrixToVector(RT_cbinit2cbi(1:3,1:3,i));
-        Rvec_cbinit2cbi_at_mki(i,:) = Rvec_cbinit2cbi_at_cbi * RT_cb2mk(1:3,1:3,rstimeid);
+        Rvec_cbinit2cbi_at_mki(i,:) = Rvec_cbinit2cbi_at_cbi * RT_cb2mk(1:3,1:3,hsctimeid);
         R_cbinit2cbi_at_mki(:,:,i) = rotationVectorToMatrix(Rvec_cbinit2cbi_at_mki(i,:));
     end
 end
@@ -129,32 +132,32 @@ end
 %CBの姿勢変動@MkiとMkの姿勢変動@Mkiの差分計算
 Rdiff_cb2mk_at_mki = zeros(3,3,size(RT_mkinit2mki_at_mki,3));
 Rvec_diff_cb2mk_at_mki = zeros(size(RT_mkinit2mki_at_mki,3),3);
-rstimeid = 1;
+hsctimeid = 1;
 for i = 1:size(Rdiff_cb2mk_at_mki,3)
-    while M_rstime(rstimeid)<ledtime(i)
-        rstimeid = rstimeid + 1;
+    while M_hsctime_used(hsctimeid)<ledtime(i) && hsctimeid < size(M_hsctime_used,1)
+        hsctimeid = hsctimeid + 1;
     end
-    if R_cbinit2cbi_at_mki(1,1,rstimeid)~=0 && RT_mkinit2mki_at_mki(4,1,i)~=0
-        Rdiff_cb2mk_at_mki(:,:,i) = R_cbinit2cbi_at_mki(:,:,rstimeid) / RT_mkinit2mki_at_mki(1:3,1:3,i);
+    if R_cbinit2cbi_at_mki(1,1,hsctimeid)~=0 && RT_mkinit2mki_at_mki(4,1,i)~=0
+        Rdiff_cb2mk_at_mki(:,:,i) = R_cbinit2cbi_at_mki(:,:,hsctimeid) / RT_mkinit2mki_at_mki(1:3,1:3,i);
         Rvec_diff_cb2mk_at_mki(i,:) = rotationMatrixToVector(Rdiff_cb2mk_at_mki(:,:,i)) * 180 /pi;
     end
 end
 
 %位置ずれ差分計算
 Tdiff_cb2mk_at_mki = zeros(size(RT_mkinit2mki_at_mki,3),3);
-rstimeid = 1;
+hsctimeid = 1;
 for i = 1:size(Tdiff_cb2mk_at_mki,1)
-    while M_rstime(rstimeid)<ledtime(i)
-        rstimeid = rstimeid + 1;
+    while M_hsctime_used(hsctimeid)<ledtime(i) && hsctimeid < size(M_hsctime_used,1)
+        hsctimeid = hsctimeid + 1;
     end
-    Tdiff_cb2mk_at_mki(i,:) = T_cbinit2cbi_at_mki(rstimeid,:)-squeeze(RT_mkinit2mki_at_mki(4,1:3,i));
+    Tdiff_cb2mk_at_mki(i,:) = T_cbinit2cbi_at_mki(hsctimeid,:)-squeeze(RT_mkinit2mki_at_mki(4,1:3,i));
 end
 
 
 %位置変動出力
 for k = 1:3
     figure
-    plot(M_rstime,T_cbinit2cbi_at_mki(:,k));
+    plot(M_hsctime_used,T_cbinit2cbi_at_mki(:,k));
     hold on
     plot(ledtime,squeeze(RT_mkinit2mki_at_mki(4,k,:)));
 end
