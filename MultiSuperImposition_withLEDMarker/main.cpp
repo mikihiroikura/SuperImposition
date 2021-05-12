@@ -38,8 +38,8 @@ using namespace std;
 
 //スレッドの処理時間
 double takepic_time = 0.002;
-double showgl_time = 0.03;
-double showhsc_time = 0.03;
+double showgl_time = 0.01667;
+double showhsc_time = 0.01667;
 double calcpose_time = 0.002;
 
 
@@ -155,8 +155,8 @@ const int posunits = 100, speedunits = 10;
 
 
 //ログに関するパラメータ
-const int timeout = 20;
-const int log_img_fps = 40;
+const int timeout = 10;
+const int log_img_fps = 70;
 const int log_img_fps_hs = 500;
 const int log_led_fps = 500;
 const int log_img_finish_cnt = log_img_fps * timeout + 100;
@@ -176,7 +176,9 @@ struct Logs
 	double* LED_times;
 	double* log_times;
 	double* glrslog_times;
+	double* glrslog_times_diff;
 	double* hsclog_times;
+	double* hsclog_times_diff;
 	int* LED_results;
 	vector<glm::mat4> LED_RTuavrs2ugvrs;
 };
@@ -202,7 +204,7 @@ using namespace std;
 #define ROI_MODE_
 
 #define SAVE_IMGS_
-//#define SAVE_IMGS_HIGHSPEED_
+#define SAVE_IMGS_HIGHSPEED_
 #define SAVE_HSC2MK_POSE_
 //#define MOVE_AXISROBOT_
 
@@ -343,9 +345,13 @@ int main() {
 	for (size_t i = 0; i < log_img_finish_cnt; i++) { logs.gl_imgs_log.push_back(gl_img.clone()); }
 #ifdef SAVE_IMGS_HIGHSPEED_
 	for (size_t i = 0; i < log_img_finish_cnt_hs; i++) { logs.in_imgs_log.push_back(zero.clone()); }
+	logs.hsclog_times = (double*)malloc(sizeof(double) * log_img_finish_cnt_hs);
+	logs.hsclog_times_diff = (double*)malloc(sizeof(double) * log_img_finish_cnt_hs);
 #endif // SAVE_IMGS_HIGHSPEED
 #ifndef SAVE_IMGS_HIGHSPEED_
 	for (size_t i = 0; i < log_img_finish_cnt; i++) { logs.in_imgs_log.push_back(zero.clone()); }
+	logs.hsclog_times = (double*)malloc(sizeof(double) * log_img_finish_cnt);
+	logs.hsclog_times_diff = (double*)malloc(sizeof(double) * log_img_finish_cnt);
 #endif
 	for (size_t i = 0; i < log_img_finish_cnt; i++)
 	{
@@ -359,7 +365,8 @@ int main() {
 	logs.in_imgs_log_ptr = logs.in_imgs_log.data();
 	logs.gl_imgs_log_ptr = logs.gl_imgs_log.data();
 	logs.glrslog_times = (double*)malloc(sizeof(double) * log_img_finish_cnt);
-	logs.hsclog_times = (double*)malloc(sizeof(double) * log_img_finish_cnt);
+	logs.glrslog_times_diff = (double*)malloc(sizeof(double) * log_img_finish_cnt);
+	
 	cout << "OK!" << endl;
 #endif // SAVE_IMGS_
 #ifdef SAVE_HSC2MK_POSE_
@@ -584,7 +591,8 @@ int main() {
 		fr = fopen(logfile, "w");
 		for (size_t i = 0; i < log_hscimg_cnt; i++)
 		{
-			fprintf(fr, "%lf\n", logs.hsclog_times[i]);
+			fprintf(fr, "%lf,", logs.hsclog_times[i]);
+			fprintf(fr, "%lf\n", logs.hsclog_times_diff[i]);
 		}
 		fclose(fr);
 		//OpenGLの画像保存
@@ -620,7 +628,8 @@ int main() {
 		fr = fopen(logfile, "w");
 		for (size_t i = 0; i < log_glrsimg_cnt; i++)
 		{
-			fprintf(fr, "%lf\n", logs.glrslog_times[i]);
+			fprintf(fr, "%lf,", logs.glrslog_times[i]);
+			fprintf(fr, "%lf\n", logs.glrslog_times_diff[i]);
 		}
 		fclose(fr);
 		std::cout << "Imgs finished!" << endl;
@@ -641,25 +650,6 @@ void TakePicture(kayacoaxpress* cam, bool* flg, Logs* logs) {
 		in_img_multi_src = in_imgs[takepicid].ptr<uint8_t>(0);
 
 		cam->captureFrame(in_img_multi_src, multicnt);
-#ifdef SAVE_IMGS_HIGHSPEED_
-		//sを押して画像保存開始
-		if (saveimgsflg)
-		{
-			//LED画像の保存
-			save_img_on_src = in_imgs[(takepicid + ringbuffersize) % ringbuffersize].ptr<uint8_t>(0);
-			memcpy((logs->in_imgs_log_ptr + log_hscimg_cnt)->data, save_img_on_src, height * width * 3);
-
-			//HSCの画像取得時間計測
-			QueryPerformanceCounter(&hsclogend);
-			hsclogtime = (double)(hsclogend.QuadPart - logstart.QuadPart) / freq.QuadPart;
-			*(logs->hsclog_times + log_hscimg_cnt) = hsclogtime;
-
-			log_hscimg_cnt++;
-			if (log_hscimg_cnt > log_img_finish_cnt) *flg = false;
-		}
-#endif // SAVE_IMGS_HIGHSPEED_
-		in_imgs_saveid = (in_imgs_saveid + 1) % ringbuffersize;
-		processflgs[takepicid] = true;
 		QueryPerformanceCounter(&takeend);
 		taketime = (double)(takeend.QuadPart - takestart.QuadPart) / freq.QuadPart;
 		while (taketime < takepic_time)
@@ -667,6 +657,27 @@ void TakePicture(kayacoaxpress* cam, bool* flg, Logs* logs) {
 			QueryPerformanceCounter(&takeend);
 			taketime = (double)(takeend.QuadPart - takestart.QuadPart) / freq.QuadPart;
 		}
+#ifdef SAVE_IMGS_HIGHSPEED_
+		//sを押して画像保存開始
+		if (saveimgsflg)
+		{
+			//LED画像の保存
+			save_img_on_src = in_imgs[(takepicid -1+ ringbuffersize) % ringbuffersize].ptr<uint8_t>(0);
+			memcpy((logs->in_imgs_log_ptr + log_hscimg_cnt)->data, save_img_on_src, height * width * 3);
+
+			//HSCの画像取得時間計測
+			QueryPerformanceCounter(&hsclogend);
+			hsclogtime = (double)(hsclogend.QuadPart - logstart.QuadPart) / freq.QuadPart;
+			*(logs->hsclog_times + log_hscimg_cnt) = hsclogtime;
+			*(logs->hsclog_times_diff + log_hscimg_cnt) = taketime;
+
+			log_hscimg_cnt++;
+			if (log_hscimg_cnt > log_img_finish_cnt_hs) *flg = false;
+		}
+#endif // SAVE_IMGS_HIGHSPEED_
+		in_imgs_saveid = (in_imgs_saveid + 1) % ringbuffersize;
+		processflgs[takepicid] = true;
+		
 #ifdef SHOW_PROCESSING_TIME_
 		std::cout << "TakePicture() time: " << taketime << endl;
 #endif // SHOW_PROCESSING_TIME_
@@ -690,6 +701,26 @@ void ShowSaveImgsHSC(bool* flg, Logs* logs) {
 		cv::imshow("img", in_imgs[(in_imgs_saveid - 2 + ringbuffersize) % ringbuffersize]);
 		int key = cv::waitKey(1);
 		if (key == 'q') *flg = false;
+
+
+		QueryPerformanceCounter(&hscend);
+		hsctime = (double)(hscend.QuadPart - hscstart.QuadPart) / freq.QuadPart;
+		while (hsctime < showhsc_time)
+		{
+			QueryPerformanceCounter(&hscend);
+			hsctime = (double)(hscend.QuadPart - hscstart.QuadPart) / freq.QuadPart;
+		}
+		showsavehscimg = true;
+		while (!showsaveglimg)
+		{
+			QueryPerformanceCounter(&hscend);
+			hsctime = (double)(hscend.QuadPart - hscstart.QuadPart) / freq.QuadPart;
+		}
+		
+#ifdef SHOW_PROCESSING_TIME_
+		std::cout << "ShowSaveImgsHSC() time: " << hsctime << endl;
+#endif // SHOW_PROCESSING_TIME_
+
 #ifdef SAVE_IMGS_
 		//sを押すと，画像保存が開始される
 		if (key == 's' && !saveimgsstartflg) {
@@ -709,30 +740,13 @@ void ShowSaveImgsHSC(bool* flg, Logs* logs) {
 			QueryPerformanceCounter(&hsclogend);
 			hsclogtime = (double)(hsclogend.QuadPart - logstart.QuadPart) / freq.QuadPart;
 			*(logs->hsclog_times + log_hscimg_cnt) = hsclogtime;
+			*(logs->hsclog_times_diff + log_hscimg_cnt) = hsctime;
 
 			log_hscimg_cnt++;
 			if (log_hscimg_cnt > log_img_finish_cnt) *flg = false;
 		}
 #endif // !SAVE_IMGS_HIGHSPEED_
 #endif // SAVE_IMGS_
-
-		QueryPerformanceCounter(&hscend);
-		hsctime = (double)(hscend.QuadPart - hscstart.QuadPart) / freq.QuadPart;
-		while (hsctime < showhsc_time)
-		{
-			QueryPerformanceCounter(&hscend);
-			hsctime = (double)(hscend.QuadPart - hscstart.QuadPart) / freq.QuadPart;
-		}
-		showsavehscimg = true;
-		while (!showsaveglimg)
-		{
-			QueryPerformanceCounter(&hscend);
-			hsctime = (double)(hscend.QuadPart - hscstart.QuadPart) / freq.QuadPart;
-		}
-		
-#ifdef SHOW_PROCESSING_TIME_
-		std::cout << "ShowSaveImgsHSC() time: " << hsctime << endl;
-#endif // SHOW_PROCESSING_TIME_
 	}
 
 	
@@ -769,28 +783,7 @@ void ShowSaveImgsGL(bool* flg, PointCloud** pc_src, Logs* logs) {
 		drawGL_realsense(gl_pc_src, gl_texcoord_src, gl_tex_src, RTuavrs2ugvrs_toGPU);
 #endif // SHOW_OPENGL_
 
-#ifdef SAVE_IMGS_
-		//sを押して画像保存開始
-		if (saveimgsflg)
-		{
-			//OpenGL表示の画像保存
-			saveImgCV((logs->gl_imgs_log_ptr + log_glrsimg_cnt)->data);
 
-			//RealSenseの画像保存
-			for (size_t i = 0; i < realsense_cnt; i++)
-			{
-				memcpy(logs->rs_imgs_log[log_glrsimg_cnt][i].data, gl_tex_src[i]->get_data(), colorwidth * colorheight * 3);
-			}
-
-			//OpenGLとRealSenseの画像取得時間計測
-			QueryPerformanceCounter(&glrslogend);
-			glrslogtime = (double)(glrslogend.QuadPart - logstart.QuadPart) / freq.QuadPart;
-			*(logs->glrslog_times+ log_glrsimg_cnt) = glrslogtime;
-
-			log_glrsimg_cnt++;
-			if (log_glrsimg_cnt > log_img_finish_cnt) *flg = false;
-		}
-#endif // SAVE_IMGS_
 
 		QueryPerformanceCounter(&glend);
 		gltime = (double)(glend.QuadPart - glstart.QuadPart) / freq.QuadPart;
@@ -808,6 +801,30 @@ void ShowSaveImgsGL(bool* flg, PointCloud** pc_src, Logs* logs) {
 #ifdef SHOW_PROCESSING_TIME_
 		std::cout << "ShowSaveImgsGL() time: " << gltime << endl;
 #endif // SHOW_PROCESSING_TIME_
+
+#ifdef SAVE_IMGS_
+		//sを押して画像保存開始
+		if (saveimgsflg)
+		{
+			//OpenGL表示の画像保存
+			saveImgCV((logs->gl_imgs_log_ptr + log_glrsimg_cnt)->data);
+
+			//RealSenseの画像保存
+			for (size_t i = 0; i < realsense_cnt; i++)
+			{
+				memcpy(logs->rs_imgs_log[log_glrsimg_cnt][i].data, gl_tex_src[i]->get_data(), colorwidth * colorheight * 3);
+			}
+
+			//OpenGLとRealSenseの画像取得時間計測
+			QueryPerformanceCounter(&glrslogend);
+			glrslogtime = (double)(glrslogend.QuadPart - logstart.QuadPart) / freq.QuadPart;
+			*(logs->glrslog_times + log_glrsimg_cnt) = glrslogtime;
+			*(logs->glrslog_times_diff + log_glrsimg_cnt) = gltime;
+
+			log_glrsimg_cnt++;
+			if (log_glrsimg_cnt > log_img_finish_cnt) *flg = false;
+		}
+#endif // SAVE_IMGS_
 	}
 	//OpenGLの終了
 	finishGL();
