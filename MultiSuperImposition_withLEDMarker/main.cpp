@@ -86,11 +86,12 @@ rs2::frame* gl_tex_src[realsense_cnt];
 //時間に関する変数
 LARGE_INTEGER start, stop, freq;
 LARGE_INTEGER takestart, takeend;
+LARGE_INTEGER savehscstart, savehscend;
 LARGE_INTEGER hscstart, hscend;
 LARGE_INTEGER glstart, glend;
 LARGE_INTEGER logstart, logend, glrslogend, hsclogend;
 LARGE_INTEGER detectstart, detectstartdebug, detectend;
-double taketime = 0, hsctime = 0, logtime = 0, gltime = 0, glrslogtime = 0, hsclogtime = 0;
+double taketime = 0, hsctime = 0, logtime = 0, gltime = 0, glrslogtime = 0, hsclogtime = 0, savehsctime = 0;
 double timer = 0, gltimer = 0;
 double detecttimea = 0, detecttimeb = 0, detecttimec = 0, detecttimed = 0, detecttimee = 0, detecttimef = 0, detecttime = 0;
 
@@ -192,6 +193,7 @@ void ShowSaveImgsGL(bool* flg, PointCloud** pc_src, Logs* logs);
 void Read_Reply_toEND(RS232c* robot);
 void wait_QueryPerformance(double finishtime, LARGE_INTEGER freq);
 void ControlAxisRobot(RS232c* robot, bool* flg);
+void SaveHSC_HS(bool* flg, Logs* logs);
 
 using namespace std;
 
@@ -205,6 +207,7 @@ using namespace std;
 
 #define SAVE_IMGS_
 #define SAVE_IMGS_HIGHSPEED_
+//#define SAVE_IMGS_REALSENSE_
 #define SAVE_HSC2MK_POSE_
 //#define MOVE_AXISROBOT_
 
@@ -353,6 +356,7 @@ int main() {
 	logs.hsclog_times = (double*)malloc(sizeof(double) * log_img_finish_cnt);
 	logs.hsclog_times_diff = (double*)malloc(sizeof(double) * log_img_finish_cnt);
 #endif
+#ifdef SAVE_IMGS_REALSENSE_
 	for (size_t i = 0; i < log_img_finish_cnt; i++)
 	{
 		vector<cv::Mat> rs_imgs;
@@ -362,6 +366,8 @@ int main() {
 		}
 		logs.rs_imgs_log.push_back(rs_imgs);
 	}
+#endif // SAVE_IMGS_REALSENSE_
+
 	logs.in_imgs_log_ptr = logs.in_imgs_log.data();
 	logs.gl_imgs_log_ptr = logs.gl_imgs_log.data();
 	logs.glrslog_times = (double*)malloc(sizeof(double) * log_img_finish_cnt);
@@ -607,6 +613,7 @@ int main() {
 			cv::flip(logs.gl_imgs_log[i], logs.gl_imgs_log[i], 0);
 			cv::imwrite(picturename, logs.gl_imgs_log[i]);
 		}
+#ifdef SAVE_IMGS_REALSENSE_
 		//RealSenseの画像保存
 		for (int i = 0; i < realsense_cnt; i++)
 		{
@@ -623,7 +630,8 @@ int main() {
 				cv::imwrite(picturename, logs.rs_imgs_log[j][i]);
 			}
 		}
-		//RealSenseの画像保存時刻の保存
+#endif // SAVE_IMGS_REALSENSE_		
+		//RealSenseとOpenGLの画像保存時刻の保存
 		strftime(logfile, 256, "D:/Github_output/SuperImposition/MultiSuperImposition_withLEDMarker/results/%y%m%d/%H%M%S/RSimg_times.csv", &now);
 		fr = fopen(logfile, "w");
 		for (size_t i = 0; i < log_glrsimg_cnt; i++)
@@ -681,6 +689,36 @@ void TakePicture(kayacoaxpress* cam, bool* flg, Logs* logs) {
 #ifdef SHOW_PROCESSING_TIME_
 		std::cout << "TakePicture() time: " << taketime << endl;
 #endif // SHOW_PROCESSING_TIME_
+	}
+}
+
+void SaveHSC_HS(bool* flg, Logs* logs) {
+	while (*flg)
+	{
+		QueryPerformanceCounter(&savehscstart);
+		//sを押して画像保存開始
+		if (saveimgsflg)
+		{
+			//LED画像の保存
+			save_img_on_src = in_imgs[(takepicid - 1 + ringbuffersize) % ringbuffersize].ptr<uint8_t>(0);
+			memcpy((logs->in_imgs_log_ptr + log_hscimg_cnt)->data, save_img_on_src, height * width * 3);
+
+			//HSCの画像取得時間計測
+			QueryPerformanceCounter(&hsclogend);
+			hsclogtime = (double)(hsclogend.QuadPart - logstart.QuadPart) / freq.QuadPart;
+			*(logs->hsclog_times + log_hscimg_cnt) = hsclogtime;
+			*(logs->hsclog_times_diff + log_hscimg_cnt) = taketime;
+
+			log_hscimg_cnt++;
+			if (log_hscimg_cnt > log_img_finish_cnt_hs) *flg = false;
+		}
+		QueryPerformanceCounter(&savehscend);
+		savehsctime = (double)(savehscend.QuadPart - savehscstart.QuadPart) / freq.QuadPart;
+		while (savehsctime < takepic_time)
+		{
+			QueryPerformanceCounter(&savehscend);
+			savehsctime = (double)(savehscend.QuadPart - savehscstart.QuadPart) / freq.QuadPart;
+		}
 	}
 }
 
@@ -809,11 +847,13 @@ void ShowSaveImgsGL(bool* flg, PointCloud** pc_src, Logs* logs) {
 			//OpenGL表示の画像保存
 			saveImgCV((logs->gl_imgs_log_ptr + log_glrsimg_cnt)->data);
 
+#ifdef SAVE_IMGS_REALSENSE_
 			//RealSenseの画像保存
 			for (size_t i = 0; i < realsense_cnt; i++)
 			{
 				memcpy(logs->rs_imgs_log[log_glrsimg_cnt][i].data, gl_tex_src[i]->get_data(), colorwidth * colorheight * 3);
 			}
+#endif // SAVE_IMGS_REALSENSE_
 
 			//OpenGLとRealSenseの画像取得時間計測
 			QueryPerformanceCounter(&glrslogend);
