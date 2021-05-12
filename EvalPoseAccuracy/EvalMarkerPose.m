@@ -118,7 +118,16 @@ for k = 1:3
 end
 
 %ずれの平均分散を計算
-% mean(squeeze(RTdiff_cb2mk(4,1:3,:)).');
-% std(squeeze(RTdiff_cb2mk(4,1:3,:)).');
-% mean(Rvecdiff_cb2mk(:,:));
-% std(Rvecdiff_cb2mk(:,:));
+Tthr = 50;
+Rvecthr = 10;
+Tdiff_cb2mk = squeeze(RTdiff_cb2mk(4,1:3,:)).';
+Tthrid = Tdiff_cb2mk(:,1)<Tthr & Tdiff_cb2mk(:,1)>-Tthr ...
+    & Tdiff_cb2mk(:,2)<Tthr & Tdiff_cb2mk(:,2)>-Tthr ...
+    & Tdiff_cb2mk(:,3)<Tthr & Tdiff_cb2mk(:,3)>-Tthr;
+Rvecthrid = Rvecdiff_cb2mk(:,1)<Rvecthr & Rvecdiff_cb2mk(:,1)>-Rvecthr ...
+    & Rvecdiff_cb2mk(:,2)<Rvecthr & Rvecdiff_cb2mk(:,2)>-Rvecthr ...
+    & Rvecdiff_cb2mk(:,3)<Rvecthr & Rvecdiff_cb2mk(:,3)>-Rvecthr;
+mean(Tdiff_cb2mk(Tthrid,:))
+std(Tdiff_cb2mk(Tthrid,:))
+mean(Rvecdiff_cb2mk(Rvecthrid,:))
+std(Rvecdiff_cb2mk(Rvecthrid,:))
