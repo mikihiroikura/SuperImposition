@@ -188,12 +188,12 @@ struct Logs
 void GetPointClouds(realsense* rs, bool* flg, PointCloud* pc);
 void TakePicture(kayacoaxpress* cam, bool* flg, Logs* logs);
 int DetectLEDMarker();
-void ShowSaveImgsHSC(bool* flg, Logs* logs);
+void ShowImgsHSC(bool* flg, Logs* logs);
 void ShowSaveImgsGL(bool* flg, PointCloud** pc_src, Logs* logs);
 void Read_Reply_toEND(RS232c* robot);
 void wait_QueryPerformance(double finishtime, LARGE_INTEGER freq);
 void ControlAxisRobot(RS232c* robot, bool* flg);
-void SaveHSC_HS(bool* flg, Logs* logs);
+void SaveImgHSC(bool* flg, Logs* logs, const int* finishcnt, double* onelooptime);
 
 using namespace std;
 
@@ -206,7 +206,7 @@ using namespace std;
 #define ROI_MODE_
 
 #define SAVE_IMGS_
-#define SAVE_IMGS_HIGHSPEED_
+//#define SAVE_IMGS_HIGHSPEED_
 //#define SAVE_IMGS_REALSENSE_
 #define SAVE_HSC2MK_POSE_
 //#define MOVE_AXISROBOT_
@@ -425,12 +425,20 @@ int main() {
 #endif // GETPOINTREALSENSE_THREAD_
 	thread TakePictureThread(TakePicture, &cam, &flg, &logs);
 #ifdef SHOW_IMGS_THREAD_
-	thread ShowSaveImgsHSCThread(ShowSaveImgsHSC, &flg, &logs);
+	thread ShowImgsHSCThread(ShowImgsHSC, &flg, &logs);
 #endif // SHOW_	
 	thread ShowSaveImgsGLThread(ShowSaveImgsGL, &flg, pcs_src, &logs);
 #ifdef MOVE_AXISROBOT_
 	thread MoveAxisRobotThread(ControlAxisRobot, &axisrobot, &flg);
 #endif // MOVE_AXISROBOT_
+#ifdef SAVE_IMGS_HIGHSPEED_
+	thread SaveHSCImgsThread(SaveImgHSC, &flg, &logs, &log_img_finish_cnt_hs, &takepic_time);
+#endif // SAVE_IMGS_HIGHSPEED_
+#ifndef SAVE_IMGS_HIGHSPEED_
+	thread SaveHSCImgsThread(SaveImgHSC, &flg, &logs, &log_img_finish_cnt, &showhsc_time);
+#endif // !SAVE_IMGS_HIGHSPEED_
+
+
 
 
 	//メインループ
@@ -496,12 +504,19 @@ int main() {
 #endif // GETPOINTSREALSENSE_THREAD_
 	if (TakePictureThread.joinable())TakePictureThread.join();
 #ifdef SHOW_IMGS_THREAD_
-	if (ShowSaveImgsHSCThread.joinable())ShowSaveImgsHSCThread.join();
+	if (ShowImgsHSCThread.joinable())ShowImgsHSCThread.join();
 #endif // SHOW_IMGS_THREAD_
 	if (ShowSaveImgsGLThread.joinable())ShowSaveImgsGLThread.join(); 
 #ifdef MOVE_AXISROBOT_
 	if (MoveAxisRobotThread.joinable())MoveAxisRobotThread.join();
 #endif // MOVE_AXISROBOT_
+#ifdef SAVE_IMGS_HIGHSPEED_
+	if (SaveHSCImgsThread.joinable())SaveHSCImgsThread.join();
+#endif // SAVE_IMGS_HIGHSPEED_
+#ifndef SAVE_IMGS_HIGHSPEED_
+	if (SaveHSCImgsThread.joinable())SaveHSCImgsThread.join();
+#endif // !SAVE_IMGS_HIGHSPEED_
+
 
 	//カメラの停止
 	cam.stop();
@@ -632,7 +647,7 @@ int main() {
 		}
 #endif // SAVE_IMGS_REALSENSE_		
 		//RealSenseとOpenGLの画像保存時刻の保存
-		strftime(logfile, 256, "D:/Github_output/SuperImposition/MultiSuperImposition_withLEDMarker/results/%y%m%d/%H%M%S/RSimg_times.csv", &now);
+		strftime(logfile, 256, "D:/Github_output/SuperImposition/MultiSuperImposition_withLEDMarker/results/%y%m%d/%H%M%S/RSGLimg_times.csv", &now);
 		fr = fopen(logfile, "w");
 		for (size_t i = 0; i < log_glrsimg_cnt; i++)
 		{
@@ -665,24 +680,6 @@ void TakePicture(kayacoaxpress* cam, bool* flg, Logs* logs) {
 			QueryPerformanceCounter(&takeend);
 			taketime = (double)(takeend.QuadPart - takestart.QuadPart) / freq.QuadPart;
 		}
-#ifdef SAVE_IMGS_HIGHSPEED_
-		//sを押して画像保存開始
-		if (saveimgsflg)
-		{
-			//LED画像の保存
-			save_img_on_src = in_imgs[(takepicid -1+ ringbuffersize) % ringbuffersize].ptr<uint8_t>(0);
-			memcpy((logs->in_imgs_log_ptr + log_hscimg_cnt)->data, save_img_on_src, height * width * 3);
-
-			//HSCの画像取得時間計測
-			QueryPerformanceCounter(&hsclogend);
-			hsclogtime = (double)(hsclogend.QuadPart - logstart.QuadPart) / freq.QuadPart;
-			*(logs->hsclog_times + log_hscimg_cnt) = hsclogtime;
-			*(logs->hsclog_times_diff + log_hscimg_cnt) = taketime;
-
-			log_hscimg_cnt++;
-			if (log_hscimg_cnt > log_img_finish_cnt_hs) *flg = false;
-		}
-#endif // SAVE_IMGS_HIGHSPEED_
 		in_imgs_saveid = (in_imgs_saveid + 1) % ringbuffersize;
 		processflgs[takepicid] = true;
 		
@@ -692,7 +689,7 @@ void TakePicture(kayacoaxpress* cam, bool* flg, Logs* logs) {
 	}
 }
 
-void SaveHSC_HS(bool* flg, Logs* logs) {
+void SaveImgHSC(bool* flg, Logs* logs, const int* finishcnt, double* onelooptime) {
 	while (*flg)
 	{
 		QueryPerformanceCounter(&savehscstart);
@@ -710,11 +707,11 @@ void SaveHSC_HS(bool* flg, Logs* logs) {
 			*(logs->hsclog_times_diff + log_hscimg_cnt) = taketime;
 
 			log_hscimg_cnt++;
-			if (log_hscimg_cnt > log_img_finish_cnt_hs) *flg = false;
+			if (log_hscimg_cnt > *finishcnt) *flg = false;
 		}
 		QueryPerformanceCounter(&savehscend);
 		savehsctime = (double)(savehscend.QuadPart - savehscstart.QuadPart) / freq.QuadPart;
-		while (savehsctime < takepic_time)
+		while (savehsctime < *onelooptime)
 		{
 			QueryPerformanceCounter(&savehscend);
 			savehsctime = (double)(savehscend.QuadPart - savehscstart.QuadPart) / freq.QuadPart;
@@ -723,7 +720,7 @@ void SaveHSC_HS(bool* flg, Logs* logs) {
 }
 
 //画像の点群全てを表示
-void ShowSaveImgsHSC(bool* flg, Logs* logs) {
+void ShowImgsHSC(bool* flg, Logs* logs) {
 	QueryPerformanceCounter(&hscstart);
 	while (hsctime < 1.5)
 	{
@@ -739,6 +736,15 @@ void ShowSaveImgsHSC(bool* flg, Logs* logs) {
 		cv::imshow("img", in_imgs[(in_imgs_saveid - 2 + ringbuffersize) % ringbuffersize]);
 		int key = cv::waitKey(1);
 		if (key == 'q') *flg = false;
+
+#ifdef SAVE_IMGS_
+		//sを押すと，画像保存が開始される
+		if (key == 's' && !saveimgsstartflg) {
+			saveimgsflg = true;
+			QueryPerformanceCounter(&logstart);
+			saveimgsstartflg = true;
+		}
+#endif // SAVE_IMGS_
 
 
 		QueryPerformanceCounter(&hscend);
@@ -756,38 +762,9 @@ void ShowSaveImgsHSC(bool* flg, Logs* logs) {
 		}
 		
 #ifdef SHOW_PROCESSING_TIME_
-		std::cout << "ShowSaveImgsHSC() time: " << hsctime << endl;
+		std::cout << "ShowImgsHSC() time: " << hsctime << endl;
 #endif // SHOW_PROCESSING_TIME_
-
-#ifdef SAVE_IMGS_
-		//sを押すと，画像保存が開始される
-		if (key == 's' && !saveimgsstartflg) {
-			saveimgsflg = true;
-			QueryPerformanceCounter(&logstart);
-			saveimgsstartflg = true;
-		}
-#ifndef SAVE_IMGS_HIGHSPEED_
-		//sを押して画像保存開始
-		if (saveimgsflg)
-		{
-			//LED画像の保存
-			save_img_on_src = in_imgs[(in_imgs_saveid - 2 + ringbuffersize) % ringbuffersize].ptr<uint8_t>(0);
-			memcpy((logs->in_imgs_log_ptr + log_hscimg_cnt)->data, save_img_on_src, height * width * 3);
-
-			//HSCの画像取得時間計測
-			QueryPerformanceCounter(&hsclogend);
-			hsclogtime = (double)(hsclogend.QuadPart - logstart.QuadPart) / freq.QuadPart;
-			*(logs->hsclog_times + log_hscimg_cnt) = hsclogtime;
-			*(logs->hsclog_times_diff + log_hscimg_cnt) = hsctime;
-
-			log_hscimg_cnt++;
-			if (log_hscimg_cnt > log_img_finish_cnt) *flg = false;
-		}
-#endif // !SAVE_IMGS_HIGHSPEED_
-#endif // SAVE_IMGS_
 	}
-
-	
 }
 
 //HSCの画像とOpenGL表示の画像を保存
