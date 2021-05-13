@@ -206,7 +206,7 @@ using namespace std;
 #define ROI_MODE_
 
 #define SAVE_IMGS_
-#define SAVE_IMGS_HIGHSPEED_
+//#define SAVE_IMGS_HIGHSPEED_
 //#define SAVE_IMGS_REALSENSE_
 #define SAVE_HSC2MK_POSE_
 #define MOVE_AXISROBOT_
@@ -682,6 +682,26 @@ void TakePicture(kayacoaxpress* cam, bool* flg, Logs* logs) {
 		}
 		in_imgs_saveid = (in_imgs_saveid + 1) % ringbuffersize;
 		processflgs[takepicid] = true;
+//#ifdef SAVE_IMGS_HIGHSPEED_
+//		//s‚ð‰Ÿ‚µ‚Ä‰æ‘œ•Û‘¶ŠJŽn
+//		if (saveimgsflg)
+//		{
+//			//LED‰æ‘œ‚Ì•Û‘¶
+//			save_img_on_src = in_imgs[(takepicid - 1 + ringbuffersize) % ringbuffersize].ptr<uint8_t>(0);
+//			memcpy((logs->in_imgs_log_ptr + log_hscimg_cnt)->data, save_img_on_src, height * width * 3);
+//
+//			//HSC‚Ì‰æ‘œŽæ“¾ŽžŠÔŒv‘ª
+//			QueryPerformanceCounter(&hsclogend);
+//			hsclogtime = (double)(hsclogend.QuadPart - logstart.QuadPart) / freq.QuadPart;
+//			*(logs->hsclog_times + log_hscimg_cnt) = hsclogtime;
+//			*(logs->hsclog_times_diff + log_hscimg_cnt) = taketime;
+//
+//			log_hscimg_cnt++;
+//			if (log_hscimg_cnt > log_img_finish_cnt_hs) *flg = false;
+//		}
+//#endif // SAVE_IMG_HIGHSPEED_
+
+		
 		
 #ifdef SHOW_PROCESSING_TIME_
 		std::cout << "TakePicture() time: " << taketime << endl;
