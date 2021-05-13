@@ -39,7 +39,7 @@ using namespace std;
 //スレッドの処理時間
 double takepic_time = 0.002;
 double showgl_time = 0.01667;
-double showhsc_time = 0.01667;
+double showhsc_time = 0.0333;
 double calcpose_time = 0.002;
 
 
@@ -156,7 +156,7 @@ const int posunits = 100, speedunits = 10;
 
 
 //ログに関するパラメータ
-const int timeout = 10;
+const int timeout = 20;
 const int log_img_fps = 70;
 const int log_img_fps_hs = 500;
 const int log_led_fps = 500;
@@ -206,7 +206,8 @@ using namespace std;
 #define ROI_MODE_
 
 #define SAVE_IMGS_
-//#define SAVE_IMGS_HIGHSPEED_
+//#define SAVE_IMGS_HSC_
+//#define SAVE_IMGS_AT_HIGHSPEED_
 //#define SAVE_IMGS_REALSENSE_
 #define SAVE_HSC2MK_POSE_
 #define MOVE_AXISROBOT_
@@ -346,16 +347,18 @@ int main() {
 	cv::Mat gl_img = cv::Mat(window_height, window_width, CV_8UC3, cv::Scalar::all(0));
 	cv::Mat rs_img = cv::Mat(colorheight, colorwidth, CV_8UC3, cv::Scalar::all(0));
 	for (size_t i = 0; i < log_img_finish_cnt; i++) { logs.gl_imgs_log.push_back(gl_img.clone()); }
-#ifdef SAVE_IMGS_HIGHSPEED_
+#ifdef SAVE_IMGS_HSC_
+#ifdef SAVE_IMGS_AT_HIGHSPEED_
 	for (size_t i = 0; i < log_img_finish_cnt_hs; i++) { logs.in_imgs_log.push_back(zero.clone()); }
 	logs.hsclog_times = (double*)malloc(sizeof(double) * log_img_finish_cnt_hs);
 	logs.hsclog_times_diff = (double*)malloc(sizeof(double) * log_img_finish_cnt_hs);
 #endif // SAVE_IMGS_HIGHSPEED
-#ifndef SAVE_IMGS_HIGHSPEED_
+#ifndef SAVE_IMGS_AT_HIGHSPEED_
 	for (size_t i = 0; i < log_img_finish_cnt; i++) { logs.in_imgs_log.push_back(zero.clone()); }
 	logs.hsclog_times = (double*)malloc(sizeof(double) * log_img_finish_cnt);
 	logs.hsclog_times_diff = (double*)malloc(sizeof(double) * log_img_finish_cnt);
 #endif
+#endif // SAVE_IMGS_HSC_
 #ifdef SAVE_IMGS_REALSENSE_
 	for (size_t i = 0; i < log_img_finish_cnt; i++)
 	{
@@ -431,12 +434,16 @@ int main() {
 #ifdef MOVE_AXISROBOT_
 	thread MoveAxisRobotThread(ControlAxisRobot, &axisrobot, &flg);
 #endif // MOVE_AXISROBOT_
-#ifdef SAVE_IMGS_HIGHSPEED_
+#ifdef SAVE_IMGS_HSC_
+#ifdef SAVE_IMGS_AT_HIGHSPEED_
 	thread SaveHSCImgsThread(SaveImgHSC, &flg, &logs, &log_img_finish_cnt_hs, &takepic_time);
-#endif // SAVE_IMGS_HIGHSPEED_
-#ifndef SAVE_IMGS_HIGHSPEED_
+#endif // SAVE_IMGS_AT_HIGHSPEED_
+#ifndef SAVE_IMGS_AT_HIGHSPEED_
 	thread SaveHSCImgsThread(SaveImgHSC, &flg, &logs, &log_img_finish_cnt, &showhsc_time);
-#endif // !SAVE_IMGS_HIGHSPEED_
+#endif // !SAVE_IMGS_AT_HIGHSPEED_
+#endif // SAVE_IMGS_HSC_
+
+
 
 
 
@@ -457,18 +464,18 @@ int main() {
 		detectresult = DetectLEDMarker();
 #endif // GETRELPOSE_THREAD_
 
-		if (detectresult == 0)
-		{	//ここに位置姿勢推定結果を反映させる計算を実装
-			memcpy((RTuavrs2ugvrs_buffer + RTuavrs2ugvrs_bufferid), &RTuavrs2ugvrs, sizeof(glm::mat4));
-			RTuavrs2ugvrs_bufferid = (RTuavrs2ugvrs_bufferid + 1) % ringbuffersize;
-		}
-
 		QueryPerformanceCounter(&detectend);
 		detecttime = (double)(detectend.QuadPart - detectstart.QuadPart) / freq.QuadPart;
 		while (detecttime < calcpose_time)
 		{
 			QueryPerformanceCounter(&detectend);
 			detecttime = (double)(detectend.QuadPart - detectstart.QuadPart) / freq.QuadPart;
+		}
+
+		if (detectresult == 0)
+		{	//ここに位置姿勢推定結果を反映させる計算を実装
+			memcpy((RTuavrs2ugvrs_buffer + RTuavrs2ugvrs_bufferid), &RTuavrs2ugvrs, sizeof(glm::mat4));
+			RTuavrs2ugvrs_bufferid = (RTuavrs2ugvrs_bufferid + 1) % ringbuffersize;
 		}
 
 		if (saveimgsflg)
@@ -510,12 +517,16 @@ int main() {
 #ifdef MOVE_AXISROBOT_
 	if (MoveAxisRobotThread.joinable())MoveAxisRobotThread.join();
 #endif // MOVE_AXISROBOT_
-#ifdef SAVE_IMGS_HIGHSPEED_
+#ifdef SAVE_IMGS_HSC_
+#ifdef SAVE_IMGS_AT_HIGHSPEED_
 	if (SaveHSCImgsThread.joinable())SaveHSCImgsThread.join();
-#endif // SAVE_IMGS_HIGHSPEED_
-#ifndef SAVE_IMGS_HIGHSPEED_
+#endif // SAVE_IMGS_AT_HIGHSPEED_
+#ifndef SAVE_IMGS_AT_HIGHSPEED_
 	if (SaveHSCImgsThread.joinable())SaveHSCImgsThread.join();
-#endif // !SAVE_IMGS_HIGHSPEED_
+#endif // !SAVE_IMGS_AT_HIGHSPEED_
+
+#endif // SAVE_IMGS_HSC_
+
 
 
 	//カメラの停止
@@ -682,7 +693,7 @@ void TakePicture(kayacoaxpress* cam, bool* flg, Logs* logs) {
 		}
 		in_imgs_saveid = (in_imgs_saveid + 1) % ringbuffersize;
 		processflgs[takepicid] = true;
-//#ifdef SAVE_IMGS_HIGHSPEED_
+//#ifdef SAVE_IMGS_AT_HIGHSPEED_
 //		//sを押して画像保存開始
 //		if (saveimgsflg)
 //		{
@@ -828,11 +839,11 @@ void ShowSaveImgsGL(bool* flg, PointCloud** pc_src, Logs* logs) {
 			gltime = (double)(glend.QuadPart - glstart.QuadPart) / freq.QuadPart;
 		}
 		showsaveglimg = true;
-		while (!showsavehscimg)
-		{
-			QueryPerformanceCounter(&glend);
-			gltime = (double)(glend.QuadPart - glstart.QuadPart) / freq.QuadPart;
-		}
+		//while (!showsavehscimg)
+		//{
+		//	QueryPerformanceCounter(&glend);
+		//	gltime = (double)(glend.QuadPart - glstart.QuadPart) / freq.QuadPart;
+		//}
 #ifdef SHOW_PROCESSING_TIME_
 		std::cout << "ShowSaveImgsGL() time: " << gltime << endl;
 #endif // SHOW_PROCESSING_TIME_
