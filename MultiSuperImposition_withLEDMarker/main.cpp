@@ -206,10 +206,10 @@ using namespace std;
 #define ROI_MODE_
 
 #define SAVE_IMGS_
-//#define SAVE_IMGS_HIGHSPEED_
+#define SAVE_IMGS_HIGHSPEED_
 //#define SAVE_IMGS_REALSENSE_
 #define SAVE_HSC2MK_POSE_
-//#define MOVE_AXISROBOT_
+#define MOVE_AXISROBOT_
 
 int main() {
 	//ÉpÉâÉÅÅ[É^
