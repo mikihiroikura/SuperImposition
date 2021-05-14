@@ -210,7 +210,7 @@ using namespace std;
 #define SAVE_IMGS_AT_HIGHSPEED_
 //#define SAVE_IMGS_REALSENSE_
 #define SAVE_HSC2MK_POSE_
-//#define MOVE_AXISROBOT_
+#define MOVE_AXISROBOT_
 
 int main() {
 	//パラメータ
@@ -692,27 +692,7 @@ void TakePicture(kayacoaxpress* cam, bool* flg, Logs* logs) {
 			taketime = (double)(takeend.QuadPart - takestart.QuadPart) / freq.QuadPart;
 		}
 		in_imgs_saveid = (in_imgs_saveid + 1) % ringbuffersize;
-		processflgs[takepicid] = true;
-//#ifdef SAVE_IMGS_AT_HIGHSPEED_
-//		//sを押して画像保存開始
-//		if (saveimgsflg)
-//		{
-//			//LED画像の保存
-//			save_img_on_src = in_imgs[(takepicid - 1 + ringbuffersize) % ringbuffersize].ptr<uint8_t>(0);
-//			memcpy((logs->in_imgs_log_ptr + log_hscimg_cnt)->data, save_img_on_src, height * width * 3);
-//
-//			//HSCの画像取得時間計測
-//			QueryPerformanceCounter(&hsclogend);
-//			hsclogtime = (double)(hsclogend.QuadPart - logstart.QuadPart) / freq.QuadPart;
-//			*(logs->hsclog_times + log_hscimg_cnt) = hsclogtime;
-//			*(logs->hsclog_times_diff + log_hscimg_cnt) = taketime;
-//
-//			log_hscimg_cnt++;
-//			if (log_hscimg_cnt > log_img_finish_cnt_hs) *flg = false;
-//		}
-//#endif // SAVE_IMG_HIGHSPEED_
-
-		
+		processflgs[takepicid] = true;		
 		
 #ifdef SHOW_PROCESSING_TIME_
 		std::cout << "TakePicture() time: " << taketime << endl;
@@ -730,7 +710,6 @@ void SaveImgHSC(bool* flg, Logs* logs, const int* finishcnt, double* onelooptime
 			//LED画像の保存
 			save_img_on_src = in_imgs[(takepicid - 1 + ringbuffersize) % ringbuffersize].ptr<uint8_t>(0);
 			memcpy((logs->in_imgs_log_ptr + log_hscimg_cnt)->data, save_img_on_src, height * width * 3);
-			std::cout << "SaveImgs() ID: " << (takepicid - 1 + ringbuffersize) % ringbuffersize << " savepos: " << log_hscimg_cnt <<endl;
 			//HSCの画像取得時間計測
 			QueryPerformanceCounter(&hsclogend);
 			hsclogtime = (double)(hsclogend.QuadPart - logstart.QuadPart) / freq.QuadPart;
