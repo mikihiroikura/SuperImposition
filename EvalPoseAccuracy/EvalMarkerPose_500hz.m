@@ -30,7 +30,7 @@ cnt = 1;
 selectledtime = M_ledpose(1:gethscimgstep:end,1);
 for i = 1:size(selectledtime,1)
     while selectledtime(i)>M_hsctime(cnt,1)
-    cnt = cnt + 1;
+        cnt = cnt + 1;
     end
     if cnt~=1
         hscids = [hscids;cnt-1];
