@@ -1,6 +1,7 @@
 %各種パラメータの読み取り
-hscimg_csv_name = 'data/HSCimg_times.csv';
-ledpose_csv_name = 'data/LEDpose_results.csv';
+hscimg_csv_name = 'data/old/20210514_2239_30hz/HSCimg_times.csv';
+ledpose_csv_name = 'data/old/20210514_2239_30hz/LEDpose_results.csv';
+hsc_pngs = dir('data/old/20210514_2239_30hz/HSC/*.png');
 calibratedpose_csv_name = '202105051723_poseparam.csv';
 squareSize = 32;
 hscwidth = 896;
@@ -40,7 +41,6 @@ for i = 1:size(selectledtime,1)
 end
 
 %HSCの画像取得
-hsc_pngs = dir('data/HSC/*.png');
 hsc_imgs = uint8(zeros(hscheight, hscwidth, 3, size(hscids,1)));
 for k = 1:size(hscids,1)
     hsc_imgs(:,:,:,k) = imread(strcat(hsc_pngs(hscids(k)).folder,strcat('\',hsc_pngs(hscids(k)).name)));
@@ -130,17 +130,9 @@ for k = 1:3
 end
 
 %ずれの平均分散を計算
-Tthr = 50;
-Rvecthr = 10;
 Tdiff_cb2mk = squeeze(RTdiff_cb2mk(4,1:3,:)).';
-Tthrid = Tdiff_cb2mk(:,1)<Tthr & Tdiff_cb2mk(:,1)>-Tthr ...
-    & Tdiff_cb2mk(:,2)<Tthr & Tdiff_cb2mk(:,2)>-Tthr ...
-    & Tdiff_cb2mk(:,3)<Tthr & Tdiff_cb2mk(:,3)>-Tthr ...
-    & M_ledpose(ledids,2)==0;
-Rvecthrid = Rvecdiff_cb2mk(:,1)<Rvecthr & Rvecdiff_cb2mk(:,1)>-Rvecthr ...
-    & Rvecdiff_cb2mk(:,2)<Rvecthr & Rvecdiff_cb2mk(:,2)>-Rvecthr ...
-    & Rvecdiff_cb2mk(:,3)<Rvecthr & Rvecdiff_cb2mk(:,3)>-Rvecthr ...
-    & M_ledpose(ledids,2)==0;
+Tthrid = M_ledpose(ledids,2)==0;
+Rvecthrid = M_ledpose(ledids,2)==0;
 mean(Tdiff_cb2mk(Tthrid,:))
 std(Tdiff_cb2mk(Tthrid,:))
 mean(Rvecdiff_cb2mk(Rvecthrid,:))
