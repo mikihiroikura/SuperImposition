@@ -40,7 +40,7 @@ using namespace std;
 double takepic_time = 0.002;
 double showgl_time = 0.01667;
 double showhsc_time = 0.0333;
-double calcpose_time = 0.0333;
+double calcpose_time = 0.002;
 
 
 //カメラパラメータ
