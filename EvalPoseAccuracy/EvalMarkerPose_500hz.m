@@ -6,7 +6,7 @@ squareSize = 32;
 hscwidth = 896;
 hscheight = 896;
 load fishparams.mat fisheyeParams
-gethscimgstep = 17;
+gethscimgstep = 15;
 
 %CSV読み取り
 M_ledpose = csvread(ledpose_csv_name);
@@ -32,7 +32,11 @@ for i = 1:size(selectledtime,1)
     while selectledtime(i)>M_hsctime(cnt,1)
     cnt = cnt + 1;
     end
-    hscids = [hscids;cnt];
+    if cnt~=1
+        hscids = [hscids;cnt-1];
+    else
+        hscids = [hscids;cnt];
+    end
 end
 
 %HSCの画像取得
