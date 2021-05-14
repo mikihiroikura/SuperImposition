@@ -27,6 +27,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "GetCalibImgs_RS2Marker", "G
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Get_RS_IntrinsicParams", "Get_RS_IntrinsicParams\Get_RS_IntrinsicParams.vcxproj", "{7A9C3B3E-3B3A-4630-8BE8-1F107FE4113A}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SaveHSCImgs", "SaveHSCImgs\SaveHSCImgs.vcxproj", "{3443ED4D-DD3D-49CE-847A-1A7F41D39F44}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -131,6 +133,14 @@ Global
 		{7A9C3B3E-3B3A-4630-8BE8-1F107FE4113A}.Release|x64.Build.0 = Release|x64
 		{7A9C3B3E-3B3A-4630-8BE8-1F107FE4113A}.Release|x86.ActiveCfg = Release|Win32
 		{7A9C3B3E-3B3A-4630-8BE8-1F107FE4113A}.Release|x86.Build.0 = Release|Win32
+		{3443ED4D-DD3D-49CE-847A-1A7F41D39F44}.Debug|x64.ActiveCfg = Debug|x64
+		{3443ED4D-DD3D-49CE-847A-1A7F41D39F44}.Debug|x64.Build.0 = Debug|x64
+		{3443ED4D-DD3D-49CE-847A-1A7F41D39F44}.Debug|x86.ActiveCfg = Debug|Win32
+		{3443ED4D-DD3D-49CE-847A-1A7F41D39F44}.Debug|x86.Build.0 = Debug|Win32
+		{3443ED4D-DD3D-49CE-847A-1A7F41D39F44}.Release|x64.ActiveCfg = Release|x64
+		{3443ED4D-DD3D-49CE-847A-1A7F41D39F44}.Release|x64.Build.0 = Release|x64
+		{3443ED4D-DD3D-49CE-847A-1A7F41D39F44}.Release|x86.ActiveCfg = Release|Win32
+		{3443ED4D-DD3D-49CE-847A-1A7F41D39F44}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

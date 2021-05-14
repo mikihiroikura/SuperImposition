@@ -57,7 +57,7 @@ const int ringbuffersize = 10;
 vector<cv::Mat> in_imgs_on, in_imgs_off, in_imgs;
 vector<bool> processflgs;
 cv::Mat zero, full, zeromulti;
-int takepicid, in_imgs_saveid;
+int takepicid, in_imgs_saveid, log_img_saveid;
 const int multicnt = 2;
 uint8_t* in_img_multi_src, * detectimg_multi_src;
 
@@ -103,7 +103,7 @@ const cv::Scalar greenLED_min(0, 150, 0);
 const cv::Scalar greenLED_max(256, 256, 256);
 const cv::Scalar blueLED_min(150, 0, 0);
 const cv::Scalar blueLED_max(256, 256, 256);
-const cv::Scalar HSVLED_min(0, 0, 100);
+const cv::Scalar HSVLED_min(0, 0, 120);
 const cv::Scalar HSVLED_max(256, 256, 256);
 double ledmass[4] = { 0 }, ledmomx[4] = { 0 }, ledmomy[4] = { 0 };
 const int roi_led_minx_ini[4] = { width, width, width, width },
@@ -156,7 +156,7 @@ const int posunits = 100, speedunits = 10;
 
 
 //ログに関するパラメータ
-const int timeout = 20;
+const int timeout = 10;
 const int log_img_fps = 70;
 const int log_img_fps_hs = 500;
 const int log_led_fps = 500;
@@ -206,11 +206,11 @@ using namespace std;
 #define ROI_MODE_
 
 #define SAVE_IMGS_
-//#define SAVE_IMGS_HSC_
-//#define SAVE_IMGS_AT_HIGHSPEED_
+#define SAVE_IMGS_HSC_
+#define SAVE_IMGS_AT_HIGHSPEED_
 //#define SAVE_IMGS_REALSENSE_
 #define SAVE_HSC2MK_POSE_
-#define MOVE_AXISROBOT_
+//#define MOVE_AXISROBOT_
 
 int main() {
 	//パラメータ
@@ -683,7 +683,7 @@ void TakePicture(kayacoaxpress* cam, bool* flg, Logs* logs) {
 		takepicid = in_imgs_saveid % ringbuffersize;
 		in_img_multi_src = in_imgs[takepicid].ptr<uint8_t>(0);
 
-		cam->captureFrame(in_img_multi_src, multicnt);
+		cam->captureFrame2(in_img_multi_src, multicnt);
 		QueryPerformanceCounter(&takeend);
 		taketime = (double)(takeend.QuadPart - takestart.QuadPart) / freq.QuadPart;
 		while (taketime < takepic_time)
@@ -730,7 +730,7 @@ void SaveImgHSC(bool* flg, Logs* logs, const int* finishcnt, double* onelooptime
 			//LED画像の保存
 			save_img_on_src = in_imgs[(takepicid - 1 + ringbuffersize) % ringbuffersize].ptr<uint8_t>(0);
 			memcpy((logs->in_imgs_log_ptr + log_hscimg_cnt)->data, save_img_on_src, height * width * 3);
-
+			std::cout << "SaveImgs() ID: " << (takepicid - 1 + ringbuffersize) % ringbuffersize << " savepos: " << log_hscimg_cnt <<endl;
 			//HSCの画像取得時間計測
 			QueryPerformanceCounter(&hsclogend);
 			hsclogtime = (double)(hsclogend.QuadPart - logstart.QuadPart) / freq.QuadPart;
