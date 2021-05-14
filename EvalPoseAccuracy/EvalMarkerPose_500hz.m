@@ -6,7 +6,7 @@ squareSize = 32;
 hscwidth = 896;
 hscheight = 896;
 load fishparams.mat fisheyeParams
-gethscimgstep = 10;
+gethscimgstep = 17;
 
 %CSV読み取り
 M_ledpose = csvread(ledpose_csv_name);
@@ -24,13 +24,22 @@ RT_mk2ugvrs(1:3,1:3) = reshape(M_calibpose(3,1:9),[3 3]);
 RT_mk2ugvrs(4,1:3) = M_calibpose(4,1:3);
 RT_mk2ugvrs(4,4) = 1.0;
 
+%指定したLEDマーカに時刻が最も近いHSC画像ID
+hscids = [];
+cnt = 1;
+selectledtime = M_ledpose(1:gethscimgstep:end,1);
+for i = 1:size(selectledtime,1)
+    while selectledtime(i)>M_hsctime(cnt,1)
+    cnt = cnt + 1;
+    end
+    hscids = [hscids;cnt];
+end
+
 %HSCの画像取得
 hsc_pngs = dir('data/HSC/*.png');
-hsc_imgs = uint8(zeros(hscheight, hscwidth, 3, size(1:gethscimgstep:size(hsc_pngs,1),2)));
-cnt = 1;
-for k = 1:gethscimgstep:length(hsc_pngs)
-    hsc_imgs(:,:,:,cnt) = imread(strcat(hsc_pngs(k).folder,strcat('\',hsc_pngs(k).name)));
-    cnt = cnt + 1;
+hsc_imgs = uint8(zeros(hscheight, hscwidth, 3, size(hscids,1)));
+for k = 1:size(hscids,1)
+    hsc_imgs(:,:,:,k) = imread(strcat(hsc_pngs(hscids(k)).folder,strcat('\',hsc_pngs(hscids(k)).name)));
 end
 
 %HSCから位置姿勢計算
@@ -50,7 +59,12 @@ end
 %再度チェッカーボード検出
 hsc_imgs_used = hsc_imgs(:,:,:,imageUsed_hsc);
 [imagePoints_hsc,boardSize_hsc,imageUsed] = detectCheckerboardPoints(hsc_imgs_used);
-M_hsctime_used = M_hsctime(imageUsed_hsc,:);
+
+%使用するHSCのIDのみ
+hscids = hscids(imageUsed_hsc);
+ledids = 1:gethscimgstep:size(M_ledpose,1);
+ledids = ledids.';
+ledids = ledids(imageUsed_hsc);
 
 %HSCからCBの検出，位置姿勢保存
 worldPoints_hsc = generateCheckerboardPoints(boardSize_hsc, squareSize);
@@ -62,24 +76,14 @@ for k = 1:size(hsc_imgs_used,4)
 end
 RT_cb2hsc(4,4,:) = 1.0;
 
-%指定したHSC画像に時刻が最も近いLEDマーカの位置姿勢ID
-poseids = [];
-cnt = 1;
-hsctime = M_hsctime(1:gethscimgstep:end,1);
-for i = 1:size(hsctime,1)
-while hsctime(i)>M_ledpose(cnt,1)
-cnt = cnt + 1;
-end
-poseids = [poseids;cnt];
-end
-poseids = poseids(imageUsed_hsc);
+
 
 %LEDposeから，計測したUAVRS2UGVRSを呼び出す
 %RTugvmk2rs * RTc2m * RTuavrs2hsc;を意味する
-ledtime = M_ledpose(poseids,1);
+ledtime = M_ledpose(ledids,1);
 RT_uavrs2ugvrs_ledpose = zeros(4,4,size(ledtime,1));
-RT_uavrs2ugvrs_ledpose(1:3,1:3,:) = reshape(M_ledpose(poseids,4:12)', 3,3,[]);
-RT_uavrs2ugvrs_ledpose(4,1:3,:) = M_ledpose(poseids,13:15).'* 1000;
+RT_uavrs2ugvrs_ledpose(1:3,1:3,:) = reshape(M_ledpose(ledids,4:12)', 3,3,[]);
+RT_uavrs2ugvrs_ledpose(4,1:3,:) = M_ledpose(ledids,13:15).'* 1000;
 RT_uavrs2ugvrs_ledpose(4,4,:) = 1.0;
 
 %HSC2MKの位置姿勢を計算する
@@ -128,11 +132,11 @@ Tdiff_cb2mk = squeeze(RTdiff_cb2mk(4,1:3,:)).';
 Tthrid = Tdiff_cb2mk(:,1)<Tthr & Tdiff_cb2mk(:,1)>-Tthr ...
     & Tdiff_cb2mk(:,2)<Tthr & Tdiff_cb2mk(:,2)>-Tthr ...
     & Tdiff_cb2mk(:,3)<Tthr & Tdiff_cb2mk(:,3)>-Tthr ...
-    & M_ledpose(poseids,2)==0;
+    & M_ledpose(ledids,2)==0;
 Rvecthrid = Rvecdiff_cb2mk(:,1)<Rvecthr & Rvecdiff_cb2mk(:,1)>-Rvecthr ...
     & Rvecdiff_cb2mk(:,2)<Rvecthr & Rvecdiff_cb2mk(:,2)>-Rvecthr ...
     & Rvecdiff_cb2mk(:,3)<Rvecthr & Rvecdiff_cb2mk(:,3)>-Rvecthr ...
-    & M_ledpose(poseids,2)==0;
+    & M_ledpose(ledids,2)==0;
 mean(Tdiff_cb2mk(Tthrid,:))
 std(Tdiff_cb2mk(Tthrid,:))
 mean(Rvecdiff_cb2mk(Rvecthrid,:))

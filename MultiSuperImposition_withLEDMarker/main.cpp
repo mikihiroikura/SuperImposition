@@ -40,7 +40,7 @@ using namespace std;
 double takepic_time = 0.002;
 double showgl_time = 0.01667;
 double showhsc_time = 0.0333;
-double calcpose_time = 0.002;
+double calcpose_time = 0.0333;
 
 
 //カメラパラメータ
@@ -480,6 +480,11 @@ int main() {
 
 		if (saveimgsflg)
 		{
+			//ログ時間計測
+			QueryPerformanceCounter(&logend);
+			logtime = (double)(logend.QuadPart - logstart.QuadPart) / freq.QuadPart;
+			if (logtime > timeout) flg = false;
+
 #ifdef SAVE_HSC2MK_POSE_
 			//位置姿勢ログ保存
 			* (logs.LED_results + log_pose_cnt) = detectresult;
@@ -489,11 +494,6 @@ int main() {
 			log_pose_cnt++;
 			if (log_pose_cnt > log_pose_finish_cnt) flg = false;
 #endif // SAVE_HSC2MK_POSE_
-
-			//ログ時間計測
-			QueryPerformanceCounter(&logend);
-			logtime = (double)(logend.QuadPart - logstart.QuadPart) / freq.QuadPart;
-			if (logtime > timeout) flg = false;
 		}
 
 #ifdef SHOW_PROCESSING_TIME_
