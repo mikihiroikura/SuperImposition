@@ -56,7 +56,7 @@ double map_coeff[4], stretch_mat[4], det, distort[4];
 const int ringbuffersize = 10;
 vector<cv::Mat> in_imgs_on, in_imgs_off, in_imgs;
 vector<bool> processflgs;
-cv::Mat zero, full, zeromulti;
+cv::Mat zero, full, zeromulti, show_img, logsaveimg;
 int takepicid, in_imgs_saveid, log_img_saveid;
 const int multicnt = 2;
 uint8_t* in_img_multi_src, * detectimg_multi_src;
@@ -616,7 +616,8 @@ int main() {
 		for (int i = 0; i < log_hscimg_cnt; i++)
 		{
 			sprintf(picturename, "%s%05d.png", picsubname, i);//png可逆圧縮
-			cv::imwrite(picturename, logs.in_imgs_log[i]);
+			cv::cvtColor(logs.in_imgs_log[i], logsaveimg, CV_RGB2BGR);
+			cv::imwrite(picturename, logsaveimg);
 		}
 		//HSCの画像保存時刻の保存
 		strftime(logfile, 256, "D:/Github_output/SuperImposition/MultiSuperImposition_withLEDMarker/results/%y%m%d/%H%M%S/HSCimg_times.csv", &now);
@@ -743,7 +744,8 @@ void ShowImgsHSC(bool* flg, Logs* logs) {
 		showsavehscimg = false;
 
 		//OpenCVで画像表示
-		cv::imshow("img", in_imgs[(in_imgs_saveid - 2 + ringbuffersize) % ringbuffersize]);
+		cv::cvtColor(in_imgs[(in_imgs_saveid - 2 + ringbuffersize) % ringbuffersize], show_img, CV_RGB2BGR);
+		cv::imshow("img", show_img);
 		int key = cv::waitKey(1);
 		if (key == 'q') *flg = false;
 
@@ -1026,7 +1028,7 @@ int DetectLEDMarker() {
 
 			//分類ごとに青緑の個数のカウント
 			blueno = -1;
-			cv::cvtColor(detectimg[on_img_id], detectimg_on_hsv, CV_BGR2HSV);
+			cv::cvtColor(detectimg[on_img_id], detectimg_on_hsv, CV_RGB2HSV);
 			detectimghsv_on_src = detectimg_on_hsv.ptr<uint8_t>(0);
 			labelptr = labels.ptr<int32_t>(0);
 			memset(greenbluecnt, 0, sizeof(int) * 4 * 2);
@@ -1079,7 +1081,7 @@ int DetectLEDMarker() {
 				{
 					if (labelno == blueno)
 					{
-						if ((int32_t)detectimg_on_src[(int)ptscand_ptr[i * 2 + 1] * width * 3 + (int)ptscand_ptr[i * 2 + 0] * 3] > blueLED_min(0))
+						if ((int32_t)detectimg_on_src[(int)ptscand_ptr[i * 2 + 1] * width * 3 + (int)ptscand_ptr[i * 2 + 0] * 3 + 2] > blueLED_min(0))
 						{//On画像の青の閾値はもっと高い
 							ledmass[labelno] += (double)detectimg_on_src[(int)ptscand_ptr[i * 2 + 1] * width * 3 + (int)ptscand_ptr[i * 2 + 0] * 3];
 							ledmomx[labelno] += (double)detectimg_on_src[(int)ptscand_ptr[i * 2 + 1] * width * 3 + (int)ptscand_ptr[i * 2 + 0] * 3] * (int)ptscand_ptr[i * 2 + 0];
@@ -1227,7 +1229,7 @@ int DetectLEDMarker() {
 				{
 					for (size_t j = rois[i].y; j < static_cast<unsigned long long>(rois[i].y) + rois[i].height; j++)
 					{
-						if ((int32_t)detectimg0_src[j * width * 3 + k * 3] > 3 * (int32_t)detectimg1_src[j * width * 3 + k * 3] && ((int32_t)detectimg0_src[j * width * 3 + k * 3] > blueLED_min[0] || (int32_t)detectimg0_src[j * width * 3 + k * 3 + 1] > greenLED_min[1]))
+						if ((int32_t)detectimg0_src[j * width * 3 + k * 3] > 3 * (int32_t)detectimg1_src[j * width * 3 + k * 3] && ((int32_t)detectimg0_src[j * width * 3 + k * 3 + 2] > blueLED_min[0] || (int32_t)detectimg0_src[j * width * 3 + k * 3 + 1] > greenLED_min[1]))
 						{//2枚の画像で輝度値を比較
 							on_img_cnt++;
 						}
