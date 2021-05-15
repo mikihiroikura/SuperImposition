@@ -103,7 +103,7 @@ const cv::Scalar greenLED_min(0, 150, 0);
 const cv::Scalar greenLED_max(256, 256, 256);
 const cv::Scalar blueLED_min(150, 0, 0);
 const cv::Scalar blueLED_max(256, 256, 256);
-const cv::Scalar HSVLED_min(0, 0, 120);
+const cv::Scalar HSVLED_min(0, 0, 100);
 const cv::Scalar HSVLED_max(256, 256, 256);
 double ledmass[4] = { 0 }, ledmomx[4] = { 0 }, ledmomy[4] = { 0 };
 const int roi_led_minx_ini[4] = { width, width, width, width },
@@ -206,11 +206,11 @@ using namespace std;
 #define ROI_MODE_
 
 #define SAVE_IMGS_
-#define SAVE_IMGS_HSC_
-#define SAVE_IMGS_AT_HIGHSPEED_
+//#define SAVE_IMGS_HSC_
+//#define SAVE_IMGS_AT_HIGHSPEED_
 //#define SAVE_IMGS_REALSENSE_
 #define SAVE_HSC2MK_POSE_
-#define MOVE_AXISROBOT_
+//#define MOVE_AXISROBOT_
 
 int main() {
 	//パラメータ
@@ -1083,9 +1083,9 @@ int DetectLEDMarker() {
 					{
 						if ((int32_t)detectimg_on_src[(int)ptscand_ptr[i * 2 + 1] * width * 3 + (int)ptscand_ptr[i * 2 + 0] * 3 + 2] > blueLED_min(0))
 						{//On画像の青の閾値はもっと高い
-							ledmass[labelno] += (double)detectimg_on_src[(int)ptscand_ptr[i * 2 + 1] * width * 3 + (int)ptscand_ptr[i * 2 + 0] * 3];
-							ledmomx[labelno] += (double)detectimg_on_src[(int)ptscand_ptr[i * 2 + 1] * width * 3 + (int)ptscand_ptr[i * 2 + 0] * 3] * (int)ptscand_ptr[i * 2 + 0];
-							ledmomy[labelno] += (double)detectimg_on_src[(int)ptscand_ptr[i * 2 + 1] * width * 3 + (int)ptscand_ptr[i * 2 + 0] * 3] * (int)ptscand_ptr[i * 2 + 1];
+							ledmass[labelno] += (double)detectimg_on_src[(int)ptscand_ptr[i * 2 + 1] * width * 3 + (int)ptscand_ptr[i * 2 + 0] * 3 + 2];
+							ledmomx[labelno] += (double)detectimg_on_src[(int)ptscand_ptr[i * 2 + 1] * width * 3 + (int)ptscand_ptr[i * 2 + 0] * 3 + 2] * (int)ptscand_ptr[i * 2 + 0];
+							ledmomy[labelno] += (double)detectimg_on_src[(int)ptscand_ptr[i * 2 + 1] * width * 3 + (int)ptscand_ptr[i * 2 + 0] * 3 + 2] * (int)ptscand_ptr[i * 2 + 1];
 							//ROIも計算
 							if (roi_led_maxx[labelno] < (int)ptscand_ptr[i * 2 + 0]) roi_led_maxx[labelno] = (int)ptscand_ptr[i * 2 + 0];
 							if (roi_led_minx[labelno] > (int)ptscand_ptr[i * 2 + 0]) roi_led_minx[labelno] = (int)ptscand_ptr[i * 2 + 0];
@@ -1229,7 +1229,7 @@ int DetectLEDMarker() {
 				{
 					for (size_t j = rois[i].y; j < static_cast<unsigned long long>(rois[i].y) + rois[i].height; j++)
 					{
-						if ((int32_t)detectimg0_src[j * width * 3 + k * 3] > 3 * (int32_t)detectimg1_src[j * width * 3 + k * 3] && ((int32_t)detectimg0_src[j * width * 3 + k * 3 + 2] > blueLED_min[0] || (int32_t)detectimg0_src[j * width * 3 + k * 3 + 1] > greenLED_min[1]))
+						if ((int32_t)detectimg0_src[j * width * 3 + k * 3 + 1] > 3 * (int32_t)detectimg1_src[j * width * 3 + k * 3 + 1] && ((int32_t)detectimg0_src[j * width * 3 + k * 3 + 2] > blueLED_min[0] || (int32_t)detectimg0_src[j * width * 3 + k * 3 + 1] > greenLED_min[1]))
 						{//2枚の画像で輝度値を比較
 							on_img_cnt++;
 						}
@@ -1247,13 +1247,13 @@ int DetectLEDMarker() {
 				{
 					for (size_t j = rois[i].y; j < static_cast<unsigned long long>(rois[i].y) + rois[i].height; j++)
 					{
-						if (i == blueno)
+						if (i == 0)
 						{
-							if ((int32_t)detectimg_on_src[j * width * 3 + k * 3] > blueLED_min[0])
+							if ((int32_t)detectimg_on_src[j * width * 3 + k * 3 + 2] > blueLED_min[0])
 							{
-								ledmass[i] += (double)detectimg_on_src[j * width * 3 + k * 3];
-								ledmomx[i] += (double)detectimg_on_src[j * width * 3 + k * 3] * k;
-								ledmomy[i] += (double)detectimg_on_src[j * width * 3 + k * 3] * j;
+								ledmass[i] += (double)detectimg_on_src[j * width * 3 + k * 3 + 2];
+								ledmomx[i] += (double)detectimg_on_src[j * width * 3 + k * 3 + 2] * k;
+								ledmomy[i] += (double)detectimg_on_src[j * width * 3 + k * 3 + 2] * j;
 								//ROIも計算
 								if (roi_led_maxx[i] < k) roi_led_maxx[i] = k;
 								if (roi_led_minx[i] > k) roi_led_minx[i] = k;
