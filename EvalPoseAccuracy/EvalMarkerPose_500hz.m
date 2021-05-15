@@ -121,6 +121,11 @@ for k = 1:3
     plot(ledtime,squeeze(RTdiff_cb2mk(4,k,:)));
     hold on
 end
+xlabel('Time [s]','FontSize',15);
+ylabel('Position error [mm]','FontSize',15);
+xlim([0 10]);
+ylim([-100 100]);
+set(gca,'FontSize',15)
 
 %姿勢変動出力
 figure
@@ -128,6 +133,11 @@ for k = 1:3
     plot(ledtime,(Rvecdiff_cb2mk(:,k)));
     hold on
 end
+xlabel('Time [s]','FontSize',15);
+ylabel('Attitude error [deg]','FontSize',15);
+xlim([0 10]);
+ylim([-5 5]);
+set(gca,'FontSize',15)
 
 %ずれの平均分散を計算
 Tdiff_cb2mk = squeeze(RTdiff_cb2mk(4,1:3,:)).';

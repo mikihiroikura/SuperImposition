@@ -1,7 +1,7 @@
 %各種パラメータの読み取り
-hscimg_csv_name = 'data/old/20210515_2026_30hz/HSCimg_times.csv';
-ledpose_csv_name = 'data/old/20210515_2026_30hz/LEDpose_results.csv';
-hsc_pngs = dir('data/old/20210515_2026_30hz/HSC/*.png');
+hscimg_csv_name = 'data/old/20210515_2050_30hz/HSCimg_times.csv';
+ledpose_csv_name = 'data/old/20210515_2050_30hz/LEDpose_results.csv';
+hsc_pngs = dir('data/old/20210515_2050_30hz/HSC/*.png');
 calibratedpose_csv_name = '202105051723_poseparam.csv';
 squareSize = 32;
 hscwidth = 896;
@@ -121,6 +121,11 @@ for k = 1:3
     plot(ledtime,squeeze(RTdiff_cb2mk(4,k,:)));
     hold on
 end
+xlabel('Time [s]','FontSize',15);
+ylabel('Position error [mm]','FontSize',15);
+xlim([0 10]);
+ylim([-100 100]);
+set(gca,'FontSize',15)
 
 %姿勢変動出力
 figure
@@ -128,6 +133,11 @@ for k = 1:3
     plot(ledtime,(Rvecdiff_cb2mk(:,k)));
     hold on
 end
+xlabel('Time [s]','FontSize',15);
+ylabel('Attitude error [deg]','FontSize',15);
+xlim([0 10]);
+ylim([-5 5]);
+set(gca,'FontSize',15)
 
 %ずれの平均分散を計算
 Tthr = 50;
