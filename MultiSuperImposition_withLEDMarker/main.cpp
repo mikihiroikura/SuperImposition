@@ -150,7 +150,7 @@ RS232c axisrobot;
 char replybuf[READBUFFERSIZE];
 char axisrobmodes[][10] = { "@SRVO", "@START", "@ORG" };
 char axisrobcommand[READBUFFERSIZE] = "";
-const int initaxisstart = 50, initaxisend = 550;
+const int initaxisstart = 100, initaxisend = 600;
 const int posunits = 100, speedunits = 5;
 
 
@@ -206,11 +206,11 @@ using namespace std;
 #define ROI_MODE_
 
 #define SAVE_IMGS_
-#define SAVE_IMGS_HSC_
-#define SAVE_IMGS_AT_HIGHSPEED_
+//#define SAVE_IMGS_HSC_
+//#define SAVE_IMGS_AT_HIGHSPEED_
 //#define SAVE_IMGS_REALSENSE_
 #define SAVE_HSC2MK_POSE_
-//#define MOVE_AXISROBOT_
+#define MOVE_AXISROBOT_
 
 int main() {
 	//ÉpÉâÉÅÅ[É^

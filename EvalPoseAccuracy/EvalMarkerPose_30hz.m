@@ -1,7 +1,7 @@
 %各種パラメータの読み取り
-hscimg_csv_name = 'data/old/20210515_2050_30hz/HSCimg_times.csv';
-ledpose_csv_name = 'data/old/20210515_2050_30hz/LEDpose_results.csv';
-hsc_pngs = dir('data/old/20210515_2050_30hz/HSC/*.png');
+hscimg_csv_name = 'data/old/20210515_2126_30hz/HSCimg_times.csv';
+ledpose_csv_name = 'data/old/20210515_2126_30hz/LEDpose_results.csv';
+hsc_pngs = dir('data/old/20210515_2126_30hz/HSC/*.png');
 calibratedpose_csv_name = '202105051723_poseparam.csv';
 squareSize = 32;
 hscwidth = 896;
@@ -30,7 +30,7 @@ hscids = [];
 cnt = 1;
 selectledtime = M_ledpose(1:gethscimgstep:end,1);
 for i = 1:size(selectledtime,1)
-    while selectledtime(i)>M_hsctime(cnt,1)
+    while selectledtime(i)>M_hsctime(cnt,1) && cnt < size(M_hsctime,1)
         cnt = cnt + 1;
     end
     if cnt~=1
