@@ -1,6 +1,7 @@
 %各種パラメータの読み取り
-hscimg_csv_name = 'data/HSCimg_times.csv';
-ledpose_csv_name = 'data/LEDpose_results.csv';
+hscimg_csv_name = 'data/old/20210515_2025_500hz/HSCimg_times.csv';
+ledpose_csv_name = 'data/old/20210515_2025_500hz/LEDpose_results.csv';
+hsc_pngs = dir('data/old/20210515_2025_500hz/HSC/*.png');
 calibratedpose_csv_name = '202105051723_poseparam.csv';
 squareSize = 32;
 hscwidth = 896;
@@ -40,7 +41,6 @@ for i = 1:size(selectledtime,1)
 end
 
 %HSCの画像取得
-hsc_pngs = dir('data/HSC/*.png');
 hsc_imgs = uint8(zeros(hscheight, hscwidth, 3, size(hscids,1)));
 for k = 1:size(hscids,1)
     hsc_imgs(:,:,:,k) = imread(strcat(hsc_pngs(hscids(k)).folder,strcat('\',hsc_pngs(hscids(k)).name)));

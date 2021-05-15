@@ -1,7 +1,7 @@
 %各種パラメータの読み取り
-hscimg_csv_name = 'data/old/20210514_2239_30hz/HSCimg_times.csv';
-ledpose_csv_name = 'data/old/20210514_2239_30hz/LEDpose_results.csv';
-hsc_pngs = dir('data/old/20210514_2239_30hz/HSC/*.png');
+hscimg_csv_name = 'data/old/20210515_2026_30hz/HSCimg_times.csv';
+ledpose_csv_name = 'data/old/20210515_2026_30hz/LEDpose_results.csv';
+hsc_pngs = dir('data/old/20210515_2026_30hz/HSC/*.png');
 calibratedpose_csv_name = '202105051723_poseparam.csv';
 squareSize = 32;
 hscwidth = 896;
