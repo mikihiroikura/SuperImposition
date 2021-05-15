@@ -37,7 +37,7 @@ uint8_t* in_img_hsc_multi_src, *detectimg_multi_src;;
 const int ringbuffersize = 10;
 vector<cv::Mat> in_imgs_on, in_imgs_off, in_imgs;
 vector<bool> processflgs;
-cv::Mat zero, full, zeromulti;
+cv::Mat zero, full, zeromulti, saveimg;
 vector<cv::Mat> rs_imgs;
 int takepicid, in_imgs_saveid;
 
@@ -290,7 +290,8 @@ int main() {
 		if (key == 's') videocapflg = true;
 		if (key == 'f') videocapflg = false;
 #ifdef GET_HSC
-		if (videocapflg) video_hsc.write(detectimg[0].clone());
+		cv::cvtColor(detectimg[0], saveimg, CV_RGB2BGR);
+		if (videocapflg) video_hsc.write(saveimg.clone());
 #endif // GET_HSC
 #ifdef GET_UGVRS
 		if (videocapflg) video_ugvrs.write(in_imgs_ugvrs_buffer[(in_imgs_ugvrs_buffid - 1 + ringbuffersize) % ringbuffersize].clone());
@@ -383,7 +384,7 @@ void TakePicture(kayacoaxpress* cam, bool* flg) {
 	{
 		takepicid = in_imgs_saveid % ringbuffersize;
 		in_img_hsc_multi_src = in_imgs[takepicid].ptr<uint8_t>(0);
-		cam->captureFrame(in_img_hsc_multi_src, multicnt);
+		cam->captureFrame2(in_img_hsc_multi_src, multicnt);
 
 		in_imgs_saveid = (in_imgs_saveid + 1) % ringbuffersize;
 		processflgs[takepicid] = true;
@@ -423,6 +424,430 @@ void GetImgsRS1(realsense* rs, bool* flg) {
 	}
 }
 
+//int DetectLEDMarker() {
+//	//画像の格納
+//	detectid = (in_imgs_saveid - 1 + ringbuffersize) % ringbuffersize;
+//	detectimg_multi_src = in_imgs[detectid].ptr<uint8_t>(0);
+//	if (processflgs[detectid])
+//	{
+//		memcpy(detectimg[0].data, detectimg_multi_src, height * width * 3);
+//		memcpy(detectimg[1].data, detectimg_multi_src + height * width * 3, height * width * 3);
+//	}
+//
+//
+//	//LEDが未検出の時は，画像全体を探索する
+//	if (detectimg[0].data != NULL && detectimg[1].data != NULL && (int)detectimg[0].data[0] != 255 && (int)detectimg[1].data[0] != 255 && (int)detectimg[0].data[0] != 0 && (int)detectimg[1].data[0] != 0)
+//	{
+//		//クラスターごとに輝度重心を計算する
+//		for (size_t i = 0; i < 4; i++)
+//		{
+//			ledmass[i] = 0, ledmomx[i] = 0, ledmomy[i] = 0;
+//		}
+//		memcpy(roi_led_minx, roi_led_minx_ini, sizeof(roi_led_minx_ini));
+//		memcpy(roi_led_maxx, roi_led_maxx_ini, sizeof(roi_led_maxx_ini));
+//		memcpy(roi_led_miny, roi_led_miny_ini, sizeof(roi_led_miny_ini));
+//		memcpy(roi_led_maxy, roi_led_maxy_ini, sizeof(roi_led_maxy_ini));
+//
+//		//4つ全てのLEDを検出していない時
+//		if (!(leddetected))
+//		{
+//			//差分画像の生成
+//			cv::absdiff(detectimg[0], detectimg[1], diffimg);
+//			//HSVのVの閾値処理
+//			diffimg_src = diffimg.ptr<uint8_t>(0);
+//			ptscnt = 0;
+//			for (size_t i = 0; i < width; i++)
+//			{
+//				for (size_t j = 0; j < height; j++)
+//				{
+//					if ((uint8_t)diffimg_src[j * width * 3 + i * 3] > HSVLED_min(2) || (uint8_t)diffimg_src[j * width * 3 + i * 3 + 1] > HSVLED_min(2) || (uint8_t)diffimg_src[j * width * 3 + i * 3 + 2] > HSVLED_min(2))
+//					{
+//						ptscand_ptr[ptscnt * 2 + 0] = (float)i;
+//						ptscand_ptr[ptscnt * 2 + 1] = (float)j;
+//						ptscnt++;
+//					}
+//				}
+//			}
+//
+//			//ここで差分画像から輝点が見つからないときの例外処理を書く
+//			if (ptscnt <= 0) {
+//				processflgs[detectid] = false;
+//				return 6;
+//			}
+//
+//			//輝度の高い点群を4か所にクラスタリング
+//			pts = ptscand(cv::Rect(0, 0, 1, ptscnt));
+//			cv::kmeans(pts, 4, labels, cvTermCriteria(CV_TERMCRIT_EPS | CV_TERMCRIT_ITER, 10, 1.0), 1, cv::KMEANS_PP_CENTERS, centers);
+//			center_src = centers.ptr<float>(0);
+//			//クラスタ間の距離が閾値以下ならば未検出と判定
+//			for (size_t i = 0; i < 4; i++)
+//			{
+//				for (size_t j = 0; j < 4; j++)
+//				{
+//					if (i != j)
+//					{
+//						dist = hypot(center_src[i * 2 + 0] - center_src[j * 2 + 0], center_src[i * 2 + 1] - center_src[j * 2 + 1]);
+//						if (dist < dist_centers_thr) {
+//							processflgs[detectid] = false;
+//							return 1;
+//						}
+//					}
+//				}
+//			}
+//
+//			//ON画像がどちらか判定する
+//			detectimg0_src = detectimg[0].ptr<uint8_t>(0);
+//			detectimg1_src = detectimg[1].ptr<uint8_t>(0);
+//			on_img_cnt = 0;
+//			for (size_t i = 0; i < ptscnt; i++)
+//			{
+//				if ((int32_t)detectimg0_src[(int)ptscand_ptr[i * 2 + 1] * width * 3 + (int)ptscand_ptr[i * 2 + 0] * 3] > (int32_t)detectimg1_src[(int)ptscand_ptr[i * 2 + 1] * width * 3 + (int)ptscand_ptr[i * 2 + 0] * 3])
+//				{//2枚の画像で輝度値を比較
+//					on_img_cnt++;
+//				}
+//			}
+//			if (on_img_cnt > ptscnt / 2) on_img_id = 0;
+//			else on_img_id = 1;
+//			detectimg_on_src = detectimg[on_img_id].ptr<uint8_t>(0);
+//
+//			//分類ごとに青緑の個数のカウント
+//			blueno = -1;
+//			cv::cvtColor(detectimg[on_img_id], detectimg_on_hsv, CV_BGR2HSV);
+//			detectimghsv_on_src = detectimg_on_hsv.ptr<uint8_t>(0);
+//			labelptr = labels.ptr<int32_t>(0);
+//			memset(greenbluecnt, 0, sizeof(int) * 4 * 2);
+//			maxbluegreenratio = 0;
+//			for (size_t i = 0; i < ptscnt; i++)
+//			{
+//				h_on = (int32_t)detectimghsv_on_src[(int)ptscand_ptr[i * 2 + 1] * width * 3 + (int)ptscand_ptr[i * 2 + 0] * 3];
+//				if ((int32_t)labelptr[i] == 0)
+//				{
+//					if (h_on > 30 && h_on < 90) greenbluecnt[0][0]++;
+//					else if (h_on > 90 && h_on < 150) greenbluecnt[0][1]++;
+//
+//				}
+//				else if ((int32_t)labelptr[i] == 1)
+//				{
+//					if (h_on > 30 && h_on < 90) greenbluecnt[1][0]++;
+//					else if (h_on > 90 && h_on < 150) greenbluecnt[1][1]++;
+//				}
+//				else if ((int32_t)labelptr[i] == 2)
+//				{
+//					if (h_on > 30 && h_on < 90) greenbluecnt[2][0]++;
+//					else if (h_on > 90 && h_on < 150) greenbluecnt[2][1]++;
+//				}
+//				else if ((int32_t)labelptr[i] == 3)
+//				{
+//					if (h_on > 30 && h_on < 90) greenbluecnt[3][0]++;
+//					else if (h_on > 90 && h_on < 150) greenbluecnt[3][1]++;
+//				}
+//			}
+//
+//			for (size_t i = 0; i < 4; i++)
+//			{
+//				//cout << greenbluecnt[i][0] << ", " << greenbluecnt[i][1] << endl;
+//				if (maxbluegreenratio < (float)greenbluecnt[i][1] / greenbluecnt[i][0]) {
+//					blueno = (int)i;
+//					maxbluegreenratio = (float)greenbluecnt[i][1] / greenbluecnt[i][0];
+//				}
+//			}
+//			if (blueno == -1) {
+//				processflgs[detectid] = false;
+//				return 5;
+//			}
+//
+//			//クラスタごとに輝度重心の計算
+//			for (size_t i = 0; i < ptscnt; i++)
+//			{
+//				labelno = (int)labelptr[i];
+//				dist = hypot(center_src[labelno * 2 + 0] - (int)ptscand_ptr[i * 2 + 0], center_src[labelno * 2 + 1] - (int)ptscand_ptr[i * 2 + 1]);
+//				if (dist < dist_cluster_thr)
+//				{
+//					if (labelno == blueno)
+//					{
+//						if ((int32_t)detectimg_on_src[(int)ptscand_ptr[i * 2 + 1] * width * 3 + (int)ptscand_ptr[i * 2 + 0] * 3] > blueLED_min(0))
+//						{//On画像の青の閾値はもっと高い
+//							ledmass[labelno] += (double)detectimg_on_src[(int)ptscand_ptr[i * 2 + 1] * width * 3 + (int)ptscand_ptr[i * 2 + 0] * 3];
+//							ledmomx[labelno] += (double)detectimg_on_src[(int)ptscand_ptr[i * 2 + 1] * width * 3 + (int)ptscand_ptr[i * 2 + 0] * 3] * (int)ptscand_ptr[i * 2 + 0];
+//							ledmomy[labelno] += (double)detectimg_on_src[(int)ptscand_ptr[i * 2 + 1] * width * 3 + (int)ptscand_ptr[i * 2 + 0] * 3] * (int)ptscand_ptr[i * 2 + 1];
+//							//ROIも計算
+//							if (roi_led_maxx[labelno] < (int)ptscand_ptr[i * 2 + 0]) roi_led_maxx[labelno] = (int)ptscand_ptr[i * 2 + 0];
+//							if (roi_led_minx[labelno] > (int)ptscand_ptr[i * 2 + 0]) roi_led_minx[labelno] = (int)ptscand_ptr[i * 2 + 0];
+//							if (roi_led_maxy[labelno] < (int)ptscand_ptr[i * 2 + 1]) roi_led_maxy[labelno] = (int)ptscand_ptr[i * 2 + 1];
+//							if (roi_led_miny[labelno] > (int)ptscand_ptr[i * 2 + 1]) roi_led_miny[labelno] = (int)ptscand_ptr[i * 2 + 1];
+//						}
+//					}
+//					else
+//					{//On画像の緑の閾値はもっと高い
+//						if ((int32_t)detectimg_on_src[(int)ptscand_ptr[i * 2 + 1] * width * 3 + (int)ptscand_ptr[i * 2 + 0] * 3 + 1] > greenLED_min(1))
+//						{
+//							ledmass[labelno] += (double)detectimg_on_src[(int)ptscand_ptr[i * 2 + 1] * width * 3 + (int)ptscand_ptr[i * 2 + 0] * 3 + 1];
+//							ledmomx[labelno] += (double)detectimg_on_src[(int)ptscand_ptr[i * 2 + 1] * width * 3 + (int)ptscand_ptr[i * 2 + 0] * 3 + 1] * (int)ptscand_ptr[i * 2 + 0];
+//							ledmomy[labelno] += (double)detectimg_on_src[(int)ptscand_ptr[i * 2 + 1] * width * 3 + (int)ptscand_ptr[i * 2 + 0] * 3 + 1] * (int)ptscand_ptr[i * 2 + 1];
+//							//ROIも計算
+//							if (roi_led_maxx[labelno] < (int)ptscand_ptr[i * 2 + 0]) roi_led_maxx[labelno] = (int)ptscand_ptr[i * 2 + 0];
+//							if (roi_led_minx[labelno] > (int)ptscand_ptr[i * 2 + 0]) roi_led_minx[labelno] = (int)ptscand_ptr[i * 2 + 0];
+//							if (roi_led_maxy[labelno] < (int)ptscand_ptr[i * 2 + 1]) roi_led_maxy[labelno] = (int)ptscand_ptr[i * 2 + 1];
+//							if (roi_led_miny[labelno] > (int)ptscand_ptr[i * 2 + 1]) roi_led_miny[labelno] = (int)ptscand_ptr[i * 2 + 1];
+//						}
+//					}
+//				}
+//			}
+//			for (size_t i = 0; i < 4; i++)
+//			{
+//				if (roi_led_maxx[i] > width - roi_led_margin) roi_led_maxx[i] = width;
+//				else roi_led_maxx[i] += roi_led_margin;
+//				if (roi_led_minx[i] < roi_led_margin) roi_led_minx[i] = 0;
+//				else roi_led_minx[i] -= roi_led_margin;
+//				if (roi_led_maxy[i] > height - roi_led_margin) roi_led_maxy[i] = height;
+//				else roi_led_maxy[i] += roi_led_margin;
+//				if (roi_led_miny[i] < roi_led_margin) roi_led_miny[i] = 0;
+//				else roi_led_miny[i] -= roi_led_margin;
+//				rois_rand[i].x = roi_led_minx[i];
+//				rois_rand[i].width = roi_led_maxx[i] - roi_led_minx[i];
+//				rois_rand[i].y = roi_led_miny[i];
+//				rois_rand[i].height = roi_led_maxy[i] - roi_led_miny[i];
+//			}
+//
+//			//順番バラバラでもLEDの輝度重心計算
+//			for (size_t i = 0; i < 4; i++)
+//			{
+//				//クラスタ内部に閾値以上の輝点が存在しないときは未検出で終了
+//				if (ledmass[i] <= 0) {
+//					processflgs[detectid] = false;
+//					return 2;
+//				}
+//				ledimpos_rand[i][0] = ledmomx[i] / ledmass[i];
+//				ledimpos_rand[i][1] = ledmomy[i] / ledmass[i];
+//			}
+//
+//			//青色から時計回りに緑LEDを当てはめる
+//			ledimpos[0][0] = ledimpos_rand[blueno][0];
+//			ledimpos[0][1] = ledimpos_rand[blueno][1];
+//			rois[0] = rois_rand[blueno];
+//			ledcog[0] = (ledimpos_rand[0][0] + ledimpos_rand[1][0] + ledimpos_rand[2][0] + ledimpos_rand[3][0]) / 4;
+//			ledcog[1] = (ledimpos_rand[0][1] + ledimpos_rand[1][1] + ledimpos_rand[2][1] + ledimpos_rand[3][1]) / 4;
+//			thetamax = 0, thetamin = 10;
+//			for (size_t i = 0; i < 4; i++)
+//			{
+//				if ((int)i == blueno) continue;
+//				dot = (ledimpos[0][0] - ledcog[0]) * (ledimpos_rand[i][0] - ledcog[0]) + (ledimpos[0][1] - ledcog[1]) * (ledimpos_rand[i][1] - ledcog[1]);
+//				cross = (ledimpos[0][0] - ledcog[0]) * (ledimpos_rand[i][1] - ledcog[1]) - (ledimpos[0][1] - ledcog[1]) * (ledimpos_rand[i][0] - ledcog[0]);
+//				theta[i] = atan2(cross, dot);
+//				if (theta[i] < 0) theta[i] += 2 * M_PI;
+//				if (thetamax < theta[i])
+//				{
+//					thetamax = theta[i];
+//					thetamaxid = i;
+//				}
+//				if (thetamin > theta[i] && theta[i] > 0)
+//				{
+//					thetamin = theta[i];
+//					thetaminid = i;
+//				}
+//			}
+//			for (size_t i = 0; i < 4; i++)
+//			{
+//				if (i == thetamaxid)
+//				{
+//					ledimpos[3][0] = ledimpos_rand[i][0];
+//					ledimpos[3][1] = ledimpos_rand[i][1];
+//					rois[3] = rois_rand[i];
+//				}
+//				else if (i == thetaminid)
+//				{
+//					ledimpos[1][0] = ledimpos_rand[i][0];
+//					ledimpos[1][1] = ledimpos_rand[i][1];
+//					rois[1] = rois_rand[i];
+//				}
+//				else if (i == blueno) continue;
+//				else
+//				{
+//					ledimpos[2][0] = ledimpos_rand[i][0];
+//					ledimpos[2][1] = ledimpos_rand[i][1];
+//					rois[2] = rois_rand[i];
+//				}
+//			}
+//			//ROIModeをOKにする場合はここをコメントアウト
+//			/*leddetected = true;*/
+//		}
+//
+//		//青と緑両方検出しているとき
+//		else
+//		{
+//			//ON画像がどちらか判定する
+//			detectimg0_src = detectimg[0].ptr<uint8_t>(0);
+//			detectimg1_src = detectimg[1].ptr<uint8_t>(0);
+//			on_img_cnt = 0;
+//			for (size_t i = 0; i < 4; i++)
+//			{
+//				for (size_t k = rois[i].x; k < static_cast<unsigned long long>(rois[i].x) + rois[i].width; k++)
+//				{
+//					for (size_t j = rois[i].y; j < static_cast<unsigned long long>(rois[i].y) + rois[i].height; j++)
+//					{
+//						if ((int32_t)detectimg0_src[j * width * 3 + k * 3] > 3 * (int32_t)detectimg1_src[j * width * 3 + k * 3])
+//						{//2枚の画像で輝度値を比較
+//							on_img_cnt++;
+//						}
+//					}
+//				}
+//
+//			}
+//			if (on_img_cnt > 10) on_img_id = 0;
+//			else on_img_id = 1;
+//			detectimg_on_src = detectimg[on_img_id].ptr<uint8_t>(0);
+//
+//			for (size_t i = 0; i < 4; i++)
+//			{
+//				for (size_t k = rois[i].x; k < static_cast<unsigned long long>(rois[i].x) + rois[i].width; k++)
+//				{
+//					for (size_t j = rois[i].y; j < static_cast<unsigned long long>(rois[i].y) + rois[i].height; j++)
+//					{
+//						if (i == blueno)
+//						{
+//							if ((int32_t)detectimg_on_src[j * width * 3 + k * 3] > blueLED_min[0])
+//							{
+//								ledmass[i] += (double)detectimg_on_src[j * width * 3 + k * 3];
+//								ledmomx[i] += (double)detectimg_on_src[j * width * 3 + k * 3] * k;
+//								ledmomy[i] += (double)detectimg_on_src[j * width * 3 + k * 3] * j;
+//								//ROIも計算
+//								if (roi_led_maxx[i] < k) roi_led_maxx[i] = k;
+//								if (roi_led_minx[i] > k) roi_led_minx[i] = k;
+//								if (roi_led_maxy[i] < j) roi_led_maxy[i] = j;
+//								if (roi_led_miny[i] > j) roi_led_miny[i] = j;
+//							}
+//						}
+//						else
+//						{
+//							if ((int32_t)detectimg_on_src[j * width * 3 + k * 3 + 1] > greenLED_min[1])
+//							{
+//								ledmass[i] += (double)detectimg_on_src[j * width * 3 + k * 3 + 1];
+//								ledmomx[i] += (double)detectimg_on_src[j * width * 3 + k * 3 + 1] * k;
+//								ledmomy[i] += (double)detectimg_on_src[j * width * 3 + k * 3 + 1] * j;
+//								//ROIも計算
+//								if (roi_led_maxx[i] < k) roi_led_maxx[i] = k;
+//								if (roi_led_minx[i] > k) roi_led_minx[i] = k;
+//								if (roi_led_maxy[i] < j) roi_led_maxy[i] = j;
+//								if (roi_led_miny[i] > j) roi_led_miny[i] = j;
+//							}
+//						}
+//					}
+//				}
+//				if (ledmass[i] <= 0)
+//				{
+//					//ROI内部に閾値以上の輝点が存在しないときに終了
+//					leddetected = false;
+//					processflgs[detectid] = false;
+//					return 3;
+//				}
+//				ledimpos[i][0] = ledmomx[i] / ledmass[i];
+//				ledimpos[i][1] = ledmomy[i] / ledmass[i];
+//
+//				if (roi_led_maxx[i] > width - roi_led_margin) roi_led_maxx[i] = width;
+//				else roi_led_maxx[i] += roi_led_margin;
+//				if (roi_led_minx[i] < roi_led_margin) roi_led_minx[i] = 0;
+//				else roi_led_minx[i] -= roi_led_margin;
+//				if (roi_led_maxy[i] > height - roi_led_margin) roi_led_maxy[i] = height;
+//				else roi_led_maxy[i] += roi_led_margin;
+//				if (roi_led_miny[i] < roi_led_margin) roi_led_miny[i] = 0;
+//				else roi_led_miny[i] -= roi_led_margin;
+//				rois[i].x = roi_led_minx[i];
+//				rois[i].width = roi_led_maxx[i] - roi_led_minx[i];
+//				rois[i].y = roi_led_miny[i];
+//				rois[i].height = roi_led_maxy[i] - roi_led_miny[i];
+//			}
+//		}
+//
+//		//cout << "LED blue: " << ledimpos[0][0] << ", " << ledimpos[0][1] << endl;
+//
+//		//4つのLEDから位置姿勢計算
+//		///理想ピクセル座標系に変換
+//		for (size_t i = 0; i < 4; i++)
+//		{
+//			ledidimpos[i][0] = det * ((ledimpos[i][0] - distort[0]) - stretch_mat[1] * (ledimpos[i][1] - distort[1]));
+//			ledidimpos[i][1] = det * (-stretch_mat[2] * (ledimpos[i][0] - distort[0]) + stretch_mat[0] * (ledimpos[i][1] - distort[1]));
+//		}
+//		///理想ピクセル->方向ベクトル
+//		for (size_t i = 0; i < 4; i++)
+//		{
+//			phi = hypot(ledidimpos[i][0], ledidimpos[i][1]);
+//			w = map_coeff[0] + map_coeff[1] * pow(phi, 2) +
+//				map_coeff[2] * pow(phi, 3) + map_coeff[3] * pow(phi, 4);
+//			lambda = 1 / pow(pow(ledidimpos[i][0], 2) + pow(ledidimpos[i][1], 2) + pow(w, 2), 0.5);
+//			ledcamdir[i][0] = lambda * ledidimpos[i][0];
+//			ledcamdir[i][1] = lambda * ledidimpos[i][1];
+//			ledcamdir[i][2] = lambda * w;
+//		}
+//
+//		//4つの方向ベクトルから，斜面の法線ベクトルを求める
+//		for (size_t i = 0; i < 4; i++)
+//		{
+//			lednormdir[i][0] = ledcamdir[i][1] * ledcamdir[(i + 1) % 4][2] - ledcamdir[i][2] * ledcamdir[(i + 1) % 4][1];
+//			lednormdir[i][1] = ledcamdir[i][2] * ledcamdir[(i + 1) % 4][0] - ledcamdir[i][0] * ledcamdir[(i + 1) % 4][2];
+//			lednormdir[i][2] = ledcamdir[i][0] * ledcamdir[(i + 1) % 4][1] - ledcamdir[i][1] * ledcamdir[(i + 1) % 4][0];
+//		}
+//
+//		//法線ベクトルから，LEDマーカの辺の方向ベクトルを2つ求める
+//		for (size_t i = 0; i < 2; i++)
+//		{
+//			RTm2c[0][i] = -(lednormdir[i][1] * lednormdir[(i + 2)][2] - lednormdir[i][2] * lednormdir[(i + 2)][1]);
+//			RTm2c[1][i] = -(lednormdir[i][2] * lednormdir[(i + 2)][0] - lednormdir[i][0] * lednormdir[(i + 2)][2]);
+//			RTm2c[2][i] = -(lednormdir[i][0] * lednormdir[(i + 2)][1] - lednormdir[i][1] * lednormdir[(i + 2)][0]);
+//			lambda = 1 / pow(pow(RTm2c[0][i], 2) + pow(RTm2c[1][i], 2) + pow(RTm2c[2][i], 2), 0.5);
+//			RTm2c[0][i] *= lambda;
+//			RTm2c[1][i] *= lambda;
+//			RTm2c[2][i] *= lambda;
+//		}
+//
+//		//カメラ-マーカ間の相対姿勢の計算(残りの方向ベクトルを外積で求める)
+//		RTm2c[0][2] = RTm2c[1][0] * RTm2c[2][1] - RTm2c[2][0] * RTm2c[1][1];
+//		RTm2c[1][2] = RTm2c[2][0] * RTm2c[0][1] - RTm2c[0][0] * RTm2c[2][1];
+//		RTm2c[2][2] = RTm2c[0][0] * RTm2c[1][1] - RTm2c[1][0] * RTm2c[0][1];
+//		lambda = 1 / pow(pow(RTm2c[0][2], 2) + pow(RTm2c[1][2], 2) + pow(RTm2c[2][2], 2), 0.5);
+//		RTm2c[0][2] *= lambda;
+//		RTm2c[1][2] *= lambda;
+//		RTm2c[2][2] *= lambda;
+//
+//		//ここで，方向ベクトルが画像処理の誤差を乗せて直交しないときに強引に直交する方向ベクトルを計算する
+//		RTm2c[0][1] = RTm2c[1][2] * RTm2c[2][0] - RTm2c[2][2] * RTm2c[1][0];
+//		RTm2c[1][1] = RTm2c[2][2] * RTm2c[0][0] - RTm2c[0][2] * RTm2c[2][0];
+//		RTm2c[2][1] = RTm2c[0][2] * RTm2c[1][0] - RTm2c[1][2] * RTm2c[0][0];
+//		lambda = 1 / pow(pow(RTm2c[0][1], 2) + pow(RTm2c[1][1], 2) + pow(RTm2c[2][1], 2), 0.5);
+//		RTm2c[0][1] *= lambda;
+//		RTm2c[1][1] *= lambda;
+//		RTm2c[2][1] *= lambda;
+//
+//		//魚眼モデルと相対姿勢を用いてカメラ-マーカ間の相対位置を計算
+//		for (size_t i = 0; i < 4; i++)
+//		{
+//			Asrc[i * 7 * 3 + i] = ledcamdir[i][0];
+//			Asrc[i * 7 * 3 + 7 + i] = ledcamdir[i][1];
+//			Asrc[i * 7 * 3 + 14 + i] = ledcamdir[i][2];
+//			Asrc[i * 7 * 3 + 4] = -1;
+//			Asrc[i * 7 * 3 + 12] = -1;
+//			Asrc[i * 7 * 3 + 20] = -1;
+//			bsrc[i * 3 + 0] = RTm2c[0][0] * markerpos[i][0] + RTm2c[0][1] * markerpos[i][1];
+//			bsrc[i * 3 + 1] = RTm2c[1][0] * markerpos[i][0] + RTm2c[1][1] * markerpos[i][1];
+//			bsrc[i * 3 + 2] = RTm2c[2][0] * markerpos[i][0] + RTm2c[2][1] * markerpos[i][1];
+//		}
+//		x = A.inv(cv::DECOMP_SVD) * b;
+//		RTm2c[0][3] = xsrc[4];
+//		RTm2c[1][3] = xsrc[5];
+//		RTm2c[2][3] = xsrc[6];
+//		//計算された位置に連続性が確認されないときはエラーとする
+//		processflgs[detectid] = false;
+//		return 0;
+//		//位置姿勢も計算できて正常終了
+//	}
+//	else
+//	{
+//		//入力画像が異常であるときに，強制終了
+//		leddetected = false;
+//		return 4;
+//	}
+//}
+
+//LED markerから位置姿勢計算
 int DetectLEDMarker() {
 	//画像の格納
 	detectid = (in_imgs_saveid - 1 + ringbuffersize) % ringbuffersize;
@@ -433,9 +858,8 @@ int DetectLEDMarker() {
 		memcpy(detectimg[1].data, detectimg_multi_src + height * width * 3, height * width * 3);
 	}
 
-
 	//LEDが未検出の時は，画像全体を探索する
-	if (detectimg[0].data != NULL && detectimg[1].data != NULL && (int)detectimg[0].data[0] != 255 && (int)detectimg[1].data[0] != 255 && (int)detectimg[0].data[0] != 0 && (int)detectimg[1].data[0] != 0)
+	if (detectimg[0].data != NULL && detectimg[1].data != NULL && (int)detectimg[0].data[0] != 255 && (int)detectimg[1].data[0] != 255)
 	{
 		//クラスターごとに輝度重心を計算する
 		for (size_t i = 0; i < 4; i++)
@@ -467,7 +891,6 @@ int DetectLEDMarker() {
 					}
 				}
 			}
-
 			//ここで差分画像から輝点が見つからないときの例外処理を書く
 			if (ptscnt <= 0) {
 				processflgs[detectid] = false;
@@ -511,7 +934,7 @@ int DetectLEDMarker() {
 
 			//分類ごとに青緑の個数のカウント
 			blueno = -1;
-			cv::cvtColor(detectimg[on_img_id], detectimg_on_hsv, CV_BGR2HSV);
+			cv::cvtColor(detectimg[on_img_id], detectimg_on_hsv, CV_RGB2HSV);
 			detectimghsv_on_src = detectimg_on_hsv.ptr<uint8_t>(0);
 			labelptr = labels.ptr<int32_t>(0);
 			memset(greenbluecnt, 0, sizeof(int) * 4 * 2);
@@ -564,11 +987,11 @@ int DetectLEDMarker() {
 				{
 					if (labelno == blueno)
 					{
-						if ((int32_t)detectimg_on_src[(int)ptscand_ptr[i * 2 + 1] * width * 3 + (int)ptscand_ptr[i * 2 + 0] * 3] > blueLED_min(0))
+						if ((int32_t)detectimg_on_src[(int)ptscand_ptr[i * 2 + 1] * width * 3 + (int)ptscand_ptr[i * 2 + 0] * 3 + 2] > blueLED_min(0))
 						{//On画像の青の閾値はもっと高い
-							ledmass[labelno] += (double)detectimg_on_src[(int)ptscand_ptr[i * 2 + 1] * width * 3 + (int)ptscand_ptr[i * 2 + 0] * 3];
-							ledmomx[labelno] += (double)detectimg_on_src[(int)ptscand_ptr[i * 2 + 1] * width * 3 + (int)ptscand_ptr[i * 2 + 0] * 3] * (int)ptscand_ptr[i * 2 + 0];
-							ledmomy[labelno] += (double)detectimg_on_src[(int)ptscand_ptr[i * 2 + 1] * width * 3 + (int)ptscand_ptr[i * 2 + 0] * 3] * (int)ptscand_ptr[i * 2 + 1];
+							ledmass[labelno] += (double)detectimg_on_src[(int)ptscand_ptr[i * 2 + 1] * width * 3 + (int)ptscand_ptr[i * 2 + 0] * 3 + 2];
+							ledmomx[labelno] += (double)detectimg_on_src[(int)ptscand_ptr[i * 2 + 1] * width * 3 + (int)ptscand_ptr[i * 2 + 0] * 3 + 2] * (int)ptscand_ptr[i * 2 + 0];
+							ledmomy[labelno] += (double)detectimg_on_src[(int)ptscand_ptr[i * 2 + 1] * width * 3 + (int)ptscand_ptr[i * 2 + 0] * 3 + 2] * (int)ptscand_ptr[i * 2 + 1];
 							//ROIも計算
 							if (roi_led_maxx[labelno] < (int)ptscand_ptr[i * 2 + 0]) roi_led_maxx[labelno] = (int)ptscand_ptr[i * 2 + 0];
 							if (roi_led_minx[labelno] > (int)ptscand_ptr[i * 2 + 0]) roi_led_minx[labelno] = (int)ptscand_ptr[i * 2 + 0];
@@ -606,6 +1029,7 @@ int DetectLEDMarker() {
 				rois_rand[i].width = roi_led_maxx[i] - roi_led_minx[i];
 				rois_rand[i].y = roi_led_miny[i];
 				rois_rand[i].height = roi_led_maxy[i] - roi_led_miny[i];
+
 			}
 
 			//順番バラバラでもLEDの輝度重心計算
@@ -667,8 +1091,16 @@ int DetectLEDMarker() {
 					rois[2] = rois_rand[i];
 				}
 			}
-			//ROIModeをOKにする場合はここをコメントアウト
-			/*leddetected = true;*/
+#ifdef ROI_MODE_
+			leddetected = true;
+#endif // ROI_MODE_
+
+#ifdef DEBUG_
+			QueryPerformanceCounter(&detectend);
+			detecttimed = (double)(detectend.QuadPart - detectstartdebug.QuadPart) / freq.QuadPart;
+#endif // SHOW_PROCESSING_TIME_
+
+
 		}
 
 		//青と緑両方検出しているとき
@@ -684,7 +1116,7 @@ int DetectLEDMarker() {
 				{
 					for (size_t j = rois[i].y; j < static_cast<unsigned long long>(rois[i].y) + rois[i].height; j++)
 					{
-						if ((int32_t)detectimg0_src[j * width * 3 + k * 3] > 3 * (int32_t)detectimg1_src[j * width * 3 + k * 3])
+						if ((int32_t)detectimg0_src[j * width * 3 + k * 3 + 1] > 3 * (int32_t)detectimg1_src[j * width * 3 + k * 3 + 1] && ((int32_t)detectimg0_src[j * width * 3 + k * 3 + 2] > blueLED_min[0] || (int32_t)detectimg0_src[j * width * 3 + k * 3 + 1] > greenLED_min[1]))
 						{//2枚の画像で輝度値を比較
 							on_img_cnt++;
 						}
@@ -702,13 +1134,13 @@ int DetectLEDMarker() {
 				{
 					for (size_t j = rois[i].y; j < static_cast<unsigned long long>(rois[i].y) + rois[i].height; j++)
 					{
-						if (i == blueno)
+						if (i == 0)
 						{
-							if ((int32_t)detectimg_on_src[j * width * 3 + k * 3] > blueLED_min[0])
+							if ((int32_t)detectimg_on_src[j * width * 3 + k * 3 + 2] > blueLED_min[0])
 							{
-								ledmass[i] += (double)detectimg_on_src[j * width * 3 + k * 3];
-								ledmomx[i] += (double)detectimg_on_src[j * width * 3 + k * 3] * k;
-								ledmomy[i] += (double)detectimg_on_src[j * width * 3 + k * 3] * j;
+								ledmass[i] += (double)detectimg_on_src[j * width * 3 + k * 3 + 2];
+								ledmomx[i] += (double)detectimg_on_src[j * width * 3 + k * 3 + 2] * k;
+								ledmomy[i] += (double)detectimg_on_src[j * width * 3 + k * 3 + 2] * j;
 								//ROIも計算
 								if (roi_led_maxx[i] < k) roi_led_maxx[i] = k;
 								if (roi_led_minx[i] > k) roi_led_minx[i] = k;
@@ -755,9 +1187,17 @@ int DetectLEDMarker() {
 				rois[i].y = roi_led_miny[i];
 				rois[i].height = roi_led_maxy[i] - roi_led_miny[i];
 			}
-		}
+#ifdef DEBUG_
+			QueryPerformanceCounter(&detectend);
+			detecttimea = (double)(detectend.QuadPart - detectstartdebug.QuadPart) / freq.QuadPart;
+#endif // SHOW_PROCESSING_TIME_
 
-		//cout << "LED blue: " << ledimpos[0][0] << ", " << ledimpos[0][1] << endl;
+#ifdef DEBUG_
+			cout << "DetectLEDMarker() ROI ON" << endl;
+			cout << "DetectLEDMarker() getimgs		:" << detecttimef << endl;
+			cout << "DetectLEDMarker() calcCoG		:" << detecttimea << endl;
+#endif // SHOW_PROCESSING_TIME_
+		}
 
 		//4つのLEDから位置姿勢計算
 		///理想ピクセル座標系に変換

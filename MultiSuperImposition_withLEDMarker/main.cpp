@@ -150,8 +150,8 @@ RS232c axisrobot;
 char replybuf[READBUFFERSIZE];
 char axisrobmodes[][10] = { "@SRVO", "@START", "@ORG" };
 char axisrobcommand[READBUFFERSIZE] = "";
-const int initaxisstart = 100, initaxisend = 500;
-const int posunits = 100, speedunits = 10;
+const int initaxisstart = 50, initaxisend = 550;
+const int posunits = 100, speedunits = 5;
 
 
 
@@ -206,8 +206,8 @@ using namespace std;
 #define ROI_MODE_
 
 #define SAVE_IMGS_
-//#define SAVE_IMGS_HSC_
-//#define SAVE_IMGS_AT_HIGHSPEED_
+#define SAVE_IMGS_HSC_
+#define SAVE_IMGS_AT_HIGHSPEED_
 //#define SAVE_IMGS_REALSENSE_
 #define SAVE_HSC2MK_POSE_
 //#define MOVE_AXISROBOT_
@@ -1229,7 +1229,7 @@ int DetectLEDMarker() {
 				{
 					for (size_t j = rois[i].y; j < static_cast<unsigned long long>(rois[i].y) + rois[i].height; j++)
 					{
-						if ((int32_t)detectimg0_src[j * width * 3 + k * 3 + 1] > 3 * (int32_t)detectimg1_src[j * width * 3 + k * 3 + 1] && ((int32_t)detectimg0_src[j * width * 3 + k * 3 + 2] > blueLED_min[0] || (int32_t)detectimg0_src[j * width * 3 + k * 3 + 1] > greenLED_min[1]))
+						if ((int32_t)detectimg0_src[j * width * 3 + k * 3 + 2] > 3 * (int32_t)detectimg1_src[j * width * 3 + k * 3 + 2] && ((int32_t)detectimg0_src[j * width * 3 + k * 3 + 2] > blueLED_min[0] || (int32_t)detectimg0_src[j * width * 3 + k * 3 + 1] > greenLED_min[1]))
 						{//2枚の画像で輝度値を比較
 							on_img_cnt++;
 						}
@@ -1435,7 +1435,7 @@ void ControlAxisRobot(RS232c* robot, bool* flg) {
 		else if (initaxispos == initaxisstart) initaxispos = initaxisend;
 		else initaxispos = initaxisstart;
 		axisposition = (initaxispos + rand() % posunits + 1) * 100; //0~100 or 600~700
-		axisspeed = (rand() % speedunits + 1) * 10; //10~100で10刻み
+		axisspeed = (rand() % speedunits + 1) * 10 + 50; //10~100で10刻み
 
 		//コマンド送信
 		snprintf(controlcommand, READBUFFERSIZE, "@S_17.1=%d\r\n", axisspeed);
