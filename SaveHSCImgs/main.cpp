@@ -106,6 +106,9 @@ void Read_Reply_toEND(RS232c* robot);
 void wait_QueryPerformance(double finishtime, LARGE_INTEGER freq);
 void ControlAxisRobot(RS232c* robot, bool* flg);
 
+#define MOVE_AXISROBOT_
+#define SAVE_IMGS_
+
 int main() {
 	//パラメータ
 	bool flg = true;
@@ -136,14 +139,16 @@ int main() {
 	for (size_t i = 0; i < log_img_finish_cnt_hs; i++) { logs.in_imgs_log.push_back(zero.clone()); }
 	logs.in_imgs_log_ptr = logs.in_imgs_log.data();
 
+	
+
+	//単軸ロボット
+#ifdef MOVE_AXISROBOT_
 	std::cout << "Set commection to AXIS ROBOT...............";
 	if (!axisrobot.Connect("COM6", 38400, 8, ODDPARITY, 0, 0, 0, 20000, 20000)) {
 		cout << "No connect" << endl;
 		return 1;
 	}
 	std::cout << "OK!" << endl;
-
-	//単軸ロボット
 	snprintf(axisrobcommand, READBUFFERSIZE, "%s%d.1\r\n", axisrobmodes[0], 1);
 	axisrobot.Send(axisrobcommand);
 	memset(axisrobcommand, '\0', READBUFFERSIZE);
@@ -156,12 +161,14 @@ int main() {
 	memset(axisrobcommand, '\0', READBUFFERSIZE);
 	Read_Reply_toEND(&axisrobot);
 	std::cout << "ORG STOP" << endl;
+	thread MoveAxisRobotThread(ControlAxisRobot, &axisrobot, &flg);
+#endif // MOVE_AXISROBOT_
 
 	//カメラ起動
 	cout << "Camera Start!" << endl;
 	cam.start();
 
-	thread MoveAxisRobotThread(ControlAxisRobot, &axisrobot, &flg);
+	
 
 	while (flg)
 	{
@@ -176,25 +183,31 @@ int main() {
 		}
 
 		//LED画像の保存
+#ifdef SAVE_IMGS_
 		memcpy((logs.in_imgs_log_ptr + log_hscimg_cnt)->data, in_img.data, height * width * 3);
 
 
 		log_hscimg_cnt++;
 		if (log_hscimg_cnt >= log_img_finish_cnt_hs) flg = false;
+#endif // SAVE_IMGS_
+
+		
 	}
 
+#ifdef MOVE_AXISROBOT_
 	if (MoveAxisRobotThread.joinable())MoveAxisRobotThread.join();
-
-	//カメラの停止
-	cam.stop();
-	cam.disconnect();
-
 	//単軸ロボットの停止
 	snprintf(axisrobcommand, READBUFFERSIZE, "%s%d.1\r\n", axisrobmodes[0], 0);
 	axisrobot.Send(axisrobcommand);
 	Read_Reply_toEND(&axisrobot);
 	memset(axisrobcommand, '\0', READBUFFERSIZE);
 	cout << "SERVO OFF" << endl;
+#endif // MOVE_AXISROBOT_
+
+
+	//カメラの停止
+	cam.stop();
+	cam.disconnect();
 
 
 	FILE* fr;

@@ -210,7 +210,7 @@ using namespace std;
 //#define SAVE_IMGS_AT_HIGHSPEED_
 //#define SAVE_IMGS_REALSENSE_
 #define SAVE_HSC2MK_POSE_
-#define MOVE_AXISROBOT_
+//#define MOVE_AXISROBOT_
 
 int main() {
 	//ÉpÉâÉÅÅ[É^
