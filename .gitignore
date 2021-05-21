@@ -15,6 +15,7 @@ FisheyeCalib/videos
 FisheyeCalib/calib_result
 EvalPoseAccuracy/data
 EvalPoseAccuracy/old
+a
 
 # User-specific files
 *.suo
